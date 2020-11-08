@@ -1,0 +1,25 @@
+@use "light";
+
+$background: light.$almostBlack;
+$text: light.$almostWhite;
+$code: light.$almostWhite;
+$cursor: light.$white;
+$divider: #4e5c6e;
+$placeholder: #52657a;
+$quote: light.$greyDark;
+$horizontalRule: light.$lightBlack;
+$imageErrorBackground: rgba(0, 0, 0, 0.5);
+
+$toolbarBackground: light.$white;
+$toolbarHoverBackground: light.$greyMid;
+$toolbarInput: light.$black10;
+$toolbarItem: light.$lightBlack;
+
+$tableDivider: light.$lightBlack;
+$tableSelected: light.$primary;
+$tableSelectedBackground: #002333;
+$tableHeaderBackground: $background;
+
+$codeBackground: light.$black;
+$codeBorder: light.$lightBlack;
+$codeString: #3d8fd1;

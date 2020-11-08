@@ -1,0 +1,34 @@
+@use "sass:meta";
+@use "sass:map";
+
+@use "light";
+@use "dark";
+
+$default-theme: "light";
+$default-theme-map: meta.module-variables("light");
+
+@mixin spread-module($mod) {
+  @each $key, $value in meta.module-variables($mod) {
+    @if not map.has-key($default-theme-map, $key) {
+      @error "key '#{$key}' of theme<#{$mod}> is not in the default theme<#{$default-theme}>";
+    }
+
+    --#{$key}: #{$value};
+  }
+}
+
+@function theme-var($key) {
+  @if not map.has-key($default-theme-map, #{$key}) {
+    @error "key '#{$key}' is not in the default theme<#{$default-theme}>";
+  }
+
+  @return var(--#{$key}, map.get($default-theme-map, #{$key}));
+}
+
+.light {
+  --foo: bar;
+}
+
+.dark {
+  @include spread-module("dark");
+}
