@@ -1,8 +1,14 @@
-import React from "react";
-import { MarkdownSerializerState } from "prosemirror-markdown";
-import { Node as ProsemirrorNode, NodeSpec } from "prosemirror-model";
+import { TokenConfig } from "prosemirror-markdown";
+import { NodeSpec } from "prosemirror-model";
 
-import { Node } from "../extension";
+import { useExtension } from "../extension";
+
+type Specs = typeof specs;
+type Tokens = Partial<{ [name in keyof Specs]: TokenConfig }>;
+
+declare module "../extension" {
+  interface NodeSpecs extends Specs {}
+}
 
 export const specs = {
   text: {
@@ -10,18 +16,10 @@ export const specs = {
   } as NodeSpec,
 };
 
-// class TextNode extends Node {
-//   toMarkdown(state: MarkdownSerializerState, node: ProsemirrorNode) {
-//     node.text && state.text(node.text);
-//   }
-// }
-
-type Specs = typeof specs;
-
-declare module "../extension" {
-  interface NodeSpecs extends Specs {}
-}
+export const tokens: Tokens = {};
 
 export default function Text() {
+  useExtension(specs, null, tokens);
+
   return null;
 }
