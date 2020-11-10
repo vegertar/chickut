@@ -1,8 +1,12 @@
 import React, { useContext, useEffect } from "react";
 import OrderedMap from "orderedmap";
-import { TokenConfig, MarkdownParser } from "prosemirror-markdown";
+import { TokenConfig } from "prosemirror-markdown";
 import { EditorView } from "prosemirror-view";
-import { EditorState, Transaction } from "prosemirror-state";
+import {
+  Transaction as ProsemirrorTransaction,
+  Plugin as ProsemirrorPlugin,
+  PluginSpec as ProsemirrorPluginSpec,
+} from "prosemirror-state";
 import {
   Schema as ProsemirrorSchema,
   MarkSpec as ProsemirrorMarkSpec,
@@ -13,25 +17,28 @@ import {
 export interface NodeSpecs {}
 export interface MarkSpecs {}
 
-export type NodeTokens = { [name in keyof NodeSpecs]: TokenConfig };
-export type MarkTokens = { [name in keyof MarkSpecs]: TokenConfig };
+type N = keyof NodeSpecs;
+type M = keyof MarkSpecs;
 
-export type SchemaSpec = ProsemirrorSchemaSpec<
-  keyof NodeSpecs,
-  keyof MarkSpecs
->;
-export type Schema = ProsemirrorSchema<keyof NodeSpecs, keyof MarkSpecs>;
+export type NodeTokens = { [name in N]: TokenConfig };
+export type MarkTokens = { [name in M]: TokenConfig };
+
+export type SchemaSpec = ProsemirrorSchemaSpec<N, M>;
+export type Schema = ProsemirrorSchema<N, M>;
 /* eslint-disable-next-line @typescript-eslint/no-redeclare */
 export const Schema = ProsemirrorSchema;
 
-export type Action = {
-  state?: EditorState<Schema>;
-  transactions?: Transaction<Schema>[];
-};
+export type PluginSpec = ProsemirrorPluginSpec<unknown, Schema>;
+export type Plugin = ProsemirrorPlugin<unknown, Schema>;
+/* eslint-disable-next-line @typescript-eslint/no-redeclare */
+export const Plugin = ProsemirrorPlugin;
+
+export type Transaction = ProsemirrorTransaction<Schema>;
+/* eslint-disable-next-line @typescript-eslint/no-redeclare */
+export const Transaction = ProsemirrorTransaction;
 
 export const Context = React.createContext<{
   view?: EditorView<Schema>;
-  dispatch?: React.Dispatch<Action>;
 }>({});
 
 export function useExtension(
@@ -39,41 +46,42 @@ export function useExtension(
   marks: Partial<MarkSpecs> | null,
   tokens: Partial<NodeTokens> | Partial<MarkSpecs>
 ) {
-  const { view, dispatch } = useContext(Context);
+  const { view } = useContext(Context);
 
-  // TODO: debounce
   useEffect(() => {
-    if (!view || !dispatch) {
+    if (!view) {
       return;
     }
-
-    console.log("loading extension:", nodes, marks);
 
     type NodeMap = OrderedMap<ProsemirrorNodeSpec>;
     type MarkMap = OrderedMap<ProsemirrorMarkSpec>;
 
     const spec = view.state.schema.spec;
 
-    dispatch({
-      state: view.state.reconfigure({
+    view.updateState(
+      view.state.reconfigure({
         schema: new Schema({
           nodes: (spec.nodes as NodeMap).append((nodes as any) || {}),
           marks: (spec.marks as MarkMap).append((marks as any) || {}),
         } as SchemaSpec),
-      }),
-    });
+        plugins: view.state.plugins,
+      })
+    );
 
     return () => {
       const spec = view.state.schema.spec;
 
-      dispatch({
-        state: view.state.reconfigure({
+      view.updateState(
+        view.state.reconfigure({
           schema: new Schema({
             nodes: (spec.nodes as NodeMap).subtract((nodes as any) || {}),
             marks: (spec.marks as MarkMap).subtract((marks as any) || {}),
           } as SchemaSpec),
-        }),
-      });
+          plugins: view.state.plugins,
+        })
+      );
     };
-  }, [nodes, marks, view, dispatch]);
+  }, [nodes, marks, view]);
+
+  return view;
 }

@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { selectAll } from "prosemirror-commands";
 import { TokenConfig } from "prosemirror-markdown";
 import { NodeSpec } from "prosemirror-model";
 
@@ -18,8 +20,22 @@ export const specs = {
 
 export const tokens: Tokens = {};
 
-export default function Text() {
-  useExtension(specs, null, tokens);
+type Props = {
+  children?: string;
+};
+
+export default function Text({ children: defaultValue }: Props = {}) {
+  const view = useExtension(specs, null, tokens);
+
+  useEffect(() => {
+    if (!view || !defaultValue) {
+      return;
+    }
+
+    selectAll(view.state, (tr) => {
+      view.dispatch(tr.insertText(defaultValue));
+    });
+  }, [view, defaultValue]);
 
   return null;
 }

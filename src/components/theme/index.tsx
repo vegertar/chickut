@@ -5,11 +5,16 @@ import "./_index.scss";
 export const light = "light";
 export const dark = "dark";
 
-type Props = {
-  name?: string;
-  children?: React.ReactNode;
-};
+type Props = React.HTMLAttributes<HTMLDivElement>;
 
-export default function Theme({ name = light, children }: Props = {}) {
-  return <div className={name}>{children}</div>;
+export default function Theme({
+  className = light,
+  children,
+  ...configs
+}: Props = {}) {
+  return (
+    <div {...configs} className={className}>
+      {children}
+    </div>
+  );
 }
