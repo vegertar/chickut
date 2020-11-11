@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import OrderedMap from "orderedmap";
 import { TokenConfig } from "prosemirror-markdown";
 import { EditorView } from "prosemirror-view";
@@ -6,6 +6,7 @@ import {
   Transaction as ProsemirrorTransaction,
   Plugin as ProsemirrorPlugin,
   PluginSpec as ProsemirrorPluginSpec,
+  EditorState,
 } from "prosemirror-state";
 import {
   Schema as ProsemirrorSchema,
@@ -14,11 +15,13 @@ import {
   SchemaSpec as ProsemirrorSchemaSpec,
 } from "prosemirror-model";
 
-export interface NodeSpecs {}
-export interface MarkSpecs {}
+import { Context as EditorContext } from "../editor";
 
-type N = keyof NodeSpecs;
-type M = keyof MarkSpecs;
+export interface NodeExtensions {}
+export interface MarkExtensions {}
+
+type N = keyof NodeExtensions;
+type M = keyof MarkExtensions;
 
 export type NodeTokens = { [name in N]: TokenConfig };
 export type MarkTokens = { [name in M]: TokenConfig };
@@ -37,51 +40,72 @@ export type Transaction = ProsemirrorTransaction<Schema>;
 /* eslint-disable-next-line @typescript-eslint/no-redeclare */
 export const Transaction = ProsemirrorTransaction;
 
-export const Context = React.createContext<{
-  view?: EditorView<Schema>;
-}>({});
-
-export function useExtension(
-  nodes: Partial<NodeSpecs> | null,
-  marks: Partial<MarkSpecs> | null,
-  tokens: Partial<NodeTokens> | Partial<MarkSpecs>
-) {
-  const { view } = useContext(Context);
+export function useExtension(extension: NodeExtensions[N] | MarkExtensions[M]) {
+  const { view, dispatch } = useContext(EditorContext);
+  const [status, setStatus] = useState<boolean>();
 
   useEffect(() => {
     if (!view) {
       return;
     }
 
+    const editorView = view as EditorView<Schema>;
+
+    const name = extension.name.toLowerCase();
+    const node:
+      | ProsemirrorNodeSpec
+      | undefined = (extension as NodeExtensions[N]).node;
+    const mark:
+      | ProsemirrorMarkSpec
+      | undefined = (extension as MarkExtensions[M]).mark;
+
     type NodeMap = OrderedMap<ProsemirrorNodeSpec>;
     type MarkMap = OrderedMap<ProsemirrorMarkSpec>;
 
-    const spec = view.state.schema.spec;
+    const spec = editorView.state.schema.spec;
+    const nodes = node ? { [name]: node } : {};
+    const marks = mark ? { [name]: mark } : {};
 
-    view.updateState(
-      view.state.reconfigure({
-        schema: new Schema({
-          nodes: (spec.nodes as NodeMap).append((nodes as any) || {}),
-          marks: (spec.marks as MarkMap).append((marks as any) || {}),
-        } as SchemaSpec),
-        plugins: view.state.plugins,
-      })
-    );
-
-    return () => {
-      const spec = view.state.schema.spec;
-
-      view.updateState(
-        view.state.reconfigure({
+    try {
+      editorView.updateState(
+        // TODO: the new created state will discard all history
+        EditorState.create({
           schema: new Schema({
-            nodes: (spec.nodes as NodeMap).subtract((nodes as any) || {}),
-            marks: (spec.marks as MarkMap).subtract((marks as any) || {}),
+            nodes: (spec.nodes as NodeMap).append(nodes),
+            marks: (spec.marks as MarkMap).append(marks),
           } as SchemaSpec),
-          plugins: view.state.plugins,
+          plugins: editorView.state.plugins,
         })
       );
-    };
-  }, [nodes, marks, view]);
 
-  return view;
+      dispatch?.("load", name);
+      setStatus(true);
+
+      return () => {
+        const spec = editorView.state.schema.spec;
+
+        try {
+          editorView.updateState(
+            // TODO: the new created state will discard all history
+            EditorState.create({
+              schema: new Schema({
+                nodes: (spec.nodes as NodeMap).subtract(nodes),
+                marks: (spec.marks as MarkMap).subtract(marks),
+              } as SchemaSpec),
+              plugins: editorView.state.plugins,
+            })
+          );
+
+          dispatch?.("off-load", name);
+        } catch (e) {
+          dispatch?.("off-load", name, e);
+        }
+      };
+    } catch (e) {
+      dispatch?.("load", name, e);
+      setStatus(false);
+    }
+  }, [extension, view, dispatch]);
+
+  return { status, view };
 }

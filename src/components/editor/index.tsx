@@ -1,14 +1,36 @@
 import React, {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
+import produce from "immer";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { Schema } from "prosemirror-model";
 
 import "./style.scss";
+
+type EventType = "load" | "off-load";
+
+type ContextProps = {
+  view?: EditorView;
+  dispatch?: (
+    event: EventType,
+    target: string,
+    error?: any,
+    data?: any
+  ) => void;
+};
+
+export const Context = React.createContext<ContextProps>({});
+
+interface Handler {
+  view?: EditorView | undefined;
+  events: Parameters<NonNullable<ContextProps["dispatch"]>>[];
+}
 
 interface Props {
   className?: string;
@@ -16,49 +38,62 @@ interface Props {
   children?: React.ReactNode;
 }
 
-export default forwardRef<EditorView | undefined, Props>(function Editor(
-  props,
-  ref
-) {
+export default forwardRef<Handler, Props>(function Editor(props, ref) {
   const { className = "editor", style, children } = props || {};
-  const state = useRef<{ view?: EditorView } & Props>({});
   const element = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<EditorView>();
+  const [events, setEvents] = useState<Handler["events"]>([]);
+  const dispatch = useCallback<NonNullable<ContextProps["dispatch"]>>(
+    (event, target, error, data) => {
+      setEvents((events) =>
+        produce(events, (draft) => {
+          draft.push([event, target, error, data]);
+        })
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     if (!element.current) {
       return;
     }
 
-    const schema = new Schema({
-      nodes: {
-        doc: {},
-        paragraph: {},
-        text: {},
-      },
-    });
-
     const view = new EditorView(element.current, {
-      state: EditorState.create({ schema }),
+      state: EditorState.create({
+        // a trivial schema just to create a valid EditorState
+        schema: new Schema({
+          nodes: {
+            doc: {
+              content: "text*",
+              attrs: {
+                trivial: { default: true },
+              },
+            },
+            text: {},
+          },
+        }),
+      }),
     });
 
-    if (process.env.NODE_ENV !== "production") {
-      require("prosemirror-dev-tools").applyDevTools(view);
-      if (typeof Window !== "undefined") {
-        (Window as any).view = view;
-      }
-    }
-
-    state.current.view = view;
+    setView(view);
     return () => {
       view.destroy();
     };
   }, []);
 
-  useImperativeHandle(ref, () => state.current.view);
+  useImperativeHandle(
+    ref,
+    () => ({
+      view,
+      events,
+    }),
+    [view, events]
+  );
 
   return (
     <div ref={element} className={className} style={style}>
-      {children}
+      <Context.Provider value={{ view, dispatch }}>{children}</Context.Provider>
     </div>
   );
 });

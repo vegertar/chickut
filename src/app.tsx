@@ -1,40 +1,35 @@
 import React, { useRef, useState } from "react";
 import produce from "immer";
-import { EditorView } from "prosemirror-view";
 
 import Theme, { light, dark } from "./components/theme";
-import {
-  ExtensionContext,
-  Doc,
-  Text,
-  Strong,
-  Paragraph,
-} from "./components/extensions";
 import Editor from "./components/editor";
+import * as Extensions from "./components/extensions";
 
 import "./app.css";
 
 type Extension = {
   render: React.FC<any>;
-  active?: boolean;
+  status?: "disabling" | "disabled" | "enabling" | "enabled";
   props?: Record<string, any>;
   child?: React.ReactNode;
 };
 
 export default function App() {
-  const view = useRef<EditorView>();
+  const index = useRef(0);
   const [theme, setTheme] = useState(light);
   const [extensions, setExtensions] = useState<{
     [name: string]: Extension;
-  }>({
-    doc: { render: Doc },
-    text: {
-      render: Text,
-      child: `This is example content.`,
-    },
-    strong: { render: Strong },
-    paragraph: { render: Paragraph },
-  });
+  }>(
+    Object.entries(Extensions).reduce(
+      (result, [name, render]) => ({
+        ...result,
+        [name.toLowerCase()]: {
+          render,
+        },
+      }),
+      {} as { [name: string]: Extension }
+    )
+  );
 
   return (
     <Theme className={`${theme} app`}>
@@ -48,11 +43,15 @@ export default function App() {
           {Object.entries(extensions).map(([name, value]) => (
             <button
               key={name}
-              className={value.active ? "active" : "inactive"}
+              className={value.status}
               onClick={() => {
                 setExtensions((extensions) =>
                   produce(extensions, (draft) => {
-                    draft[name].active = !draft[name].active;
+                    if (!value.status || value.status === "disabled") {
+                      draft[name].status = "enabling";
+                    } else if (value.status === "enabled") {
+                      draft[name].status = "disabling";
+                    }
                   })
                 );
               }}
@@ -63,17 +62,45 @@ export default function App() {
         </div>
       </div>
 
-      <Editor ref={view}>
-        <ExtensionContext.Provider value={{ view: view.current }}>
-          {Object.entries(extensions).map(
-            ([name, { render: Render, active, props, child }]) =>
-              active ? (
-                <Render key={name} {...props}>
-                  {child}
-                </Render>
-              ) : null
-          )}
-        </ExtensionContext.Provider>
+      <Editor
+        ref={(ref) => {
+          if (!ref) {
+            return;
+          }
+
+          const view = ref.view;
+          if (!view) {
+            return;
+          }
+
+          const present = ref.events.slice(index.current);
+          if (!present.length) {
+            return;
+          }
+
+          index.current += present.length;
+          setExtensions((extensions) =>
+            produce(extensions, (draft) => {
+              present.forEach(([event, name, error, data]) => {
+                console.log(event, name, error, data);
+                if (event === "load" && !error) {
+                  draft[name].status = "enabled";
+                } else if (event === "off-load" && !error) {
+                  draft[name].status = "disabled";
+                }
+              });
+            })
+          );
+        }}
+      >
+        {Object.entries(extensions).map(
+          ([name, { render: Render, status, props, child }]) =>
+            status === "enabling" || status === "enabled" ? (
+              <Render key={name} {...props}>
+                {child}
+              </Render>
+            ) : null
+        )}
       </Editor>
     </Theme>
   );

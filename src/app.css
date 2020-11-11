@@ -17,10 +17,18 @@
   margin-top: 4px;
 }
 
-.app .menu .active {
+.app .menu .enabled {
   background-color: aqua;
 }
 
-.app .menu .inactive {
+.app .menu .enabling {
+  background-color: greenyellow;
+}
+
+.app .menu .disabled {
   background-color: initial;
+}
+
+.app .menu .disabling {
+  background-color: gray;
 }
