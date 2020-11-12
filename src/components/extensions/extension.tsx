@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import OrderedMap from "orderedmap";
 import { TokenConfig } from "prosemirror-markdown";
 import { EditorView } from "prosemirror-view";
@@ -40,7 +40,12 @@ export type Transaction = ProsemirrorTransaction<Schema>;
 /* eslint-disable-next-line @typescript-eslint/no-redeclare */
 export const Transaction = ProsemirrorTransaction;
 
-export function useExtension(extension: NodeExtensions[N] | MarkExtensions[M]) {
+type NodeExtension = NodeExtensions[N];
+type MarkExtension = MarkExtensions[M];
+
+export type Extension = NodeExtension | MarkExtension;
+
+export function useExtension(extension: Extension) {
   const { view, dispatch } = useContext(EditorContext);
   const [status, setStatus] = useState<boolean>();
 
@@ -52,12 +57,10 @@ export function useExtension(extension: NodeExtensions[N] | MarkExtensions[M]) {
     const editorView = view as EditorView<Schema>;
 
     const name = extension.name.toLowerCase();
-    const node:
-      | ProsemirrorNodeSpec
-      | undefined = (extension as NodeExtensions[N]).node;
-    const mark:
-      | ProsemirrorMarkSpec
-      | undefined = (extension as MarkExtensions[M]).mark;
+    const node: ProsemirrorNodeSpec | undefined = (extension as NodeExtension)
+      .node;
+    const mark: ProsemirrorMarkSpec | undefined = (extension as MarkExtension)
+      .mark;
 
     type NodeMap = OrderedMap<ProsemirrorNodeSpec>;
     type MarkMap = OrderedMap<ProsemirrorMarkSpec>;
@@ -108,4 +111,100 @@ export function useExtension(extension: NodeExtensions[N] | MarkExtensions[M]) {
   }, [extension, view, dispatch]);
 
   return { status, view };
+}
+
+export function useTreeView(
+  extensions: { [name: string]: Extension },
+  className = "tree-view"
+) {
+  type Dependency = { group: string; required: boolean };
+  type DfsStatus = { [group: string]: undefined | 1 | 2 };
+
+  const view = useMemo(() => {
+    const groups: { [group: string]: Extension[] } = {};
+    const dependencies: {
+      [group: string]: Dependency[];
+    } = {};
+    const visited: DfsStatus = {};
+    const dag: string[] = [];
+
+    const word = /(\w+)(\+)?/;
+    const parseDependencies = (node?: ProsemirrorNodeSpec) => {
+      const result = (node?.content || "").match(word);
+      if (result) {
+        const group = result[1];
+        const required = !!result[2];
+        return [{ group, required }];
+      }
+      return [];
+    };
+
+    const dfs = (group: string) => {
+      const status = visited[group];
+      if (status === 1) {
+        // is not a DAG
+        return;
+      }
+
+      if (!status) {
+        visited[group] = 1;
+        for (let dep of dependencies[group]) {
+          dfs(dep.group);
+        }
+        visited[group] = 2;
+        dag.push(group);
+      }
+    };
+
+    for (let name in extensions) {
+      const item = extensions[name] as NodeExtension;
+      const node: ProsemirrorNodeSpec | undefined = item.node;
+      const group = node?.group || name.toLowerCase();
+
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(item);
+
+      if (!dependencies[group]) {
+        dependencies[group] = [];
+      }
+      dependencies[group].push(...parseDependencies(node));
+    }
+
+    for (let group in dependencies) {
+      if (!visited[group]) {
+        dfs(group);
+      }
+    }
+
+    const made: { [group: string]: boolean } = {};
+
+    const makeTree = (group: string) => {
+      made[group] = true;
+
+      return (
+        <ul key={group}>
+          {groups[group]?.map((item) => {
+            const name = item.name.toLowerCase();
+
+            return (
+              <li key={name}>
+                <span data-is-extension={name}>{name}</span>
+                {dependencies[group]?.map((dep) => makeTree(dep.group))}
+              </li>
+            );
+          })}
+        </ul>
+      );
+    };
+
+    return (
+      <div className={className}>
+        {dag.reverse().map((group) => (made[group] ? null : makeTree(group)))}
+      </div>
+    );
+  }, [extensions, className]);
+
+  return view;
 }

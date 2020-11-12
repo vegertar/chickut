@@ -32,3 +32,8 @@
 .app .menu .disabling {
   background-color: gray;
 }
+
+.app .tree-view span:hover {
+  cursor: pointer;
+  border: 1px dashed gray;
+}

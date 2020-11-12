@@ -1,8 +1,11 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import produce from "immer";
+import { EditorView } from "prosemirror-view";
 
 import Theme, { light, dark } from "./components/theme";
 import Editor from "./components/editor";
+import { useTreeView } from "./components/extensions/extension";
 import * as Extensions from "./components/extensions";
 
 import "./app.css";
@@ -17,6 +20,7 @@ type Extension = {
 export default function App() {
   const index = useRef(0);
   const [theme, setTheme] = useState(light);
+  const [devTools, setDevTools] = useState<{ view?: EditorView }>({});
   const [extensions, setExtensions] = useState<{
     [name: string]: Extension;
   }>(
@@ -30,6 +34,54 @@ export default function App() {
       {} as { [name: string]: Extension }
     )
   );
+  const treeView = useTreeView(Extensions);
+
+  useEffect(() => {
+    document.querySelectorAll("[data-is-extension]").forEach((element) => {
+      const name = element.getAttribute("data-is-extension");
+      name &&
+        element.addEventListener("click", () => {
+          setExtensions((extensions) =>
+            produce(extensions, (draft) => {
+              const value = extensions[name];
+              if (!value.status || value.status === "disabled") {
+                draft[name].status = "enabling";
+              } else if (value.status === "enabled") {
+                draft[name].status = "disabling";
+              } else if (value.status === "enabling") {
+                draft[name].status = undefined;
+              }
+
+              element.className = draft[name].status || "";
+            })
+          );
+        });
+    });
+  }, [treeView]);
+
+  useEffect(() => {
+    Object.entries(extensions).forEach(([name, extension]) => {
+      const element = document.querySelector(`[data-is-extension=${name}]`);
+      if (!element) {
+        return;
+      }
+
+      element.className = extension.status || "";
+    });
+  }, [extensions]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && devTools.view) {
+      require("prosemirror-dev-tools").applyDevTools(devTools.view);
+      return () => {
+        const node = document.querySelector(".__prosemirror-dev-tools__");
+        if (node) {
+          ReactDOM.unmountComponentAtNode(node);
+          node.remove();
+        }
+      };
+    }
+  }, [devTools]);
 
   return (
     <Theme className={`${theme} app`}>
@@ -39,38 +91,20 @@ export default function App() {
             switch theme
           </button>
         </div>
-        <div className="extensions">
-          {Object.entries(extensions).map(([name, value]) => (
-            <button
-              key={name}
-              className={value.status}
-              onClick={() => {
-                setExtensions((extensions) =>
-                  produce(extensions, (draft) => {
-                    if (!value.status || value.status === "disabled") {
-                      draft[name].status = "enabling";
-                    } else if (value.status === "enabled") {
-                      draft[name].status = "disabling";
-                    }
-                  })
-                );
-              }}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
+        {treeView}
       </div>
 
       <Editor
         ref={(ref) => {
-          if (!ref) {
+          if (!ref || !ref.view) {
             return;
           }
 
           const view = ref.view;
-          if (!view) {
-            return;
+          if (process.env.NODE_ENV !== "production") {
+            setDevTools((devTools) =>
+              devTools.view !== view ? { view } : devTools
+            );
           }
 
           const present = ref.events.slice(index.current);
@@ -79,18 +113,26 @@ export default function App() {
           }
 
           index.current += present.length;
+          let reloaded = false;
+
           setExtensions((extensions) =>
             produce(extensions, (draft) => {
               present.forEach(([event, name, error, data]) => {
                 console.log(event, name, error, data);
                 if (event === "load" && !error) {
+                  reloaded = true;
                   draft[name].status = "enabled";
                 } else if (event === "off-load" && !error) {
+                  reloaded = true;
                   draft[name].status = "disabled";
                 }
               });
             })
           );
+
+          if (reloaded && process.env.NODE_ENV !== "production") {
+            setDevTools({ view });
+          }
         }}
       >
         {Object.entries(extensions).map(
