@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import OrderedMap from "orderedmap";
+import difference from "lodash.difference";
 import { TokenConfig } from "prosemirror-markdown";
 import { EditorView } from "prosemirror-view";
 import {
@@ -10,9 +11,11 @@ import {
 } from "prosemirror-state";
 import {
   Schema as ProsemirrorSchema,
-  MarkSpec as ProsemirrorMarkSpec,
-  NodeSpec as ProsemirrorNodeSpec,
   SchemaSpec as ProsemirrorSchemaSpec,
+  NodeType as ProsemirrorNodeType,
+  MarkType as ProsemirrorMarkType,
+  NodeSpec,
+  MarkSpec,
 } from "prosemirror-model";
 
 import { Context as EditorContext } from "../editor";
@@ -31,6 +34,14 @@ export type Schema = ProsemirrorSchema<N, M>;
 /* eslint-disable-next-line @typescript-eslint/no-redeclare */
 export const Schema = ProsemirrorSchema;
 
+export type NodeType = ProsemirrorNodeType<Schema>;
+/* eslint-disable-next-line @typescript-eslint/no-redeclare */
+export const NodeType = ProsemirrorNodeType;
+
+export type MarkType = ProsemirrorMarkType<Schema>;
+/* eslint-disable-next-line @typescript-eslint/no-redeclare */
+export const MarkType = ProsemirrorMarkType;
+
 export type PluginSpec = ProsemirrorPluginSpec<unknown, Schema>;
 export type Plugin = ProsemirrorPlugin<unknown, Schema>;
 /* eslint-disable-next-line @typescript-eslint/no-redeclare */
@@ -40,10 +51,23 @@ export type Transaction = ProsemirrorTransaction<Schema>;
 /* eslint-disable-next-line @typescript-eslint/no-redeclare */
 export const Transaction = ProsemirrorTransaction;
 
-type NodeExtension = NodeExtensions[N];
-type MarkExtension = MarkExtensions[M];
+type Base = {
+  name: string;
+};
 
-export type Extension = NodeExtension | MarkExtension;
+export type NodeExtension = (NodeExtensions[N] | Base) & {
+  node: NodeSpec;
+};
+
+export type MarkExtension = (MarkExtensions[M] | Base) & {
+  mark: MarkSpec;
+};
+
+export type PluginExtension = Base & {
+  plugins: Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
+};
+
+export type Extension = NodeExtension | MarkExtension | PluginExtension;
 
 export function useExtension(extension: Extension) {
   const { view, dispatch } = useContext(EditorContext);
@@ -57,27 +81,35 @@ export function useExtension(extension: Extension) {
     const editorView = view as EditorView<Schema>;
 
     const name = extension.name.toLowerCase();
-    const node: ProsemirrorNodeSpec | undefined = (extension as NodeExtension)
-      .node;
-    const mark: ProsemirrorMarkSpec | undefined = (extension as MarkExtension)
-      .mark;
+    const node: NodeSpec | undefined = (extension as NodeExtension).node;
+    const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
 
-    type NodeMap = OrderedMap<ProsemirrorNodeSpec>;
-    type MarkMap = OrderedMap<ProsemirrorMarkSpec>;
+    type NodeMap = OrderedMap<NodeSpec>;
+    type MarkMap = OrderedMap<MarkSpec>;
 
     const spec = editorView.state.schema.spec;
     const nodes = node ? { [name]: node } : {};
     const marks = mark ? { [name]: mark } : {};
+    const plugins = (extension as PluginExtension).plugins || [];
 
     try {
+      const schema = new Schema({
+        nodes: (spec.nodes as NodeMap).append(nodes),
+        marks: (spec.marks as MarkMap).append(marks),
+      } as SchemaSpec);
+
+      let thisPlugins: Plugin[] = [];
+      if (typeof plugins === "function") {
+        thisPlugins = plugins(node ? schema.nodes[name] : schema.marks[name]);
+      } else {
+        thisPlugins = plugins;
+      }
+
       editorView.updateState(
         // TODO: the new created state will discard all history
         EditorState.create({
-          schema: new Schema({
-            nodes: (spec.nodes as NodeMap).append(nodes),
-            marks: (spec.marks as MarkMap).append(marks),
-          } as SchemaSpec),
-          plugins: editorView.state.plugins,
+          schema,
+          plugins: editorView.state.plugins.concat(...thisPlugins),
         })
       );
 
@@ -95,7 +127,7 @@ export function useExtension(extension: Extension) {
                 nodes: (spec.nodes as NodeMap).subtract(nodes),
                 marks: (spec.marks as MarkMap).subtract(marks),
               } as SchemaSpec),
-              plugins: editorView.state.plugins,
+              plugins: difference(editorView.state.plugins, thisPlugins),
             })
           );
 
@@ -114,22 +146,20 @@ export function useExtension(extension: Extension) {
 }
 
 export function useTreeView(
-  extensions: { [name: string]: Extension },
+  extensions: Record<string, Extension>,
   className = "tree-view"
 ) {
   type Dependency = { group: string; required: boolean };
   type DfsStatus = { [group: string]: undefined | 1 | 2 };
 
   const view = useMemo(() => {
-    const groups: { [group: string]: Extension[] } = {};
-    const dependencies: {
-      [group: string]: Dependency[];
-    } = {};
+    const groups: Record<string, Extension[]> = {};
+    const dependencies: Record<string, Dependency[]> = {};
     const visited: DfsStatus = {};
     const dag: string[] = [];
 
     const word = /(\w+)(\+)?/;
-    const parseDependencies = (node?: ProsemirrorNodeSpec) => {
+    const parseDependencies = (node?: NodeSpec) => {
       const result = (node?.content || "").match(word);
       if (result) {
         const group = result[1];
@@ -157,14 +187,14 @@ export function useTreeView(
     };
 
     for (let name in extensions) {
-      const item = extensions[name] as NodeExtension;
-      const node: ProsemirrorNodeSpec | undefined = item.node;
+      const extension = extensions[name] as NodeExtension;
+      const node: NodeSpec | undefined = extension.node;
       const group = node?.group || name.toLowerCase();
 
       if (!groups[group]) {
         groups[group] = [];
       }
-      groups[group].push(item);
+      groups[group].push(extension);
 
       if (!dependencies[group]) {
         dependencies[group] = [];
@@ -178,8 +208,7 @@ export function useTreeView(
       }
     }
 
-    const made: { [group: string]: boolean } = {};
-
+    const made: Record<string, boolean> = {};
     const makeTree = (group: string) => {
       made[group] = true;
 

@@ -19,11 +19,10 @@ type Extension = {
 
 export default function App() {
   const index = useRef(0);
+  const treeView = useTreeView(Extensions);
   const [theme, setTheme] = useState(light);
   const [devTools, setDevTools] = useState<{ view?: EditorView }>({});
-  const [extensions, setExtensions] = useState<{
-    [name: string]: Extension;
-  }>(
+  const [extensions, setExtensions] = useState(
     Object.entries(Extensions).reduce(
       (result, [name, render]) => ({
         ...result,
@@ -31,10 +30,9 @@ export default function App() {
           render,
         },
       }),
-      {} as { [name: string]: Extension }
+      {} as Record<string, Extension>
     )
   );
-  const treeView = useTreeView(Extensions);
 
   useEffect(() => {
     document.querySelectorAll("[data-is-extension]").forEach((element) => {
@@ -72,6 +70,9 @@ export default function App() {
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && devTools.view) {
+      if (typeof Window !== "undefined") {
+        (Window as any).view = devTools.view;
+      }
       require("prosemirror-dev-tools").applyDevTools(devTools.view);
       return () => {
         const node = document.querySelector(".__prosemirror-dev-tools__");

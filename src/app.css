@@ -1,3 +1,7 @@
+* {
+  box-sizing: border-box;
+}
+
 .app {
   width: 80vw;
   max-width: 1040px;
@@ -11,10 +15,6 @@
   margin-bottom: 1em;
   display: flex;
   flex-direction: column;
-}
-
-.app .menu > div {
-  margin-top: 4px;
 }
 
 .app .menu .enabled {
@@ -31,6 +31,19 @@
 
 .app .menu .disabling {
   background-color: gray;
+}
+
+.app .tree-view {
+  position: fixed;
+  margin: 0;
+  padding: 1em;
+  right: 0;
+  top: 0;
+  background-color: aliceblue;
+}
+
+.app .tree-view span {
+  border: 1px solid transparent;
 }
 
 .app .tree-view span:hover {
