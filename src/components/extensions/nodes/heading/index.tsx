@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { NodeSpec, Node as ProsemirrorNode } from "prosemirror-model";
+import { NodeSpec, Node as ProsemirrorNode, NodeType } from "prosemirror-model";
+import { Plugin } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
 import { inputRules } from "prosemirror-inputrules";
@@ -8,8 +9,7 @@ import range from "lodash.range";
 import escape from "lodash.escape";
 import slugify from "slugify";
 
-import { useExtension, NodeType, Plugin, Schema } from "../../extension";
-import { EditorState } from "prosemirror-state";
+import { useExtension } from "../../extension";
 
 import "./style.scss";
 
@@ -116,7 +116,7 @@ const makePlugins = (
 ) => (type: NodeType) => [
   new Plugin({
     props: {
-      decorations: (state: EditorState<Schema>) => {
+      decorations: (state) => {
         const { doc } = state;
         const decorations: Decoration[] = [];
         const previouslySeen: Record<string, number> = {};

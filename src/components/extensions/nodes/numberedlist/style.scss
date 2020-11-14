@@ -1,0 +1,18 @@
+.editor {
+  ol {
+    margin: 0 0.1em;
+    padding: 0 0 0 1em;
+
+    ol {
+      margin: 0;
+    }
+  }
+
+  ol ol {
+    list-style: lower-alpha;
+  }
+
+  ol ol ol {
+    list-style: lower-roman;
+  }
+}

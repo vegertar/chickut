@@ -4,12 +4,6 @@ import { useExtension } from "../../extension";
 
 import "./style.scss";
 
-declare module "../../extension" {
-  interface NodeExtensions {
-    paragraph: typeof Paragraph;
-  }
-}
-
 export default function Paragraph() {
   useExtension(Paragraph);
 

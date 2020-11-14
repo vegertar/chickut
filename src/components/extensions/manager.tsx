@@ -77,30 +77,31 @@ export function useTreeView(
 
     const made: Record<string, boolean> = {};
     const makeTree = (name: string) => {
+      const hadMade = made[name];
       made[name] = true;
+
       const grouped = groups[name];
-      if (grouped) {
+      if (!grouped) {
+        const deps = dependencies[name];
         return (
-          <ul key={name} data-is-group={name}>
-            {grouped.map((item) => makeTree(item))}
-          </ul>
+          <li key={name} data-is-extension={name}>
+            <span>{name}</span>
+            <ul>
+              {deps.map((item) => (hadMade ? null : makeTree(item.content)))}
+            </ul>
+          </li>
         );
       }
 
-      const deps = dependencies[name];
       return (
-        <li key={name}>
-          <span data-is-extension={name}>{name}</span>
-          {deps.map((item) => makeTree(item.content))}
+        <li key={name} data-is-group={name}>
+          <span>{name}</span>
+          <ul>{grouped.map((item) => (hadMade ? null : makeTree(item)))}</ul>
         </li>
       );
     };
 
-    return (
-      <ul className={className}>
-        {dag.reverse().map((name) => (made[name] ? null : makeTree(name)))}
-      </ul>
-    );
+    return <ul className={className}>{makeTree("doc")}</ul>;
   }, [extensions, className]);
 
   return view;

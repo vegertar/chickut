@@ -4,12 +4,6 @@ import { useExtension } from "../../extension";
 
 import "./style.scss";
 
-declare module "../../extension" {
-  interface MarkExtensions {
-    strong: typeof Strong;
-  }
-}
-
 export default function Strong() {
   useExtension(Strong);
 

@@ -4,12 +4,6 @@ import { NodeSpec } from "prosemirror-model";
 
 import { useExtension } from "../../extension";
 
-declare module "../../extension" {
-  interface NodeExtensions {
-    text: typeof Text;
-  }
-}
-
 type Props = {
   children?: string;
 };

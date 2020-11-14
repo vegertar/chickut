@@ -2,12 +2,6 @@ import { NodeSpec } from "prosemirror-model";
 
 import { useExtension } from "../../extension";
 
-declare module "../../extension" {
-  interface NodeExtensions {
-    doc: typeof Doc;
-  }
-}
-
 export default function Doc() {
   useExtension(Doc);
 

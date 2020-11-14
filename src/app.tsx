@@ -8,7 +8,7 @@ import Editor from "./components/editor";
 import { useTreeView } from "./components/extensions/manager";
 import * as Extensions from "./components/extensions";
 
-import "./app.css";
+import "./app.scss";
 
 type Extension = {
   render: React.FC<any>;
@@ -35,8 +35,8 @@ export default function App() {
   );
 
   useEffect(() => {
-    document.querySelectorAll("[data-is-extension]").forEach((element) => {
-      const name = element.getAttribute("data-is-extension");
+    document.querySelectorAll("[data-is-extension]>span").forEach((element) => {
+      const name = element.parentElement?.getAttribute("data-is-extension");
       name &&
         element.addEventListener("click", () => {
           setExtensions((extensions) =>
@@ -59,7 +59,9 @@ export default function App() {
 
   useEffect(() => {
     Object.entries(extensions).forEach(([name, extension]) => {
-      const element = document.querySelector(`[data-is-extension=${name}]`);
+      const element = document.querySelector(
+        `[data-is-extension=${name}]>span`
+      );
       if (!element) {
         return;
       }

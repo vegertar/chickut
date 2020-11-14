@@ -1,0 +1,10 @@
+@use "../../../theme" as *;
+
+.editor {
+  blockquote {
+    border-left: 3px solid theme-var(quote);
+    margin: 0;
+    padding-left: 10px;
+    font-style: italic;
+  }
+}

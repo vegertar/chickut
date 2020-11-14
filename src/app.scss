@@ -1,0 +1,66 @@
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  width: 80vw;
+  max-width: 1040px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 20px;
+
+  .menu {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    display: flex;
+    flex-direction: column;
+
+    .enabled {
+      background-color: aqua;
+    }
+
+    .enabling {
+      background-color: greenyellow;
+    }
+
+    .disabled {
+      background-color: initial;
+    }
+
+    .disabling {
+      background-color: gray;
+    }
+  }
+
+  .tree-view {
+    position: fixed;
+    margin: 0;
+    padding: 1em 2em;
+    right: 0;
+    top: 0;
+    background-color: aliceblue;
+    z-index: 1000;
+
+    span {
+      display: inline-block;
+      padding: 0.2em;
+      border: 1px solid transparent;
+
+      &:hover {
+        cursor: pointer;
+        border: 1px dashed gray;
+      }
+    }
+
+    [data-is-group] > span {
+      font-style: italic;
+      font-size: small;
+      text-decoration: underline;
+
+      &:hover {
+        cursor: initial;
+        border-color: transparent;
+      }
+    }
+  }
+}

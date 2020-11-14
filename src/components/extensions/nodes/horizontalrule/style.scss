@@ -1,0 +1,9 @@
+@use "../../../theme" as *;
+
+.editor {
+  hr {
+    height: 0;
+    border: 0;
+    border-top: 1px solid theme-var(horizontalRule);
+  }
+}

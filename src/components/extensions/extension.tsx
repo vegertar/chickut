@@ -1,70 +1,35 @@
 import { useContext, useEffect, useState } from "react";
 import OrderedMap from "orderedmap";
 import difference from "lodash.difference";
-import { TokenConfig } from "prosemirror-markdown";
 import { EditorView } from "prosemirror-view";
+import { Plugin, EditorState } from "prosemirror-state";
 import {
-  Transaction as ProsemirrorTransaction,
-  Plugin as ProsemirrorPlugin,
-  PluginSpec as ProsemirrorPluginSpec,
-  EditorState,
-} from "prosemirror-state";
-import {
-  Schema as ProsemirrorSchema,
-  SchemaSpec as ProsemirrorSchemaSpec,
-  NodeType as ProsemirrorNodeType,
-  MarkType as ProsemirrorMarkType,
+  Schema,
+  SchemaSpec,
+  NodeType,
+  MarkType,
   NodeSpec,
   MarkSpec,
 } from "prosemirror-model";
 
 import { Context as EditorContext } from "../editor";
 
-export interface NodeExtensions {}
-export interface MarkExtensions {}
-
-type N = keyof NodeExtensions;
-type M = keyof MarkExtensions;
-
-export type NodeTokens = { [name in N]: TokenConfig };
-export type MarkTokens = { [name in M]: TokenConfig };
-
-export type SchemaSpec = ProsemirrorSchemaSpec<N, M>;
-export type Schema = ProsemirrorSchema<N, M>;
-/* eslint-disable-next-line @typescript-eslint/no-redeclare */
-export const Schema = ProsemirrorSchema;
-
-export type NodeType = ProsemirrorNodeType<Schema>;
-/* eslint-disable-next-line @typescript-eslint/no-redeclare */
-export const NodeType = ProsemirrorNodeType;
-
-export type MarkType = ProsemirrorMarkType<Schema>;
-/* eslint-disable-next-line @typescript-eslint/no-redeclare */
-export const MarkType = ProsemirrorMarkType;
-
-export type PluginSpec = ProsemirrorPluginSpec<unknown, Schema>;
-export type Plugin = ProsemirrorPlugin<unknown, Schema>;
-/* eslint-disable-next-line @typescript-eslint/no-redeclare */
-export const Plugin = ProsemirrorPlugin;
-
-export type Transaction = ProsemirrorTransaction<Schema>;
-/* eslint-disable-next-line @typescript-eslint/no-redeclare */
-export const Transaction = ProsemirrorTransaction;
+type Plugins = Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
 
 type Base = {
   name: string;
 };
 
-export type NodeExtension = (NodeExtensions[N] | Base) & {
+export type NodeExtension = Base & {
   node: NodeSpec;
 };
 
-export type MarkExtension = (MarkExtensions[M] | Base) & {
+export type MarkExtension = Base & {
   mark: MarkSpec;
 };
 
 export type PluginExtension = Base & {
-  plugins: Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
+  plugins: Plugins;
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;
