@@ -1,8 +1,10 @@
 import { NodeSpec } from "prosemirror-model";
 
-import { useExtension } from "../extension";
+import { useExtension } from "../../extension";
 
-declare module "../extension" {
+import "./style.scss";
+
+declare module "../../extension" {
   interface NodeExtensions {
     paragraph: typeof Paragraph;
   }

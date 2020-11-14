@@ -5,7 +5,7 @@ import { EditorView } from "prosemirror-view";
 
 import Theme, { light, dark } from "./components/theme";
 import Editor from "./components/editor";
-import { useTreeView } from "./components/extensions/extension";
+import { useTreeView } from "./components/extensions/manager";
 import * as Extensions from "./components/extensions";
 
 import "./app.css";

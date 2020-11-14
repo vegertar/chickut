@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { selectAll } from "prosemirror-commands";
 import { NodeSpec } from "prosemirror-model";
 
-import { useExtension } from "../extension";
+import { useExtension } from "../../extension";
 
-declare module "../extension" {
+declare module "../../extension" {
   interface NodeExtensions {
     text: typeof Text;
   }

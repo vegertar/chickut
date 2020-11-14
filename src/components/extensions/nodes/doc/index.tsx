@@ -1,8 +1,8 @@
 import { NodeSpec } from "prosemirror-model";
 
-import { useExtension } from "../extension";
+import { useExtension } from "../../extension";
 
-declare module "../extension" {
+declare module "../../extension" {
   interface NodeExtensions {
     doc: typeof Doc;
   }

@@ -25,6 +25,18 @@ $default-theme-map: meta.module-variables("light");
   @return var(--#{$key}, map.get($default-theme-map, #{$key}));
 }
 
+@mixin read-only {
+  @at-root #{selector-replace(&, ".editor", ".read-only.editor")} {
+    @content;
+  }
+}
+
+@mixin read-only-write-checkboxes {
+  @at-root #{selector-replace(&, ".editor", ".read-only.editor.write-checkboxes")} {
+    @content;
+  }
+}
+
 .light {
   --foo: bar;
 }

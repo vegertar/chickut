@@ -8,8 +8,10 @@ import range from "lodash.range";
 import escape from "lodash.escape";
 import slugify from "slugify";
 
-import { useExtension, NodeType, Plugin, Schema } from "../extension";
+import { useExtension, NodeType, Plugin, Schema } from "../../extension";
 import { EditorState } from "prosemirror-state";
+
+import "./style.scss";
 
 type Level = 1 | 2 | 3 | 4 | 5 | 6;
 

@@ -1,17 +1,5 @@
 @use "../theme" as *;
 
-@mixin read-only {
-  @at-root #{".read-only" + &} {
-    @content;
-  }
-}
-
-@mixin read-only-write-checkboxes {
-  @at-root #{".read-only.write-checkboxes" + &} {
-    @content;
-  }
-}
-
 .editor {
   display: flex;
   flex: initial;
@@ -105,104 +93,8 @@
     pointer-events: none;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    margin: 1em 0 0.5em;
-    font-weight: 500;
-    cursor: default;
-
-    &:not(.placeholder):before {
-      @include read-only {
-        display: none;
-      }
-      display: block;
-      position: absolute;
-      font-family: theme-var(fontFamilyMono);
-      color: theme-var(textSecondary);
-      font-size: 13px;
-      left: -24px;
-    }
-
-    &:hover {
-      .heading-anchor {
-        opacity: 1;
-      }
-    }
-  }
-
-  .heading-name {
-    color: theme-var(text);
-
-    &:hover {
-      text-decoration: none;
-    }
-  }
-
-  a:first-child {
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      margin-top: 0;
-    }
-  }
-
-  h1:not(.placeholder):before {
-    content: "H1";
-    line-height: 3em;
-  }
-  h2:not(.placeholder):before {
-    content: "H2";
-    line-height: 2.8em;
-  }
-  h3:not(.placeholder):before {
-    content: "H3";
-    line-height: 2.3em;
-  }
-  h4:not(.placeholder):before {
-    content: "H4";
-    line-height: 2.2em;
-  }
-  h5:not(.placeholder):before {
-    content: "H5";
-  }
-  h6:not(.placeholder):before {
-    content: "H6";
-  }
-
   .with-emoji {
     margin-left: -1em;
-  }
-
-  .heading-anchor {
-    @include read-only {
-      display: block;
-    }
-    display: none;
-    opacity: 0;
-    color: theme-var(textSecondary);
-    cursor: pointer;
-    background: none;
-    border: 0;
-    outline: none;
-    padding: 2px 12px 2px 4px;
-    margin: 0;
-    position: absolute;
-    transition: opacity 100ms ease-in-out;
-    font-family: theme-var(fontFamilyMono);
-    font-size: 22px;
-    left: -1.3em;
-
-    &:focus,
-    &:hover {
-      color: theme-var(text);
-    }
   }
 
   .placeholder {
@@ -276,11 +168,6 @@
     font-style: italic;
   }
 
-  b,
-  strong {
-    font-weight: 600;
-  }
-
   .template-placeholder {
     color: theme-var(placeholder);
     border-bottom: 1px dotted theme-var(placeholder);
@@ -293,11 +180,6 @@
       }
       border-bottom: 1px dotted theme-var(textSecondary);
     }
-  }
-
-  p {
-    position: relative;
-    margin: 0;
   }
 
   a {

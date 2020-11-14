@@ -1,8 +1,10 @@
 import { MarkSpec } from "prosemirror-model";
 
-import { useExtension } from "../extension";
+import { useExtension } from "../../extension";
 
-declare module "../extension" {
+import "./style.scss";
+
+declare module "../../extension" {
   interface MarkExtensions {
     strong: typeof Strong;
   }

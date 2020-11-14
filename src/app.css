@@ -36,10 +36,11 @@
 .app .tree-view {
   position: fixed;
   margin: 0;
-  padding: 1em;
+  padding: 1em 2em;
   right: 0;
   top: 0;
   background-color: aliceblue;
+  z-index: 1000;
 }
 
 .app .tree-view span {
@@ -49,4 +50,9 @@
 .app .tree-view span:hover {
   cursor: pointer;
   border: 1px dashed gray;
+}
+
+.app .tree-view span {
+  display: inline-block;
+  padding: 0.2em;
 }

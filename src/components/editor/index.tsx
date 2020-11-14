@@ -33,13 +33,12 @@ interface Handler {
 }
 
 interface Props {
-  className?: string;
   style?: Record<string, string | number>;
   children?: React.ReactNode;
 }
 
 export default forwardRef<Handler, Props>(function Editor(props, ref) {
-  const { className = "editor", style, children } = props || {};
+  const { style, children } = props || {};
   const element = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<EditorView>();
   const [events, setEvents] = useState<Handler["events"]>([]);
@@ -92,7 +91,7 @@ export default forwardRef<Handler, Props>(function Editor(props, ref) {
   );
 
   return (
-    <div ref={element} className={className} style={style}>
+    <div ref={element} className="editor" style={style}>
       <Context.Provider value={{ view, dispatch }}>{children}</Context.Provider>
     </div>
   );
