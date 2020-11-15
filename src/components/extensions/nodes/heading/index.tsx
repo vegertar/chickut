@@ -9,7 +9,7 @@ import range from "lodash.range";
 import escape from "lodash.escape";
 import slugify from "slugify";
 
-import { useExtension } from "../../extension";
+import { useExtension } from "../../../editor";
 
 import "./style.scss";
 

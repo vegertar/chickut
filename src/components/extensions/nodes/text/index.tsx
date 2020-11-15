@@ -1,25 +1,9 @@
-import { useEffect } from "react";
-import { selectAll } from "prosemirror-commands";
 import { NodeSpec } from "prosemirror-model";
 
-import { useExtension } from "../../extension";
+import { useExtension } from "../../../editor";
 
-type Props = {
-  children?: string;
-};
-
-export default function Text({ children: defaultValue }: Props = {}) {
-  const { status, view } = useExtension(Text);
-
-  useEffect(() => {
-    if (!status || !view || !defaultValue) {
-      return;
-    }
-
-    selectAll(view.state, (tr) => {
-      view.dispatch(tr.insertText(defaultValue));
-    });
-  }, [status, view, defaultValue]);
+export default function Text() {
+  useExtension(Text);
 
   return null;
 }

@@ -1,7 +1,7 @@
 import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 
-import { useExtension } from "../../extension";
+import { useExtension } from "../../../editor";
 
 export default function Keymap() {
   useExtension(Keymap);

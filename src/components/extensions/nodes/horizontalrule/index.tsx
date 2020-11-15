@@ -1,7 +1,7 @@
 import { InputRule, inputRules } from "prosemirror-inputrules";
 import { NodeSpec, NodeType } from "prosemirror-model";
 
-import { useExtension } from "../../extension";
+import { useExtension } from "../../../editor";
 
 import "./style.scss";
 

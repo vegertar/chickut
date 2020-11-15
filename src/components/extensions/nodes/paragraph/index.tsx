@@ -1,6 +1,6 @@
 import { NodeSpec } from "prosemirror-model";
 
-import { useExtension } from "../../extension";
+import { useExtension } from "../../../editor";
 
 import "./style.scss";
 
