@@ -5,10 +5,12 @@ import React, {
   useRef,
   useState,
 } from "react";
+import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";
+import { Selection } from "prosemirror-state";
 
-import { Context } from "./extension";
-import { useManager } from "./manager";
+import { useManager } from "./hooks";
+import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
 
@@ -21,32 +23,33 @@ interface Props {
   children?: React.ReactNode;
 }
 
+function focus(view: EditorView) {
+  const selection = Selection.atEnd(view.state.doc);
+  const transaction = view.state.tr.setSelection(selection);
+  view.dispatch(transaction);
+  view.focus();
+  return view;
+}
+
+function applyDevTools(view: EditorView) {
+  const DEVTOOLS_CLASS_NAME = "__prosemirror-dev-tools__";
+  const place = document.querySelector(`.${DEVTOOLS_CLASS_NAME}`);
+  if (place) {
+    ReactDOM.unmountComponentAtNode(place);
+    place.remove();
+  }
+
+  require("prosemirror-dev-tools").applyDevTools(view);
+}
+
 export default forwardRef<Handle, Props>(function Editor(props, ref) {
   const { style, children } = props || {};
   const divRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView>();
-
-  const [state, dispatch] = useManager();
-  const [view, setView] = useState<EditorView>();
+  const context = useManager(divRef.current);
+  const { view } = context;
 
   useEffect(() => {
-    if (!state || !divRef.current) {
-      return;
-    }
-
-    if (!viewRef.current) {
-      const view = new EditorView(divRef.current, { state });
-      viewRef.current = view;
-      setView(view);
-    } else {
-      viewRef.current.updateState(state);
-    }
-  }, [state]);
-
-  useEffect(() => {
-    return () => {
-      view?.destroy();
-    };
+    view && applyDevTools(view);
   }, [view]);
 
   useImperativeHandle(
@@ -59,7 +62,7 @@ export default forwardRef<Handle, Props>(function Editor(props, ref) {
 
   return (
     <div ref={divRef} className="editor" style={style}>
-      <Context.Provider value={{ view, dispatch }}>{children}</Context.Provider>
+      <ExtensionProvider {...context}>{children}</ExtensionProvider>
     </div>
   );
 });

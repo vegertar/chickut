@@ -1,65 +1,57 @@
-import { createContext, useContext, useEffect, useRef } from "react";
-import { EditorView } from "prosemirror-view";
-import { Plugin } from "prosemirror-state";
-import { NodeType, MarkType, NodeSpec, MarkSpec } from "prosemirror-model";
+import React, { createContext, useContext } from "react";
+import ReactDOM from "react-dom";
+import { EditorView, Decoration } from "prosemirror-view";
+import { Node as ProsemirrorNode } from "prosemirror-model";
 
-type Plugins = Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
+import { EventHandler } from "./manager";
 
-type Base = {
-  name: string;
+export type ExtensionView = {
+  dom?: Node;
+  node?: ProsemirrorNode;
+  getPos?: boolean | (() => number);
+  decorations?: Decoration[];
 };
 
-export type NodeExtension = Base & {
-  node: NodeSpec;
-};
-
-export type MarkExtension = Base & {
-  mark: MarkSpec;
-};
-
-export type PluginExtension = Base & {
-  plugins: Plugins;
-};
-
-export type Extension = NodeExtension | MarkExtension | PluginExtension;
-
-export interface Events {
-  load: {
-    id: string;
-    extension: Extension;
-  };
-  ["off-load"]: string;
-}
-
-export interface EventHandler {
-  <T extends keyof Events>(event: T, target: string, data: Events[T]): void;
-}
-
-type ContextProps = {
+type ContextProps = ExtensionView & {
   view?: EditorView;
   dispatch?: EventHandler;
 };
 
-export const Context = createContext<ContextProps>({});
+export const ExtensionContext = createContext<ContextProps>({});
 
-var counter = 0;
+type Props = {
+  children?: React.ReactNode;
+};
 
-export function useExtension(extension: Extension) {
-  const seq = useRef(++counter);
-  const { dispatch } = useContext(Context);
+export default function Extension({ children }: Props) {
+  const { dom } = useContext(ExtensionContext);
+  return dom ? ReactDOM.createPortal(children, dom as HTMLElement) : null;
+}
 
-  useEffect(() => {
-    const id = seq.current.toString();
-    const name = extension.name.toLowerCase();
-    dispatch?.("load", name, {
-      id,
-      extension,
-    });
+type ExtensionProviderProps = Props &
+  ContextProps & {
+    extensionViews: Record<string, ExtensionView>;
+  };
 
-    return () => {
-      dispatch?.("off-load", name, id);
-    };
-  }, [dispatch, extension]);
+export function ExtensionProvider({
+  extensionViews,
+  children,
+  ...context
+}: ExtensionProviderProps) {
+  return (
+    <>
+      {React.Children.map(children, (child) => {
+        let view: ExtensionView | undefined;
+        if (React.isValidElement(child) && typeof child.type === "function") {
+          view = extensionViews[child.type.name.toLowerCase()];
+        }
 
-  return null;
+        return (
+          <ExtensionContext.Provider value={{ ...context, ...view }}>
+            {child}
+          </ExtensionContext.Provider>
+        );
+      })}
+    </>
+  );
 }

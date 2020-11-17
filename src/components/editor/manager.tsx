@@ -1,16 +1,43 @@
-import { useState, useCallback, useEffect } from "react";
-import { MarkSpec, NodeSpec, Schema } from "prosemirror-model";
-import { EditorState, Plugin } from "prosemirror-state";
-import produce from "immer";
-import remove from "lodash.remove";
-
 import {
-  NodeExtension,
-  Events,
-  EventHandler,
-  MarkExtension,
-  PluginExtension,
-} from "./extension";
+  NodeSpec,
+  Schema,
+  MarkSpec,
+  NodeType,
+  MarkType,
+} from "prosemirror-model";
+import { Plugin } from "prosemirror-state";
+
+type Plugins = Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
+
+type Base = {
+  name: string;
+};
+
+export type NodeExtension = Base & {
+  node: NodeSpec;
+};
+
+export type MarkExtension = Base & {
+  mark: MarkSpec;
+};
+
+export type PluginExtension = Base & {
+  plugins: Plugins;
+};
+
+export type Extension = NodeExtension | MarkExtension | PluginExtension;
+
+export interface Events {
+  load: {
+    id: string;
+    extension: Extension;
+  };
+  ["off-load"]: string;
+}
+
+export interface EventHandler {
+  <T extends keyof Events>(event: T, target: string, data: Events[T]): void;
+}
 
 const content = /(\w+)(\+)?/;
 const parseDeps = (node?: NodeSpec) => {
@@ -29,7 +56,7 @@ type Dependency = { content: string; minimal?: number };
 type DfsStatus = undefined | 1 | 2;
 type Visited = Record<string, DfsStatus>;
 
-class Dag {
+export default class Manager {
   readonly deps: Record<string, Dependency[]> = {};
   readonly groups: Record<string, string[]> = {};
   readonly nonDag: string[] = [];
@@ -67,39 +94,41 @@ class Dag {
     const marks: Record<string, MarkSpec> = {};
     const allPlugins: Plugin[] = [];
 
-    for (const name of this.bfsPath) {
-      if (!this.groups[name]) {
-        const extension = this.getExtension(name);
-        const node: NodeSpec | undefined = (extension as NodeExtension).node;
-        const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
+    this.eachExtension((extension, name) => {
+      const node: NodeSpec | undefined = (extension as NodeExtension).node;
+      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
 
-        if (node) {
-          nodes[name] = node;
-        } else if (mark) {
-          marks[name] = mark;
-        }
+      if (node) {
+        nodes[name] = node;
+      } else if (mark) {
+        marks[name] = mark;
       }
-    }
+    });
 
     const schema = new Schema({ nodes, marks });
 
-    for (const name of this.bfsPath) {
-      if (!this.groups[name]) {
-        const extension = this.getExtension(name);
-        const plugins = (extension as PluginExtension).plugins || [];
+    this.eachExtension((extension, name) => {
+      const plugins = (extension as PluginExtension).plugins || [];
 
-        let thisPlugins: Plugin[] = [];
-        if (typeof plugins === "function") {
-          thisPlugins = plugins(schema.nodes[name] || schema.marks[name]);
-        } else {
-          thisPlugins = plugins;
-        }
-        allPlugins.push(...thisPlugins);
+      let thisPlugins: Plugin[] = [];
+      if (typeof plugins === "function") {
+        thisPlugins = plugins(schema.nodes[name] || schema.marks[name]);
+      } else {
+        thisPlugins = plugins;
       }
-    }
+      allPlugins.push(...thisPlugins);
+    });
 
     return { schema, plugins: allPlugins };
   }
+
+  eachExtension = (fn: (extension: Extension, name: string) => void) => {
+    for (const name of this.bfsPath) {
+      if (!this.groups[name]) {
+        fn(this.getExtension(name), name);
+      }
+    }
+  };
 
   // only use the first extension at present
   private getExtension = (name: string) => this.extensions[name][0].extension;
@@ -143,7 +172,7 @@ class Dag {
   private detectInfinity = () => {
     for (const name of this.nonDag) {
       if (this.dfsNonDag(name)) {
-        throw new Error(`Infinite Dependency Detected: ${name}`);
+        throw new Error(`infinite dependency detected: ${name}`);
       }
     }
   };
@@ -195,7 +224,7 @@ class Dag {
           this.dfs(dep.content, visited);
         }
       } else {
-        throw new Error(`Missing Content: ${name}`);
+        throw new Error(`missing content: ${name}`);
       }
       visited[name] = 2;
       this.dfsPath.push(name);
@@ -232,47 +261,4 @@ class Dag {
 
     return n < minimal;
   };
-}
-
-export function useManager() {
-  const [state, setState] = useState<EditorState>();
-  const [extensions, setExtensions] = useState<Extensions>({});
-  const dispatch = useCallback<EventHandler>((event, target, data) => {
-    switch (event) {
-      case "load": {
-        setExtensions((extensions) =>
-          produce(extensions, (draft) => {
-            if (!draft[target]) {
-              draft[target] = [];
-            }
-            draft[target].push(data as Events["load"]);
-          })
-        );
-        break;
-      }
-      case "off-load": {
-        setExtensions((extensions) =>
-          produce(extensions, (draft) => {
-            if (!draft[target]) {
-              return;
-            }
-            const id = data as Events["off-load"];
-            remove(draft["target"], (item) => item.id === id);
-          })
-        );
-        break;
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const config = new Dag(extensions).createConfig();
-    if (config) {
-      setState((state) =>
-        state ? state.reconfigure(config) : EditorState.create(config)
-      );
-    }
-  }, [extensions]);
-
-  return [state, dispatch] as [typeof state, typeof dispatch];
 }
