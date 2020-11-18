@@ -1,20 +1,5 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  useMemo,
-  useLayoutEffect,
-} from "react";
-import ReactDOM from "react-dom";
-import {
-  EditorView,
-  DirectEditorProps,
-  Decoration,
-  NodeView,
-} from "prosemirror-view";
+import { useContext, useEffect, useRef, useState, useCallback } from "react";
+import { EditorView, Decoration, NodeView } from "prosemirror-view";
 import { EditorState } from "prosemirror-state";
 import { Node as ProsemirrorNode, DOMSerializer } from "prosemirror-model";
 import produce from "immer";
@@ -23,11 +8,13 @@ import remove from "lodash.remove";
 import { ExtensionContext, ExtensionView } from "./extension";
 import Manager, { Events, EventHandler, Extension } from "./manager";
 
+// TODO: presently use integer as extension id for development only
 var counter = 0;
 
 export function useExtension(extension: Extension) {
   const seq = useRef(++counter);
-  const { dispatch } = useContext(ExtensionContext);
+  const context = useContext(ExtensionContext);
+  const dispatch = context.dispatch;
 
   useEffect(() => {
     const id = seq.current.toString();
@@ -42,7 +29,7 @@ export function useExtension(extension: Extension) {
     };
   }, [dispatch, extension]);
 
-  return null;
+  return context;
 }
 
 export function useManager(element: HTMLDivElement | null) {
@@ -62,13 +49,13 @@ export function useManager(element: HTMLDivElement | null) {
     ) => {
       let dom: Node | undefined;
       let contentDOM: Node | null | undefined;
+
       const spec = node.type.spec.toDOM?.(node);
       if (spec) {
         ({ dom, contentDOM } = DOMSerializer.renderSpec(document, spec));
       }
-
-      if (!dom) {
-        dom = document.createElement("div");
+      if (!dom || dom === contentDOM) {
+        return (null as unknown) as NodeView;
       }
 
       setExtensionViews((extensionViews) =>
@@ -95,6 +82,9 @@ export function useManager(element: HTMLDivElement | null) {
           );
           return true;
         },
+        selectNode: () => {
+          console.log("selected\n");
+        },
         destroy: () => {
           setExtensionViews((portals) =>
             produce(portals, (draft) => {
@@ -106,17 +96,17 @@ export function useManager(element: HTMLDivElement | null) {
     };
   }, []);
 
-  const dispatch = useCallback<EventHandler>((event, name, data) => {
+  const dispatch = useCallback<EventHandler>((event, target, data) => {
     switch (event) {
       case "load": {
         setExtensions((extensions) =>
           produce(extensions, (draft) => {
-            if (!draft[name]) {
-              draft[name] = [];
+            if (!draft[target]) {
+              draft[target] = [];
             }
-            const target = data as Events["load"];
-            if (!draft[name].find((x) => x.id === target.id)) {
-              draft[name].push(target);
+            const item = data as Events["load"];
+            if (!draft[target].find((x) => x.id === item.id)) {
+              draft[target].push(item);
             }
           })
         );
@@ -125,13 +115,13 @@ export function useManager(element: HTMLDivElement | null) {
       case "off-load": {
         setExtensions((extensions) =>
           produce(extensions, (draft) => {
-            if (!draft[name]) {
+            if (!draft[target]) {
               return;
             }
             const id = data as Events["off-load"];
-            remove(draft[name], (item) => item.id === id);
-            if (draft[name].length === 0) {
-              delete draft[name];
+            remove(draft[target], (item) => item.id === id);
+            if (draft[target].length === 0) {
+              delete draft[target];
             }
           })
         );
@@ -168,7 +158,7 @@ export function useManager(element: HTMLDivElement | null) {
 
     const view = new EditorView(element, { state, nodeViews });
     setView(view);
-  }, [extensions, element]);
+  }, [extensions, element, createNodeView]);
 
   return { view, dispatch, extensionViews };
 }
