@@ -1,37 +1,24 @@
-import React, { createContext, useContext } from "react";
+import React from "react";
 import ReactDOM from "react-dom";
-import { EditorView, Decoration } from "prosemirror-view";
-import { Node as ProsemirrorNode } from "prosemirror-model";
 
-import { EventHandler } from "./manager";
-
-export type ExtensionView = {
-  dom?: Node;
-  node?: ProsemirrorNode;
-  getPos?: boolean | (() => number);
-  decorations?: Decoration[];
-};
-
-type ContextProps = ExtensionView & {
-  view?: EditorView;
-  dispatch?: EventHandler;
-};
-
-export const ExtensionContext = createContext<ContextProps>({});
+import { useExtensionContext, ExtensionContextProvider, State } from "./hooks";
 
 type Props = {
   children?: React.ReactNode;
 };
 
 export default function Extension({ children }: Props) {
-  const { dom } = useContext(ExtensionContext);
+  const { dom } = useExtensionContext();
   return dom ? ReactDOM.createPortal(children, dom as HTMLElement) : null;
 }
 
-type ExtensionProviderProps = Props &
-  ContextProps & {
-    extensionViews: Record<string, ExtensionView>;
-  };
+type ExtensionProviderProps = { children: React.ReactNode } & Pick<
+  State,
+  "extensionViews"
+> &
+  ReturnType<typeof useExtensionContext>;
+
+type ExtensionView = ExtensionProviderProps["extensionViews"][string];
 
 export function ExtensionProvider({
   extensionViews,
@@ -47,9 +34,9 @@ export function ExtensionProvider({
         }
 
         return (
-          <ExtensionContext.Provider value={{ ...context, ...view }}>
+          <ExtensionContextProvider value={{ ...context, ...view }}>
             {child}
-          </ExtensionContext.Provider>
+          </ExtensionContextProvider>
         );
       })}
     </>

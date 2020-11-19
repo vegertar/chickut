@@ -4,8 +4,10 @@ import {
   MarkSpec,
   NodeType,
   MarkType,
+  Node as ProsemirrorNode,
 } from "prosemirror-model";
 import { Plugin } from "prosemirror-state";
+import { Decoration } from "prosemirror-view";
 
 type Plugins = Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
 
@@ -13,30 +15,33 @@ type Base = {
   name: string;
 };
 
-export type NodeExtension = Base & {
+type NodeExtension = Base & {
   node: NodeSpec;
 };
 
-export type MarkExtension = Base & {
+type MarkExtension = Base & {
   mark: MarkSpec;
 };
 
-export type PluginExtension = Base & {
+type PluginExtension = Base & {
   plugins: Plugins;
 };
 
-export type Extension = NodeExtension | MarkExtension | PluginExtension;
+type Extension = NodeExtension | MarkExtension | PluginExtension;
+
+type ExtensionView = {
+  dom: Node;
+  node: ProsemirrorNode;
+  getPos: boolean | (() => number);
+  decorations: Decoration[];
+};
 
 export interface Events {
-  load: {
-    id: string;
-    extension: Extension;
-  };
-  ["off-load"]: string;
-}
-
-export interface EventHandler {
-  <T extends keyof Events>(event: T, target: string, data: Events[T]): void;
+  load: Extension;
+  ["off-load"]: {};
+  ["create-view"]: ExtensionView;
+  ["update-view"]: Pick<ExtensionView, "node" | "decorations">;
+  ["destroy-view"]: {};
 }
 
 const content = /(\w+)(\+)?/;
@@ -50,7 +55,8 @@ const parseDeps = (node?: NodeSpec) => {
   return [];
 };
 
-type Extensions = Record<string, Events["load"][]>;
+// TODO: support multiple extensions for the same name
+type Extensions = Record<string, Events["load"]>;
 type Dependency = { content: string; minimal?: number };
 
 type DfsStatus = undefined | 1 | 2;
@@ -130,8 +136,7 @@ export default class Manager {
     }
   };
 
-  // only use the first extension at present
-  private getExtension = (name: string) => this.extensions[name][0].extension;
+  private getExtension = (name: string) => this.extensions[name];
 
   private init = () => {
     for (const name in this.extensions) {

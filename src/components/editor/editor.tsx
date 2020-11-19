@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from "react";
 import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";

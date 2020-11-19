@@ -1,44 +1,86 @@
-import { useContext, useEffect, useRef, useState, useCallback } from "react";
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useReducer,
+  createContext,
+} from "react";
 import { EditorView, Decoration, NodeView } from "prosemirror-view";
 import { EditorState } from "prosemirror-state";
 import { Node as ProsemirrorNode, DOMSerializer } from "prosemirror-model";
 import produce from "immer";
-import remove from "lodash.remove";
 
-import { ExtensionContext, ExtensionView } from "./extension";
-import Manager, { Events, EventHandler, Extension } from "./manager";
+import Manager, { Events } from "./manager";
 
-// TODO: presently use integer as extension id for development only
-var counter = 0;
+type Extension = Events["load"];
+type ExtensionView = Events["create-view"];
 
-export function useExtension(extension: Extension) {
-  const seq = useRef(++counter);
-  const context = useContext(ExtensionContext);
-  const dispatch = context.dispatch;
+type ContextProps = Partial<ExtensionView> & {
+  view?: EditorView;
+  dispatch?: React.Dispatch<Action>;
+};
 
-  useEffect(() => {
-    const id = seq.current.toString();
-    const name = extension.name.toLowerCase();
-    dispatch?.("load", name, {
-      id,
-      extension,
+const Context = createContext<ContextProps>({});
+
+export const ExtensionContextProvider = Context.Provider;
+
+export interface State {
+  extensions: Record<string, Extension>;
+  extensionViews: Record<string, ExtensionView>;
+}
+
+interface Action extends Partial<Events> {
+  target: string;
+}
+
+function reducer(state: State, action: Action) {
+  const target = action.target;
+
+  if (action.load) {
+    const data = action.load;
+    return produce(state, (draft) => {
+      draft.extensions[target] = data;
     });
+  }
 
-    return () => {
-      dispatch?.("off-load", name, id);
-    };
-  }, [dispatch, extension]);
+  if (action["off-load"]) {
+    return produce(state, (draft) => {
+      delete draft.extensions[target];
+    });
+  }
 
-  return context;
+  if (action["create-view"]) {
+    const data = action["create-view"];
+    return produce(state, (draft: State) => {
+      draft.extensionViews[target] = data;
+    });
+  }
+
+  if (action["update-view"]) {
+    const data = action["update-view"];
+    return produce(state, (draft) => {
+      const old = draft.extensionViews[target];
+      draft.extensionViews[target] = { ...old, ...data };
+    });
+  }
+
+  if (action["destroy-view"]) {
+    return produce(state, (draft) => {
+      delete draft.extensionViews[target];
+    });
+  }
+
+  return state;
 }
 
 export function useManager(element: HTMLDivElement | null) {
-  type Extensions = ConstructorParameters<typeof Manager>[0];
-  type ExtensionViews = Record<string, ExtensionView>;
-
   const [view, setView] = useState<EditorView>();
-  const [extensions, setExtensions] = useState<Extensions>({});
-  const [extensionViews, setExtensionViews] = useState<ExtensionViews>({});
+  const [{ extensions, extensionViews }, dispatch] = useReducer(reducer, {
+    extensions: {},
+    extensionViews: {},
+  });
 
   const createNodeView = useCallback((name: string) => {
     return (
@@ -58,107 +100,94 @@ export function useManager(element: HTMLDivElement | null) {
         return (null as unknown) as NodeView;
       }
 
-      setExtensionViews((extensionViews) =>
-        produce(extensionViews, (draft: ExtensionViews) => {
-          draft[name] = {
-            dom,
-            node,
-            getPos,
-            decorations,
-          };
-        })
-      );
+      dispatch({
+        target: name,
+        "create-view": {
+          dom,
+          node,
+          getPos,
+          decorations,
+        },
+      });
 
       return {
         dom,
         contentDOM,
         update: (node: ProsemirrorNode, decorations: Decoration[]) => {
-          setExtensionViews((extensionViews) =>
-            produce(extensionViews, (draft: ExtensionViews) => {
-              const extensionView = draft[name];
-              extensionView.node = node;
-              extensionView.decorations = decorations;
-            })
-          );
+          dispatch({
+            target: name,
+            "update-view": { node, decorations },
+          });
           return true;
         },
         selectNode: () => {
           console.log("selected\n");
         },
         destroy: () => {
-          setExtensionViews((portals) =>
-            produce(portals, (draft) => {
-              delete draft[name];
-            })
-          );
+          dispatch({
+            target: name,
+            "destroy-view": {},
+          });
         },
       } as NodeView;
     };
   }, []);
 
-  const dispatch = useCallback<EventHandler>((event, target, data) => {
-    switch (event) {
-      case "load": {
-        setExtensions((extensions) =>
-          produce(extensions, (draft) => {
-            if (!draft[target]) {
-              draft[target] = [];
-            }
-            const item = data as Events["load"];
-            if (!draft[target].find((x) => x.id === item.id)) {
-              draft[target].push(item);
-            }
-          })
-        );
-        break;
+  useEffect(
+    function destroyView() {
+      return () => {
+        view?.destroy();
+      };
+    },
+    [view]
+  );
+
+  useEffect(
+    function createView() {
+      if (!element) {
+        return;
       }
-      case "off-load": {
-        setExtensions((extensions) =>
-          produce(extensions, (draft) => {
-            if (!draft[target]) {
-              return;
-            }
-            const id = data as Events["off-load"];
-            remove(draft[target], (item) => item.id === id);
-            if (draft[target].length === 0) {
-              delete draft[target];
-            }
-          })
-        );
-        break;
+
+      const config = new Manager(extensions).createConfig();
+      if (!config) {
+        return;
       }
-    }
-  }, []);
 
-  useEffect(() => {
-    return () => {
-      view?.destroy();
-    };
-  }, [view]);
+      // TODO: transfer history
+      const state = EditorState.create(config);
+      const nodeViews = Object.keys(extensions).reduce(
+        (all, name) => ({
+          ...all,
+          [name]: createNodeView(name),
+        }),
+        {} as Record<string, ReturnType<typeof createNodeView>>
+      );
 
-  useEffect(() => {
-    if (!element) {
-      return;
-    }
-
-    const config = new Manager(extensions).createConfig();
-    if (!config) {
-      return;
-    }
-
-    // TODO: transfer history
-    const state = EditorState.create(config);
-    const nodeViews = Object.keys(extensions).reduce(
-      (all, name) => ({
-        ...all,
-        [name]: createNodeView(name),
-      }),
-      {} as Record<string, ReturnType<typeof createNodeView>>
-    );
-
-    const view = new EditorView(element, { state, nodeViews });
-    setView(view);
-  }, [extensions, element, createNodeView]);
+      const view = new EditorView(element, { state, nodeViews });
+      setView(view);
+    },
+    [extensions, element, createNodeView]
+  );
 
   return { view, dispatch, extensionViews };
+}
+
+export function useExtensionContext() {
+  return useContext(Context);
+}
+
+export function useExtension(extension: Extension) {
+  const context = useExtensionContext();
+  const dispatch = context.dispatch;
+
+  useEffect(() => {
+    const name = extension.name.toLowerCase();
+    dispatch?.({ target: name, load: extension });
+
+    return () => {
+      dispatch?.({ target: name, "off-load": {} });
+    };
+  }, [dispatch, extension]);
+
+  return context;
 }
