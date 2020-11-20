@@ -1,7 +1,6 @@
 import {
   useContext,
   useEffect,
-  useRef,
   useState,
   useCallback,
   useReducer,
@@ -148,6 +147,7 @@ export function useManager(element: HTMLDivElement | null) {
         return;
       }
 
+      // TODO: create Manager under Web Worker
       const config = new Manager(extensions).createConfig();
       if (!config) {
         return;
