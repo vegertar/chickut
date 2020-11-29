@@ -20,6 +20,7 @@ interface Handle {
 interface Props {
   style?: Record<string, string | number>;
   children?: React.ReactNode;
+  autoFix?: boolean;
 }
 
 function focus(view: EditorView) {
@@ -42,13 +43,16 @@ function applyDevTools(view: EditorView) {
 }
 
 export default forwardRef<Handle, Props>(function Editor(props, ref) {
-  const { style, children } = props || {};
+  const { style, children, autoFix } = props || {};
   const divRef = useRef<HTMLDivElement>(null);
-  const context = useManager(divRef.current);
+  const context = useManager(divRef.current, autoFix);
   const { view } = context;
 
   useEffect(() => {
-    view && applyDevTools(view);
+    if (view) {
+      applyDevTools(view);
+      // focus(view);
+    }
   }, [view]);
 
   useImperativeHandle(

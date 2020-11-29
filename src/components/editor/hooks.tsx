@@ -11,7 +11,7 @@ import { EditorState } from "prosemirror-state";
 import { Node as ProsemirrorNode, DOMSerializer } from "prosemirror-model";
 import produce from "immer";
 
-import Manager, { Events } from "./manager";
+import { createConfig, Events } from "./manager";
 
 type Extension = Events["load"];
 type ExtensionView = Events["create-view"];
@@ -74,7 +74,7 @@ function reducer(state: State, action: Action) {
   return state;
 }
 
-export function useManager(element: HTMLDivElement | null) {
+export function useManager(element: HTMLDivElement | null, autoFix = false) {
   const [view, setView] = useState<EditorView>();
   const [{ extensions, extensionViews }, dispatch] = useReducer(reducer, {
     extensions: {},
@@ -147,8 +147,7 @@ export function useManager(element: HTMLDivElement | null) {
         return;
       }
 
-      // TODO: create Manager under Web Worker
-      const config = new Manager(extensions).createConfig();
+      const config = createConfig(extensions, autoFix);
       if (!config) {
         return;
       }
@@ -166,7 +165,7 @@ export function useManager(element: HTMLDivElement | null) {
       const view = new EditorView(element, { state, nodeViews });
       setView(view);
     },
-    [extensions, element, createNodeView]
+    [extensions, createNodeView, element, autoFix]
   );
 
   return { view, dispatch, extensionViews };

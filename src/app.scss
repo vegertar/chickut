@@ -31,36 +31,4 @@
       background-color: gray;
     }
   }
-
-  .tree-view {
-    position: fixed;
-    margin: 0;
-    padding: 1em 2em;
-    right: 0;
-    top: 0;
-    background-color: aliceblue;
-    z-index: 1000;
-
-    span {
-      display: inline-block;
-      padding: 0.2em;
-      border: 1px solid transparent;
-
-      &:hover {
-        cursor: pointer;
-        border: 1px dashed gray;
-      }
-    }
-
-    [data-is-group] > span {
-      font-style: italic;
-      font-size: small;
-      text-decoration: underline;
-
-      &:hover {
-        cursor: initial;
-        border-color: transparent;
-      }
-    }
-  }
 }

@@ -11,7 +11,7 @@
     font-weight: 500;
     cursor: default;
 
-    &:not(.placeholder):before {
+    &:before {
       @include read-only {
         display: none;
       }
@@ -22,78 +22,28 @@
       font-size: 13px;
       left: -24px;
     }
-
-    &:hover {
-      .heading-anchor {
-        opacity: 1;
-      }
-    }
   }
 
-  .heading-name {
-    color: theme-var(text);
-
-    &:hover {
-      text-decoration: none;
-    }
-  }
-
-  a:first-child {
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      margin-top: 0;
-    }
-  }
-
-  h1:not(.placeholder):before {
+  h1:before {
     content: "H1";
     line-height: 3em;
   }
-  h2:not(.placeholder):before {
+  h2:before {
     content: "H2";
     line-height: 2.8em;
   }
-  h3:not(.placeholder):before {
+  h3:before {
     content: "H3";
     line-height: 2.3em;
   }
-  h4:not(.placeholder):before {
+  h4:before {
     content: "H4";
     line-height: 2.2em;
   }
-  h5:not(.placeholder):before {
+  h5:before {
     content: "H5";
   }
-  h6:not(.placeholder):before {
+  h6:before {
     content: "H6";
-  }
-
-  .heading-anchor {
-    @include read-only {
-      display: block;
-    }
-    display: none;
-    opacity: 0;
-    color: theme-var(textSecondary);
-    cursor: pointer;
-    background: none;
-    border: 0;
-    outline: none;
-    padding: 2px 12px 2px 4px;
-    margin: 0;
-    position: absolute;
-    transition: opacity 100ms ease-in-out;
-    font-family: theme-var(fontFamilyMono);
-    font-size: 22px;
-    left: -1.3em;
-
-    &:focus,
-    &:hover {
-      color: theme-var(text);
-    }
   }
 }

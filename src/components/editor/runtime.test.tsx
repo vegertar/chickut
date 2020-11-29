@@ -121,30 +121,12 @@ it("bench bubble-sort", async () => {
 
   r.stack.forEach((item) => item());
   const bubbleSort = r.valueOf("bubbleSort")();
-
-  // function bubbleSort(a: number[]) {
-  //   var swapped;
-  //   var n = a.length - 1;
-  //   var x = a;
-  //   do {
-  //     swapped = false;
-  //     for (var i = 0; i < n; i++) {
-  //       if (x[i] < x[i + 1]) {
-  //         var temp = x[i];
-  //         x[i] = x[i + 1];
-  //         x[i + 1] = temp;
-  //         swapped = true;
-  //       }
-  //     }
-  //     n--;
-  //   } while (swapped);
-  //   return x;
-  // }
+  expect(typeof bubbleSort === "function");
   expect(bubbleSort([0, 3, 1, 2])).toEqual([3, 2, 1, 0]);
 
   const array = range(0, 1000);
   const startTime = new Date().getTime();
   bubbleSort(array);
   const endTime = new Date().getTime();
-  expect(endTime - startTime).toBeLessThan(10);
+  expect(endTime - startTime).toBeLessThan(1000);
 });

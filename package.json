@@ -13,6 +13,7 @@
     "@types/lodash.pickby": "^4.6.6",
     "@types/lodash.range": "^3.2.6",
     "@types/lodash.remove": "^4.7.6",
+    "@types/lodash.union": "^4.6.6",
     "@types/markdown-it": "^10.0.2",
     "@types/node": "^12.0.0",
     "@types/orderedmap": "^1.0.0",
@@ -39,6 +40,7 @@
     "lodash.pickby": "^4.6.0",
     "lodash.range": "^3.2.0",
     "lodash.remove": "^4.7.0",
+    "lodash.union": "^4.6.0",
     "markdown-it": "^12.0.2",
     "meriyah": "^3.1.6",
     "orderedmap": "^1.1.1",
@@ -94,12 +96,12 @@
   },
   "devDependencies": {
     "@babel/core": "^7.12.3",
-    "@storybook/addon-actions": "^6.0.28",
-    "@storybook/addon-essentials": "^6.0.28",
-    "@storybook/addon-links": "^6.0.28",
-    "@storybook/node-logger": "^6.0.28",
+    "@storybook/addon-actions": "^6.1.7",
+    "@storybook/addon-essentials": "^6.1.7",
+    "@storybook/addon-links": "^6.1.7",
+    "@storybook/node-logger": "^6.1.7",
     "@storybook/preset-create-react-app": "^3.1.5",
-    "@storybook/react": "^6.0.28",
+    "@storybook/react": "^6.1.7",
     "prosemirror-dev-tools": "^3.0.2",
     "react-is": "^17.0.1"
   }

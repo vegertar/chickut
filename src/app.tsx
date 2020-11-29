@@ -10,7 +10,7 @@ export default function App() {
   const [theme, setTheme] = useState(light);
 
   return (
-    <Theme className={`${theme} app`}>
+    <Theme theme={theme} className="app">
       <div className="menu">
         <div>
           <button onClick={() => setTheme((x) => (x === light ? dark : light))}>
