@@ -1,34 +1,44 @@
 import React from "react";
+import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 
-import Theme from "./theme";
+import Theme, { themes } from "./theme";
 import Editor from "./editor";
 
-type ThemeProps = {
-  theme?: string;
-};
-
-type EditorProps = {
-  autoFix?: boolean;
-};
-
-type ThemedEditorProps<P> = P & ThemeProps & EditorProps;
-
-export function withThemedEditor<P = {}>(
-  Component: React.FC<P>,
-  addon?: React.ReactNode
-) {
-  return (props: ThemedEditorProps<P>) => (
+export const extensionDecorators = [
+  (Story: Story, { args }: StoryContext) => (
     <Theme
-      theme={props.theme}
+      theme={args.theme}
       style={{
         margin: "0 auto",
         padding: "0 20px",
       }}
     >
-      <Editor autoFix={props.autoFix === undefined ? true : props.autoFix}>
-        <Component {...props} />
-        {addon}
+      <Editor autoFix>
+        <Story />
       </Editor>
     </Theme>
-  );
-}
+  ),
+];
+
+export const extensionArgs = {
+  theme: "light",
+};
+
+export const extensionMeta = (extension: any) => {
+  const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
+
+  return {
+    title: `extensions/${kind}/${extension.name}`,
+    component: extension,
+    decorators: extensionDecorators,
+    args: extensionArgs,
+    argTypes: {
+      theme: {
+        control: {
+          type: "inline-radio",
+          options: Object.keys(themes),
+        },
+      },
+    },
+  } as Meta;
+};

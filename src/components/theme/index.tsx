@@ -4,9 +4,11 @@ import "./_index.scss";
 
 export const light = "light";
 export const dark = "dark";
+export const themes = { light, dark };
+export type ThemeType = keyof typeof themes;
 
 type Props = React.HTMLAttributes<HTMLDivElement> & {
-  theme?: string;
+  theme?: ThemeType;
 };
 
 export default function Theme({

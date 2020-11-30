@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 
-import Theme, { light, dark } from "./components/theme";
+import Theme, { light, dark, ThemeType } from "./components/theme";
 import Editor from "./components/editor";
 import * as Extensions from "./components/extensions";
 
 import "./app.scss";
 
 export default function App() {
-  const [theme, setTheme] = useState(light);
+  const [theme, setTheme] = useState<ThemeType>(light);
 
   return (
     <Theme theme={theme} className="app">
