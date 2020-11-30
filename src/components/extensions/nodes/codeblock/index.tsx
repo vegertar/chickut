@@ -7,8 +7,8 @@ import { useExtension, Extension } from "../../../editor";
 import "./style.scss";
 
 export default function CodeBlock() {
-  const { node } = useExtension(CodeBlock);
-  const textContent = node?.textContent;
+  const { extensionView } = useExtension(CodeBlock);
+  const textContent = extensionView?.node.textContent;
 
   return (
     <Extension>

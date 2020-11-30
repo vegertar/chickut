@@ -1,40 +1,56 @@
 import React from "react";
 import ReactDOM from "react-dom";
 
-import { useExtensionContext, ExtensionContextProvider, State } from "./hooks";
+import {
+  useExtensionContext,
+  ExtensionContextProvider,
+  State,
+  useManager,
+} from "./hooks";
 
 type Props = {
   children?: React.ReactNode;
 };
 
 export default function Extension({ children }: Props) {
-  const { dom } = useExtensionContext();
-  return dom ? ReactDOM.createPortal(children, dom as HTMLElement) : null;
+  const { extensionView } = useExtensionContext();
+  return extensionView
+    ? ReactDOM.createPortal(children, extensionView.dom as HTMLElement)
+    : null;
 }
 
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<
   State,
   "extensionViews"
 > &
-  ReturnType<typeof useExtensionContext>;
+  ReturnType<typeof useManager>;
 
 type ExtensionView = ExtensionProviderProps["extensionViews"][string];
 
 export function ExtensionProvider({
   extensionViews,
   children,
+  view: editorView,
   ...context
 }: ExtensionProviderProps) {
   return (
     <>
       {React.Children.map(children, (child) => {
-        let view: ExtensionView | undefined;
+        let extensionName: string | undefined;
+        let extensionView: ExtensionView | undefined;
         if (React.isValidElement(child) && typeof child.type === "function") {
-          view = extensionViews[child.type.name.toLowerCase()];
+          extensionName = child.type.name.toLowerCase();
+          extensionView = extensionViews[extensionName];
+        }
+
+        if (!extensionName) {
+          return null;
         }
 
         return (
-          <ExtensionContextProvider value={{ ...context, ...view }}>
+          <ExtensionContextProvider
+            value={{ ...context, editorView, extensionView, extensionName }}
+          >
             {child}
           </ExtensionContextProvider>
         );

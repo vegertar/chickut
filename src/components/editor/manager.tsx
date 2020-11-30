@@ -14,9 +14,7 @@ import union from "lodash.union";
 
 type Plugins = Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
 
-type Base = {
-  name: string;
-};
+type Base = {};
 
 type NodeExtension = Base & {
   node: NodeSpec;
@@ -356,7 +354,6 @@ export function createConfig(
             extensions = {
               ...extensions,
               doc: {
-                name: "doc",
                 node: {
                   content: "block+",
                 },
@@ -368,7 +365,6 @@ export function createConfig(
             extensions = {
               ...extensions,
               paragraph: {
-                name: "paragraph",
                 node: {
                   content: "inline*",
                   group: "block",
@@ -383,7 +379,6 @@ export function createConfig(
             extensions = {
               ...extensions,
               text: {
-                name: "text",
                 node: {
                   group: "inline",
                 },
@@ -394,7 +389,7 @@ export function createConfig(
           case "text":
             extensions = {
               ...extensions,
-              text: { name: "text", node: {} },
+              text: { node: {} },
             };
             continue;
 
@@ -402,7 +397,6 @@ export function createConfig(
             extensions = {
               ...extensions,
               keymap: {
-                name: "keymap",
                 plugins: [keymap(baseKeymap)],
               },
             };

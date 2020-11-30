@@ -8,7 +8,11 @@ import {
 } from "react";
 import { EditorView, Decoration, NodeView } from "prosemirror-view";
 import { EditorState } from "prosemirror-state";
-import { Node as ProsemirrorNode, DOMSerializer } from "prosemirror-model";
+import {
+  Node as ProsemirrorNode,
+  DOMSerializer,
+  Schema,
+} from "prosemirror-model";
 import produce from "immer";
 
 import { createConfig, Events } from "./manager";
@@ -16,8 +20,10 @@ import { createConfig, Events } from "./manager";
 type Extension = Events["load"];
 type ExtensionView = Events["create-view"];
 
-type ContextProps = Partial<ExtensionView> & {
-  view?: EditorView;
+type ContextProps = {
+  editorView?: EditorView<Schema>;
+  extensionView?: ExtensionView;
+  extensionName?: string;
   dispatch?: React.Dispatch<Action>;
 };
 
@@ -172,21 +178,28 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
 }
 
 export function useExtensionContext() {
-  return useContext(Context);
+  const { dispatch, extensionName, ...context } = useContext(Context);
+  const extensionDispatch = useCallback(
+    (events: Partial<Events>) => {
+      extensionName && dispatch?.({ target: extensionName, ...events });
+    },
+    [extensionName, dispatch]
+  );
+
+  return { ...context, dispatch: extensionDispatch, extensionName };
 }
 
 export function useExtension(extension: Extension) {
   const context = useExtensionContext();
   const dispatch = context.dispatch;
 
-  useEffect(() => {
-    const name = extension.name.toLowerCase();
-    dispatch?.({ target: name, load: extension });
-
-    return () => {
-      dispatch?.({ target: name, "off-load": {} });
-    };
-  }, [dispatch, extension]);
+  useEffect(
+    function setupExtension() {
+      dispatch({ load: extension });
+      return () => dispatch({ "off-load": {} });
+    },
+    [dispatch, extension]
+  );
 
   return context;
 }

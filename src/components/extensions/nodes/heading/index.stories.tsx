@@ -9,3 +9,6 @@ export default extensionMeta(Extension);
 const Template: Story = (args) => <Extension {...args} />;
 
 export const Default = Template.bind({});
+Default.args = {
+  text: "hello",
+};

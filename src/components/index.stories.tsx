@@ -4,34 +4,37 @@ import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 import Theme, { themes } from "./theme";
 import Editor from "./editor";
 
-export const extensionDecorators = [
-  (Story: Story, { args }: StoryContext) => (
-    <Theme
-      theme={args.theme}
-      style={{
-        margin: "0 auto",
-        padding: "0 20px",
-      }}
-    >
-      <Editor autoFix>
-        <Story />
-      </Editor>
-    </Theme>
-  ),
-];
-
-export const extensionArgs = {
-  theme: "light",
-};
-
 export const extensionMeta = (extension: any) => {
   const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
+  const name = extension.name;
 
   return {
     title: `extensions/${kind}/${extension.name}`,
     component: extension,
-    decorators: extensionDecorators,
-    args: extensionArgs,
+    decorators: [
+      (Story: Story, { args }: StoryContext) => {
+        const NamedStory = {
+          [name]: () => <Story />,
+        }[name];
+
+        return (
+          <Theme
+            theme={args.theme}
+            style={{
+              margin: "0 auto",
+              padding: "0 20px",
+            }}
+          >
+            <Editor autoFix>
+              <NamedStory />
+            </Editor>
+          </Theme>
+        );
+      },
+    ],
+    args: {
+      theme: "light",
+    },
     argTypes: {
       theme: {
         control: {
@@ -39,6 +42,9 @@ export const extensionMeta = (extension: any) => {
           options: Object.keys(themes),
         },
       },
+    },
+    parameters: {
+      backgrounds: { default: "light" },
     },
   } as Meta;
 };

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { NodeSpec, NodeType } from "prosemirror-model";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
 import { inputRules } from "prosemirror-inputrules";
@@ -7,10 +8,23 @@ import { useExtension } from "../../../editor";
 
 import "./style.scss";
 
-export default function Heading() {
-  useExtension(Heading);
+type Props = {
+  text?: string;
+};
+
+export default function Heading({ text }: Props = {}) {
+  const { dispatch } = useExtension(Heading);
+  // const type = editorView?.state.schema.nodes[extensionName!];
+  // console.log(">>>>", type?.create());
+
+  useEffect(() => {
+    console.log(">>>", text);
+  }, [dispatch, text]);
+
   return null;
 }
+
+const levels = range(1, 7);
 
 Heading.node = {
   attrs: {
@@ -22,7 +36,7 @@ Heading.node = {
   group: "block",
   defining: true,
   draggable: false,
-  parseDOM: range(1, 7).map((level) => ({
+  parseDOM: levels.map((level) => ({
     tag: `h${level}`,
     attrs: { level },
   })),
@@ -31,7 +45,7 @@ Heading.node = {
 
 Heading.plugins = (type: NodeType) => [
   inputRules({
-    rules: range(1, 7).map((level) =>
+    rules: levels.map((level) =>
       textblockTypeInputRule(new RegExp(`^(#{1,${level}})\\s$`), type, () => ({
         level,
       }))
