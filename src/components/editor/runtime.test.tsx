@@ -121,7 +121,7 @@ it("bench bubble-sort", async () => {
 
   r.stack.forEach((item) => item());
   const bubbleSort = r.valueOf("bubbleSort")();
-  expect(typeof bubbleSort === "function");
+  expect(typeof bubbleSort).toBe("function");
   expect(bubbleSort([0, 3, 1, 2])).toEqual([3, 2, 1, 0]);
 
   const array = range(0, 1000);

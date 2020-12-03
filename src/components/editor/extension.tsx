@@ -43,10 +43,6 @@ export function ExtensionProvider({
           extensionView = extensionViews[extensionName];
         }
 
-        if (!extensionName) {
-          return null;
-        }
-
         return (
           <ExtensionContextProvider
             value={{ ...context, editorView, extensionView, extensionName }}

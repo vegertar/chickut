@@ -168,7 +168,20 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
         {} as Record<string, ReturnType<typeof createNodeView>>
       );
 
-      const view = new EditorView(element, { state, nodeViews });
+      const view = new EditorView(element, {
+        state,
+        nodeViews,
+        dispatchTransaction(tr) {
+          console.log(
+            "Document size went from",
+            tr.before.content.size,
+            "to",
+            tr.doc.content.size
+          );
+          const newState = view.state.apply(tr);
+          view.updateState(newState);
+        },
+      });
       setView(view);
     },
     [extensions, createNodeView, element, autoFix]

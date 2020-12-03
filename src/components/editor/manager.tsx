@@ -45,7 +45,7 @@ export interface Events {
   ["destroy-view"]: {};
 }
 
-const minimalExtensions = ["doc", "paragraph", "text", "keymap"];
+const minimalExtensions = ["doc", "paragraph", "text", "keymap"]; // TODO: test only
 const defaultPrecedence = [
   "p",
   "blockquote",
@@ -145,13 +145,13 @@ export default class Manager {
 
   eachExtension = (fn: (extension: Extension, name: string) => void) => {
     for (const name of this.bfsPath) {
-      if (!this.groups[name]) {
-        fn(this.getExtension(name), name);
-      }
+      const extension = this.getExtension(name);
+      extension && fn(extension, name);
     }
   };
 
-  private getExtension = (name: string) => this.extensions[name];
+  private getExtension = (name: string): Extension | undefined =>
+    this.extensions[name];
 
   private init = () => {
     for (const item of minimalExtensions) {

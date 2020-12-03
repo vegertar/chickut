@@ -4,6 +4,18 @@ import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 import Theme, { themes } from "./theme";
 import Editor from "./editor";
 
+export const withThemedEditor = (
+  Extension: React.FC<any>,
+  addon: React.ReactNode
+) => () => (
+  <Theme>
+    <Editor autoFix>
+      <Extension />
+      {addon}
+    </Editor>
+  </Theme>
+);
+
 export const extensionMeta = (extension: any) => {
   const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
   const name = extension.name;
