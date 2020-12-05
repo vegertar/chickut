@@ -12,6 +12,7 @@ import { useManager } from "./hooks";
 import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
+import { env } from "process";
 
 interface Handle {
   view?: EditorView | undefined;
@@ -32,14 +33,16 @@ function focus(view: EditorView) {
 }
 
 function applyDevTools(view: EditorView) {
-  const DEVTOOLS_CLASS_NAME = "__prosemirror-dev-tools__";
-  const place = document.querySelector(`.${DEVTOOLS_CLASS_NAME}`);
-  if (place) {
-    ReactDOM.unmountComponentAtNode(place);
-    place.remove();
-  }
+  if (process.env.NODE_ENV !== "production") {
+    const DEVTOOLS_CLASS_NAME = "__prosemirror-dev-tools__";
+    const place = document.querySelector(`.${DEVTOOLS_CLASS_NAME}`);
+    if (place) {
+      ReactDOM.unmountComponentAtNode(place);
+      place.remove();
+    }
 
-  require("prosemirror-dev-tools").applyDevTools(view);
+    require("prosemirror-dev-tools").applyDevTools(view);
+  }
 }
 
 export default forwardRef<Handle, Props>(function Editor(props, ref) {

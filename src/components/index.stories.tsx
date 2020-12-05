@@ -16,7 +16,7 @@ export const withThemedEditor = (
   </Theme>
 );
 
-export const extensionMeta = (extension: any) => {
+export const extensionMeta = (extension: any, addon?: React.ReactNode) => {
   const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
   const name = extension.name;
 
@@ -39,6 +39,7 @@ export const extensionMeta = (extension: any) => {
           >
             <Editor autoFix>
               <NamedStory />
+              {addon}
             </Editor>
           </Theme>
         );

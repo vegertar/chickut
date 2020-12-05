@@ -80,6 +80,54 @@ function reducer(state: State, action: Action) {
   return state;
 }
 
+function createDOM(node: ProsemirrorNode) {
+  const element: HTMLElement = node.isInline
+    ? document.createElement("span")
+    : document.createElement("div");
+
+  // Prosemirror breaks down when it encounters multiple nested empty
+  // elements. This class prevents this from happening.
+  element.classList.add(`node-view-wrapper`);
+
+  return element;
+}
+
+function createContentDOM(node: ProsemirrorNode) {
+  if (node.isLeaf) {
+    return;
+  }
+
+  const domSpec = node.type.spec.toDOM?.(node);
+
+  // Only allow content if a domSpec exists which is used to render the content.
+  if (!domSpec) {
+    return;
+  }
+
+  // Let `ProseMirror` interpret the domSpec returned by `toDOM` to provide
+  // the dom and `contentDOM`.
+  const { contentDOM, dom } = DOMSerializer.renderSpec(document, domSpec);
+
+  // The content dom needs a wrapper node in react since the dom element which
+  // it renders inside isn't immediately mounted.
+  let wrapper: HTMLElement;
+
+  if (dom.nodeType !== Node.ELEMENT_NODE) {
+    return;
+  }
+
+  // Default to setting the wrapper to a different element.
+  wrapper = dom as HTMLElement;
+
+  if (dom === contentDOM) {
+    wrapper = document.createElement("span");
+    wrapper.classList.add(`node-view-content-wrapper`);
+    wrapper.append(contentDOM);
+  }
+
+  return { wrapper, contentDOM };
+}
+
 export function useManager(element: HTMLDivElement | null, autoFix = false) {
   const [view, setView] = useState<EditorView>();
   const [{ extensions, extensionViews }, dispatch] = useReducer(reducer, {
@@ -104,6 +152,7 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
       if (!dom || dom === contentDOM) {
         return (null as unknown) as NodeView;
       }
+      // TODO: Copies the attributes from a ProseMirror Node to the parent DOM node.
 
       dispatch({
         target: name,
@@ -158,8 +207,6 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
         return;
       }
 
-      // TODO: transfer history
-      const state = EditorState.create(config);
       const nodeViews = Object.keys(extensions).reduce(
         (all, name) => ({
           ...all,
@@ -169,7 +216,7 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
       );
 
       const view = new EditorView(element, {
-        state,
+        ...config,
         nodeViews,
         dispatchTransaction(tr) {
           console.log(

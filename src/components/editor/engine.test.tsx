@@ -1,6 +1,6 @@
-import Text from "./text";
+import Engine from "./engine";
 
-const t = new Text();
+const t = new Engine();
 
 beforeEach(() => {
   // TODO

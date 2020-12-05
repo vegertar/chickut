@@ -5,27 +5,35 @@ import {
   NodeType,
   MarkType,
   Node as ProsemirrorNode,
+  ResolvedPos,
 } from "prosemirror-model";
-import { Plugin } from "prosemirror-state";
-import { Decoration } from "prosemirror-view";
+import { EditorState, Plugin } from "prosemirror-state";
+import { Decoration, DirectEditorProps } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
 import union from "lodash.union";
+import Engine, { BlockRule, InlineRule, NoParserError } from "./engine";
 
-type Plugins = Plugin[] | ((type: NodeType | MarkType) => Plugin[]);
+type Base = {
+  rule?: BlockRule | InlineRule;
+};
+type SpecBase = {};
 
-type Base = {};
+type ExtensionSpec<T> = T & SpecBase;
+type ExtensionPlugins<T> = (type: T) => Plugin[];
 
 type NodeExtension = Base & {
-  node: NodeSpec;
+  node: ExtensionSpec<NodeSpec>;
+  plugins?: Plugin[] | ExtensionPlugins<NodeType>;
 };
 
 type MarkExtension = Base & {
-  mark: MarkSpec;
+  mark: ExtensionSpec<MarkSpec>;
+  plugins?: Plugin[] | ExtensionPlugins<MarkType>;
 };
 
 type PluginExtension = Base & {
-  plugins: Plugins;
+  plugins: Plugin[];
 };
 
 type Extension = NodeExtension | MarkExtension | PluginExtension;
@@ -82,9 +90,9 @@ export class MissingContentError extends Error {
 }
 
 export default class Manager {
-  readonly deps: Record<string, Dependency[]> = {};
-  readonly groups: Record<string, string[]> = {};
-  readonly tags: Record<string, string> = {};
+  readonly deps: Record<string, Dependency[] | undefined> = {};
+  readonly groups: Record<string, string[] | undefined> = {};
+  readonly tags: Record<string, string | undefined> = {};
   readonly nonDag: string[] = [];
   readonly dfsPath: string[] = [];
   readonly bfsPath: string[] = [];
@@ -100,14 +108,54 @@ export default class Manager {
     this.sortDeps();
   }
 
-  createConfig() {
+  createConfig(): DirectEditorProps | undefined {
     if (!this.bfsPath.length) {
       return undefined;
     }
 
+    const schema = this.createSchema();
+    const { plugins, engine } = this.createPluginsEngine(schema);
+
+    // TODO: transfer history
+    return {
+      state: EditorState.create({ schema, plugins }),
+      handleTextInput: (view, from, to, text) => {
+        if (view.composing) {
+          return false;
+        }
+
+        const state = view.state;
+        const $from = state.doc.resolve(from);
+        if ($from.parent.type.spec.code) {
+          return false;
+        }
+
+        const textBefore = $from.parent.textBetween(
+          Math.max(0, $from.parentOffset - 500), // backwards maximum 500
+          $from.parentOffset,
+          undefined,
+          "\ufffc"
+        );
+        const pendingText = textBefore + text;
+
+        try {
+          const tokens = engine.parse(pendingText);
+          console.log(tokens);
+        } catch (e) {
+          if (e instanceof NoParserError) {
+            return false;
+          }
+          throw e;
+        }
+
+        return false;
+      },
+    };
+  }
+
+  private createSchema() {
     const nodes: Record<string, NodeSpec> = {};
     const marks: Record<string, MarkSpec> = {};
-    const allPlugins: Plugin[] = [];
 
     this.eachExtension((extension, name) => {
       const node: NodeSpec | undefined = (extension as NodeExtension).node;
@@ -120,19 +168,33 @@ export default class Manager {
       }
     });
 
-    const schema = new Schema({ nodes, marks });
+    return new Schema({ nodes, marks });
+  }
+
+  private createPluginsEngine(schema: Schema) {
+    const allPlugins: Plugin[] = [];
+    const engine = new Engine();
+
     const keys = union(
       [...Object.keys(schema.nodes), ...Object.keys(schema.marks)],
       Object.keys(this.extensions)
     );
 
     for (const key of keys) {
-      const extension = this.getExtension(key);
-      const plugins = (extension as PluginExtension).plugins || [];
+      const type = schema.nodes[key] || schema.marks[key];
+      const { plugins = [], rule } = this.getExtension(key) || {};
+
+      if (rule) {
+        if (type.isBlock) {
+          engine.block.addRule(key, rule as BlockRule);
+        } else if (type.isInline) {
+          engine.inline.addRule(key, rule as InlineRule);
+        }
+      }
 
       let thisPlugins: Plugin[] = [];
       if (typeof plugins === "function") {
-        thisPlugins = plugins(schema.nodes[key] || schema.marks[key]);
+        thisPlugins = (plugins as ExtensionPlugins<typeof type>)(type);
       } else {
         thisPlugins = plugins;
       }
@@ -140,7 +202,7 @@ export default class Manager {
       allPlugins.push(...thisPlugins);
     }
 
-    return { schema, plugins: allPlugins };
+    return { plugins: allPlugins, engine };
   }
 
   eachExtension = (fn: (extension: Extension, name: string) => void) => {
@@ -168,14 +230,15 @@ export default class Manager {
         if (!this.groups[group]) {
           this.groups[group] = [];
         }
-        this.groups[group].push(name);
+        this.groups[group]!.push(name);
       }
 
       if (!this.deps[name]) {
         this.deps[name] = [];
       }
-      this.deps[name].push(...parseDeps(node));
+      this.deps[name]!.push(...parseDeps(node));
 
+      // TODO:
       if (node && node.parseDOM) {
         for (const { tag } of node.parseDOM) {
           if (tag) {
@@ -200,26 +263,27 @@ export default class Manager {
   };
 
   private sortGroups = () => {
+    const defaultPriority = this.precedence.length;
     for (const group in this.groups) {
-      this.groups[group].sort((a, b) => {
-        let x = -1;
-        let y = -1;
+      this.groups[group]?.sort((a, b) => {
+        let x = defaultPriority;
+        let y = defaultPriority;
         const aTag = this.tags[a];
         const bTag = this.tags[b];
         for (let i = 0; i < this.precedence.length; ++i) {
           const item = this.precedence[i];
           if (typeof item === "string") {
-            if (x === -1 && item === aTag) {
+            if (x === defaultPriority && item === aTag) {
               x = i;
             }
-            if (y === -1 && item === bTag) {
+            if (y === defaultPriority && item === bTag) {
               y = i;
             }
           } else {
-            if (x === -1 && aTag.match(item)) {
+            if (x === defaultPriority && aTag?.match(item)) {
               x = i;
             }
-            if (y === -1 && bTag.match(item)) {
+            if (y === defaultPriority && bTag?.match(item)) {
               y = i;
             }
           }
@@ -318,7 +382,7 @@ export default class Manager {
           }
         }
       } else {
-        for (const dep of this.deps[name]) {
+        for (const dep of this.deps[name]!) {
           if (!this.dfsNonDag(dep.content, visited, dep.minimal)) {
             ++n;
           } else {

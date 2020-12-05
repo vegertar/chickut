@@ -1,4 +1,8 @@
-import React from "react";
+// Text engine pruning from markdown-it
+
+import { env } from "process";
+
+export class NoParserError extends Error {}
 
 function isSpace(code: number) {
   switch (code) {
@@ -153,7 +157,7 @@ class Token {
 
   attrGet(name: AttrData[0]) {
     const idx = this.attrIndex(name);
-    return idx >= 0 ? this.attrs![idx][1] : null;
+    return idx >= 0 ? this.attrs![idx][1] : undefined;
   }
 
   attrJoin(name: AttrData[0], value: AttrData[1]) {
@@ -181,13 +185,13 @@ class State<T> {
 type Rule<H> = {
   name: string;
   handle: H;
-  enabled: boolean;
-  alt: string[];
+  disabled?: boolean;
+  alt?: string[];
 };
 
 type Cache<H> = Record<string, H[]>;
 
-class Ruler<H> {
+class Ruler<H extends Function> {
   private readonly rules: Rule<H>[] = [];
   private cache?: Cache<H>;
 
@@ -206,7 +210,7 @@ class Ruler<H> {
     chains.add("");
 
     this.rules.forEach(
-      (rule) => rule.enabled && rule.alt.forEach((item) => chains.add(item))
+      (rule) => !rule.disabled && rule.alt?.forEach((item) => chains.add(item))
     );
 
     const cache: Cache<H> = {};
@@ -214,11 +218,11 @@ class Ruler<H> {
     chains.forEach((chain) => {
       cache[chain] = [];
       this.rules.forEach((rule) => {
-        if (!rule.enabled) {
+        if (rule.disabled) {
           return;
         }
 
-        if (chain && rule.alt.indexOf(chain) < 0) {
+        if (chain && rule.alt && rule.alt.indexOf(chain) < 0) {
           return;
         }
 
@@ -231,7 +235,7 @@ class Ruler<H> {
   }
 
   // Replace existing typographer replacement rule with new one.
-  at(rule: Rule<H>) {
+  replace(rule: Rule<H>) {
     const index = this.find(rule.name);
     if (index === -1) {
       throw new Error("Parser rule not found: " + rule.name);
@@ -243,25 +247,25 @@ class Ruler<H> {
   }
 
   // Add new rule to chain before one with given name.
-  before(beforeName: string, rule: Rule<H>) {
+  addBefore(beforeName: string, ...rules: Rule<H>[]) {
     const index = this.find(beforeName);
     if (index === -1) {
       throw new Error("Parser rule not found: " + beforeName);
     }
 
-    this.rules.splice(index, 0, rule);
+    this.rules.splice(index, 0, ...rules);
     this.cache = undefined;
     return this;
   }
 
-  // Add new rule to chain after one with given name.
-  after(afterName: string, rule: Rule<H>) {
+  // Add new rules to chain after one with given name
+  addAfter(afterName: string, ...rules: Rule<H>[]) {
     const index = this.find(afterName);
     if (index === -1) {
       throw new Error("Parser rule not found: " + afterName);
     }
 
-    this.rules.splice(index + 1, 0, rule);
+    this.rules.splice(index + 1, 0, ...rules);
     this.cache = undefined;
     return this;
   }
@@ -282,6 +286,7 @@ class Ruler<H> {
       }
     }
     this.cache = undefined;
+    return this;
   }
 
   // Clean up all rules.
@@ -289,6 +294,67 @@ class Ruler<H> {
     this.rules.splice(0);
     this.cache = undefined;
     return this;
+  }
+
+  // Enable rules with given names. If any rule name not found - throw Error. Errors can be disabled by second param. Returns list of found rule names (if no exception happened).
+  enable(list: string[] | string, ignoreInvalid?: boolean) {
+    if (!Array.isArray(list)) {
+      list = [list];
+    }
+
+    const result = [];
+
+    // Search by name and enable
+    for (const name of list) {
+      const idx = this.find(name);
+
+      if (idx < 0) {
+        if (ignoreInvalid) {
+          return;
+        }
+        throw new Error("Rules manager: invalid rule name " + name);
+      }
+      this.rules[idx].disabled = false;
+      result.push(name);
+    }
+
+    this.cache = undefined;
+    return result;
+  }
+
+  // Enable rules with given names, and disable everything else. If any rule name not found - throw Error. Errors can be disabled by second param.
+  enableOnly(list: string[] | string, ignoreInvalid?: boolean) {
+    this.rules.forEach((rule) => {
+      rule.disabled = true;
+    });
+
+    this.enable(list, ignoreInvalid);
+  }
+
+  // Disable rules with given names. If any rule name not found - throw Error. Errors can be disabled by second param. Returns list of found rule names (if no exception happened).
+  disable(list: string[] | string, ignoreInvalid?: boolean) {
+    if (!Array.isArray(list)) {
+      list = [list];
+    }
+
+    const result = [];
+
+    // Search by name and disable
+    for (const name of list) {
+      const idx = this.find(name);
+
+      if (idx < 0) {
+        if (ignoreInvalid) {
+          return;
+        }
+        throw new Error("Rules manager: invalid rule name " + name);
+      }
+      this.rules[idx].disabled = true;
+      result.push(name);
+    }
+
+    this.cache = undefined;
+    return result;
   }
 
   // Return array of active functions (rules) for given chain name. It analyzes rules configuration, compiles caches if not exists and returns result. Default chain name is `''` (empty string). It can't be skipped. That's done intentionally, to keep signature monomorphic for high speed.
@@ -302,13 +368,59 @@ class Ruler<H> {
   }
 }
 
-abstract class Parser<T, H> {
+type MatchedData<T = string> = T | ((matched: string[]) => T);
+
+type RegexRule = {
+  match: RegExp;
+  tag: MatchedData;
+  markup: MatchedData;
+  content: MatchedData;
+  lines?: MatchedData<number>;
+};
+
+function matchedData<T extends string | number>(
+  matched: string[],
+  data: MatchedData<T>
+): T {
+  return typeof data === "function" ? data(matched) : data;
+}
+
+abstract class Parser<T, H extends Function> {
   readonly ruler = new Ruler<H>();
 
   // Second ruler used for post-processing (e.g. in emphasis-like rules).
   readonly postRuler = new Ruler<H>();
 
   abstract parse(state: State<T>): void;
+
+  cleanup() {
+    this.ruler.clean();
+    this.postRuler.clean();
+  }
+
+  addRule(name: string, rule: RegexRule | H, postRule?: boolean): void {
+    const handle =
+      typeof rule === "function"
+        ? rule
+        : this.createRegexRule(name, rule as RegexRule);
+
+    const item = { name, handle };
+    if (process.env.NODE_ENV !== "production") {
+      item.handle = { [name]: (...args: any[]) => handle(...args) }[
+        name
+      ] as any;
+    }
+
+    if (postRule) {
+      this.postRuler.add(item);
+    } else {
+      this.ruler.add(item);
+    }
+  }
+
+  createRegexRule(name: string, rule: RegexRule): H {
+    throw new Error(`Not support yet`);
+  }
 }
 
 type CoreHandle<T> = (state: State<T>) => void;
@@ -317,7 +429,7 @@ class CoreState<T> extends State<T> {}
 
 class CoreParser<T> extends Parser<T, CoreHandle<T>> {
   parse(state: CoreState<T>) {
-    this.ruler.getRules("").forEach((rule) => rule(state));
+    this.ruler.getRules().forEach((rule) => rule(state));
   }
 }
 
@@ -573,6 +685,43 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
     this.tokenize(state, state.line, state.lineMax);
   }
 
+  createRegexRule(
+    name: string,
+    { match, tag, markup, content, lines }: RegexRule
+  ): BlockHandle<T> {
+    return (state, silent, line) => {
+      const raw = state.src.slice(state.bMarks[line], state.eMarks[line]);
+      const matched = raw.match(match);
+      if (!matched) {
+        return false;
+      }
+
+      if (silent) {
+        return true;
+      }
+
+      state.line = line + (lines ? matchedData(matched, lines) : 1);
+
+      const tokenOpen = state.push(
+        `${name}_open`,
+        matchedData(matched, tag),
+        1
+      );
+      tokenOpen.markup = matchedData(matched, markup);
+      tokenOpen.map = [line, state.line];
+
+      const tokenInline = state.push("inline", "", 0);
+      tokenInline.content = matchedData(matched, content);
+      tokenInline.map = [line, state.line];
+      tokenInline.children = [];
+
+      const tokenClose = state.push(`${name}_close`, tokenOpen.tag, -1);
+      tokenClose.markup = tokenOpen.markup;
+
+      return true;
+    };
+  }
+
   tokenize(state: BlockState<T>, startLine: number, endLine: number) {
     const rules = this.ruler.getRules();
     const maxNesting = state.engine.options.maxNesting;
@@ -597,6 +746,8 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
         state.line = endLine;
         break;
       }
+
+      const lineBefore = line;
 
       // Try all possible rules.
       // On success, rule should:
@@ -624,6 +775,13 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
       if (line < endLine && state.isEmpty(line)) {
         hasEmptyLines = true;
         state.line = ++line;
+      }
+
+      if (line === lineBefore) {
+        const src = state.src.slice(state.bMarks[line], state.eMarks[line]);
+        throw new NoParserError(
+          `proper parsers are not available for line<${line}>: ${src}`
+        );
       }
     }
   }
@@ -857,84 +1015,40 @@ export default class Engine {
   };
 
   constructor() {
-    this.core.ruler.add({
-      name: "block",
-      enabled: true,
-      handle: (state) => {
-        if (state.inlineMode) {
-          const token = new Token("inline", "", 0);
-          token.content = state.src;
-          token.map = [0, 1];
-          token.children = [];
-          state.tokens.push(token);
-        } else {
-          state.engine.block.parse(state);
-        }
+    this.reset();
+  }
+
+  reset() {
+    this.core.cleanup();
+    this.block.cleanup();
+    this.inline.cleanup();
+
+    this.core.ruler.add(
+      {
+        name: "block",
+        handle: function block(state) {
+          if (state.inlineMode) {
+            const token = new Token("inline", "", 0);
+            token.content = state.src;
+            token.map = [0, 1];
+            token.children = [];
+            state.tokens.push(token);
+          } else {
+            state.engine.block.parse(state);
+          }
+        },
       },
-      alt: [],
-    });
-
-    this.block.ruler.add({
-      name: "heading",
-      enabled: true,
-      handle: (state, silent, startLine) => {
-        let pos = state.bMarks[startLine] + state.tShift[startLine];
-        let max = state.eMarks[startLine];
-
-        // if it's indented more than 3 spaces, it should be a code block
-        if (state.sCount[startLine] - state.blkIndent >= 4) {
-          return false;
-        }
-
-        let ch = state.src.charCodeAt(pos);
-        if (ch !== 0x23 /* # */ || pos >= max) {
-          return false;
-        }
-
-        // count heading level
-        let level = 1;
-        ch = state.src.charCodeAt(++pos);
-        while (ch === 0x23 /* # */ && pos < max && level <= 6) {
-          level++;
-          ch = state.src.charCodeAt(++pos);
-        }
-
-        if (level > 6 || (pos < max && !isSpace(ch))) {
-          return false;
-        }
-
-        if (silent) {
-          return true;
-        }
-
-        // Let's cut tails like '    ###  ' from the end of string
-
-        max = state.skipSpacesBack(max, pos);
-        const tmp = state.skipCharsBack(max, 0x23, pos); // #
-        if (tmp > pos && isSpace(state.src.charCodeAt(tmp - 1))) {
-          max = tmp;
-        }
-
-        state.line = startLine + 1;
-        const tag = `h${level}`;
-        const markup = "#".repeat(level);
-
-        const tokenOpen = state.push("heading_open", tag, 1);
-        tokenOpen.markup = markup;
-        tokenOpen.map = [startLine, state.line];
-
-        const tokenInline = state.push("inline", "", 0);
-        tokenInline.content = state.src.slice(pos, max).trim();
-        tokenInline.map = [startLine, state.line];
-        tokenInline.children = [];
-
-        const tokenClose = state.push("heading_close", tag, -1);
-        tokenClose.markup = markup;
-
-        return true;
-      },
-      alt: [],
-    });
+      {
+        name: "inline",
+        handle: function inline(state) {
+          for (const { type, content: src, children: tokens } of state.tokens) {
+            if (type === "inline" && src && tokens) {
+              state.engine.inline.parse({ ...state, src, tokens });
+            }
+          }
+        },
+      }
+    );
   }
 
   parse(src: string, env: Record<string, any> = {}) {
@@ -943,3 +1057,7 @@ export default class Engine {
     return state.tokens;
   }
 }
+
+export type CoreRule = CoreHandle<Engine>;
+export type BlockRule = BlockHandle<Engine> | RegexRule;
+export type InlineRule = InlineHandle<Engine> | RegexRule;
