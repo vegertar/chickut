@@ -3,20 +3,30 @@ import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 
 import Theme, { themes } from "./theme";
 import Editor from "./editor";
+import { Doc, Paragraph, Text, Keymap } from "./extensions";
+
+export const minimalExtensions = (
+  <>
+    <Doc />
+    <Paragraph />
+    <Text />
+    <Keymap />
+  </>
+);
 
 export const withThemedEditor = (
   Extension: React.FC<any>,
-  addon: React.ReactNode
+  addon = minimalExtensions
 ) => () => (
   <Theme>
-    <Editor autoFix>
+    <Editor>
       <Extension />
       {addon}
     </Editor>
   </Theme>
 );
 
-export const extensionMeta = (extension: any, addon?: React.ReactNode) => {
+export const extensionMeta = (extension: any, addon = minimalExtensions) => {
   const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
   const name = extension.name;
 
@@ -37,7 +47,7 @@ export const extensionMeta = (extension: any, addon?: React.ReactNode) => {
               padding: "0 20px",
             }}
           >
-            <Editor autoFix>
+            <Editor>
               <NamedStory />
               {addon}
             </Editor>

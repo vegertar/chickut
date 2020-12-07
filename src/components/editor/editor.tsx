@@ -7,12 +7,12 @@ import React, {
 import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";
 import { Selection } from "prosemirror-state";
+import ReactIs from "react-is";
 
 import { useManager } from "./hooks";
 import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
-import { env } from "process";
 
 interface Handle {
   view?: EditorView | undefined;
@@ -21,7 +21,6 @@ interface Handle {
 interface Props {
   style?: Record<string, string | number>;
   children?: React.ReactNode;
-  autoFix?: boolean;
 }
 
 function focus(view: EditorView) {
@@ -45,10 +44,22 @@ function applyDevTools(view: EditorView) {
   }
 }
 
+function flatFragment(children: React.ReactNode) {
+  const data: React.ReactNode[] = [];
+  React.Children.forEach(children, (child) => {
+    if (ReactIs.isFragment(child)) {
+      data.push(...child.props.children);
+    } else {
+      data.push(child);
+    }
+  });
+  return data;
+}
+
 export default forwardRef<Handle, Props>(function Editor(props, ref) {
-  const { style, children, autoFix } = props || {};
+  const { style, children } = props || {};
   const divRef = useRef<HTMLDivElement>(null);
-  const context = useManager(divRef.current, autoFix);
+  const context = useManager(divRef.current);
   const { view } = context;
 
   useEffect(() => {
@@ -68,7 +79,9 @@ export default forwardRef<Handle, Props>(function Editor(props, ref) {
 
   return (
     <div ref={divRef} className="editor" style={style}>
-      <ExtensionProvider {...context}>{children}</ExtensionProvider>
+      <ExtensionProvider {...context}>
+        {flatFragment(children)}
+      </ExtensionProvider>
     </div>
   );
 });

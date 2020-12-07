@@ -1,4 +1,4 @@
-import {
+import React, {
   useContext,
   useEffect,
   useState,
@@ -7,29 +7,28 @@ import {
   createContext,
 } from "react";
 import { EditorView, Decoration, NodeView } from "prosemirror-view";
-import { EditorState } from "prosemirror-state";
 import {
-  Node as ProsemirrorNode,
   DOMSerializer,
+  Node as ProsemirrorNode,
   Schema,
 } from "prosemirror-model";
 import produce from "immer";
 
-import { createConfig, Events } from "./manager";
+import Manager, { Events, MissingContentError } from "./manager";
 
 type Extension = Events["load"];
 type ExtensionView = Events["create-view"];
 
-type ContextProps = {
+export type ExtensionContextProps = {
   editorView?: EditorView<Schema>;
   extensionView?: ExtensionView;
   extensionName?: string;
   dispatch?: React.Dispatch<Action>;
 };
 
-const Context = createContext<ContextProps>({});
+const ExtensionContext = createContext<ExtensionContextProps>({});
 
-export const ExtensionContextProvider = Context.Provider;
+export const ExtensionContextProvider = ExtensionContext.Provider;
 
 export interface State {
   extensions: Record<string, Extension>;
@@ -45,6 +44,10 @@ function reducer(state: State, action: Action) {
 
   if (action.load) {
     const data = action.load;
+    if (state.extensions[target] !== undefined) {
+      throw new Error(`extension ${target} is existed`);
+    }
+
     return produce(state, (draft) => {
       draft.extensions[target] = data;
     });
@@ -80,55 +83,80 @@ function reducer(state: State, action: Action) {
   return state;
 }
 
+function ExtensionContentWrapper({
+  contentWrapper,
+  contentDOM,
+}: {
+  contentWrapper: HTMLElement;
+  contentDOM: Node;
+}) {
+  const ref = useCallback(
+    (wrapper: HTMLElement | null) => {
+      if (!wrapper) {
+        return;
+      }
+
+      wrapper.appendChild(contentDOM);
+      const display = contentWrapper.style.display;
+      contentWrapper.style.display = "none";
+
+      return () => {
+        contentWrapper.appendChild(contentDOM);
+        contentWrapper.style.display = display;
+      };
+    },
+
+    [contentWrapper, contentDOM]
+  );
+
+  return <span ref={ref} className="extension-content-wrapper" />;
+}
+
 function createDOM(node: ProsemirrorNode) {
-  const element: HTMLElement = node.isInline
+  return node.isInline
     ? document.createElement("span")
     : document.createElement("div");
-
-  // Prosemirror breaks down when it encounters multiple nested empty
-  // elements. This class prevents this from happening.
-  element.classList.add(`node-view-wrapper`);
-
-  return element;
 }
 
-function createContentDOM(node: ProsemirrorNode) {
-  if (node.isLeaf) {
+function createNodeViewDOMs(name: string, node: ProsemirrorNode) {
+  if (node.isText) {
     return;
   }
 
-  const domSpec = node.type.spec.toDOM?.(node);
+  const spec = node.type.spec.toDOM?.(node);
+  const renderer = spec ? DOMSerializer.renderSpec(document, spec) : null;
 
-  // Only allow content if a domSpec exists which is used to render the content.
-  if (!domSpec) {
+  const contentWrapper = renderer?.contentDOM || document.createElement("span");
+  if (contentWrapper.nodeType !== Node.ELEMENT_NODE) {
     return;
   }
 
-  // Let `ProseMirror` interpret the domSpec returned by `toDOM` to provide
-  // the dom and `contentDOM`.
-  const { contentDOM, dom } = DOMSerializer.renderSpec(document, domSpec);
-
-  // The content dom needs a wrapper node in react since the dom element which
-  // it renders inside isn't immediately mounted.
-  let wrapper: HTMLElement;
-
-  if (dom.nodeType !== Node.ELEMENT_NODE) {
-    return;
+  let dom = renderer?.dom;
+  if (dom === renderer?.contentDOM || !dom) {
+    dom = createDOM(node);
   }
 
-  // Default to setting the wrapper to a different element.
-  wrapper = dom as HTMLElement;
+  const contentDOM = document.createElement("span");
 
-  if (dom === contentDOM) {
-    wrapper = document.createElement("span");
-    wrapper.classList.add(`node-view-content-wrapper`);
-    wrapper.append(contentDOM);
-  }
+  contentWrapper.appendChild(contentDOM);
+  dom.appendChild(contentWrapper);
+  (dom as HTMLElement).classList.add(`${name}-view`);
+  (contentWrapper as HTMLElement).classList.add(`${name}-content-wrapper`);
+  contentDOM.classList.add(`${name}-content`);
 
-  return { wrapper, contentDOM };
+  return {
+    dom,
+    contentDOM,
+    content: (
+      <ExtensionContentWrapper
+        contentWrapper={contentWrapper as HTMLElement}
+        contentDOM={contentDOM}
+      />
+    ),
+  };
 }
 
-export function useManager(element: HTMLDivElement | null, autoFix = false) {
+export function useManager(element: HTMLDivElement | null) {
   const [view, setView] = useState<EditorView>();
   const [{ extensions, extensionViews }, dispatch] = useReducer(reducer, {
     extensions: {},
@@ -142,32 +170,34 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
       getPos: boolean | (() => number),
       decorations: Decoration[]
     ) => {
-      let dom: Node | undefined;
-      let contentDOM: Node | null | undefined;
+      const doms = createNodeViewDOMs(name, node);
+      if (!doms) {
+        return (null as any) as NodeView;
+      }
 
-      const spec = node.type.spec.toDOM?.(node);
-      if (spec) {
-        ({ dom, contentDOM } = DOMSerializer.renderSpec(document, spec));
-      }
-      if (!dom || dom === contentDOM) {
-        return (null as unknown) as NodeView;
-      }
-      // TODO: Copies the attributes from a ProseMirror Node to the parent DOM node.
+      const { dom, contentDOM, content } = doms;
 
       dispatch({
         target: name,
         "create-view": {
           dom,
           node,
+          content,
           getPos,
           decorations,
         },
       });
 
+      const extensionNode = node;
       return {
         dom,
         contentDOM,
         update: (node: ProsemirrorNode, decorations: Decoration[]) => {
+          // extension type got changed
+          if (node.type !== extensionNode.type) {
+            return false;
+          }
+
           dispatch({
             target: name,
             "update-view": { node, decorations },
@@ -202,7 +232,19 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
         return;
       }
 
-      const config = createConfig(extensions, autoFix);
+      let manager: Manager;
+
+      try {
+        manager = new Manager(extensions);
+      } catch (e) {
+        if (e instanceof MissingContentError) {
+          console.warn(e);
+          return;
+        }
+        throw e;
+      }
+
+      const config = manager.createConfig();
       if (!config) {
         return;
       }
@@ -231,14 +273,14 @@ export function useManager(element: HTMLDivElement | null, autoFix = false) {
       });
       setView(view);
     },
-    [extensions, createNodeView, element, autoFix]
+    [extensions, createNodeView, element]
   );
 
   return { view, dispatch, extensionViews };
 }
 
 export function useExtensionContext() {
-  const { dispatch, extensionName, ...context } = useContext(Context);
+  const { dispatch, extensionName, ...context } = useContext(ExtensionContext);
   const extensionDispatch = useCallback(
     (events: Partial<Events>) => {
       extensionName && dispatch?.({ target: extensionName, ...events });

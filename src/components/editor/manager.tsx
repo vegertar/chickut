@@ -5,14 +5,14 @@ import {
   NodeType,
   MarkType,
   Node as ProsemirrorNode,
+  Slice,
   ResolvedPos,
 } from "prosemirror-model";
 import { EditorState, Plugin } from "prosemirror-state";
-import { Decoration, DirectEditorProps } from "prosemirror-view";
-import { keymap } from "prosemirror-keymap";
-import { baseKeymap } from "prosemirror-commands";
+import { Decoration, DirectEditorProps, EditorView } from "prosemirror-view";
 import union from "lodash.union";
-import Engine, { BlockRule, InlineRule, NoParserError } from "./engine";
+
+import Engine, { Token, BlockRule, InlineRule, NoParserError } from "./engine";
 
 type Base = {
   rule?: BlockRule | InlineRule;
@@ -40,6 +40,7 @@ type Extension = NodeExtension | MarkExtension | PluginExtension;
 
 type ExtensionView = {
   dom: Node;
+  content: React.ReactNode;
   node: ProsemirrorNode;
   getPos: boolean | (() => number);
   decorations: Decoration[];
@@ -53,7 +54,6 @@ export interface Events {
   ["destroy-view"]: {};
 }
 
-const minimalExtensions = ["doc", "paragraph", "text", "keymap"]; // TODO: test only
 const defaultPrecedence = [
   "p",
   "blockquote",
@@ -89,6 +89,95 @@ export class MissingContentError extends Error {
   }
 }
 
+function clipboardTextParser(
+  schema: Schema,
+  text: string,
+  $context: ResolvedPos<Schema>,
+  plain: boolean
+) {
+  console.log(text, $context, plain);
+  return Slice.empty;
+}
+
+function handleTextInput(
+  view: EditorView,
+  from: number,
+  to: number,
+  text: string
+) {
+  if (view.composing) {
+    // TODO: what is composition?
+    return false;
+  }
+
+  const state = view.state;
+  const $from = state.doc.resolve(from);
+  if ($from.parent.type.spec.code) {
+    return false;
+  }
+
+  const textBefore = $from.parent.textBetween(
+    Math.max(0, $from.parentOffset - 500), // backwards maximum 500
+    $from.parentOffset,
+    undefined,
+    "\ufffc"
+  );
+  const pendingText = textBefore + text;
+  const start = from - textBefore.length;
+  const end = to;
+
+  const schema = state.schema as Schema;
+  const engine = schema.cached.engine as Engine;
+
+  let tr = state.tr;
+  let offset = 0;
+  const transform = (tokens: Token[]) => {
+    for (const token of tokens) {
+      offset += token.nesting;
+
+      let [first, last] = token.map?.slice(2) || [];
+      if (first !== undefined && last !== undefined) {
+        first += offset;
+        last += offset;
+      }
+
+      if (
+        token.nesting === 1 &&
+        token.block &&
+        first !== undefined &&
+        last !== undefined
+      ) {
+        // right trim "_open" postfix
+        const key = token.type.slice(0, token.type.length - 5);
+        const type = schema.nodes[key];
+        tr = tr
+          .deleteRange(first, last)
+          .setBlockType(first, first, type, token.attrs);
+      }
+
+      if (token.children?.length) {
+        transform(token.children);
+      }
+    }
+  };
+
+  try {
+    const tokens = engine.parse(pendingText);
+    if (tokens.length) {
+      transform(tokens);
+      view.dispatch(tr);
+      return true;
+    }
+  } catch (e) {
+    if (e instanceof NoParserError) {
+      return false;
+    }
+    throw e;
+  }
+
+  return false;
+}
+
 export default class Manager {
   readonly deps: Record<string, Dependency[] | undefined> = {};
   readonly groups: Record<string, string[] | undefined> = {};
@@ -114,42 +203,16 @@ export default class Manager {
     }
 
     const schema = this.createSchema();
-    const { plugins, engine } = this.createPluginsEngine(schema);
+    const plugins = this.createPlugins(schema);
 
     // TODO: transfer history
+    const state = EditorState.create({ schema, plugins });
+
     return {
-      state: EditorState.create({ schema, plugins }),
-      handleTextInput: (view, from, to, text) => {
-        if (view.composing) {
-          return false;
-        }
-
-        const state = view.state;
-        const $from = state.doc.resolve(from);
-        if ($from.parent.type.spec.code) {
-          return false;
-        }
-
-        const textBefore = $from.parent.textBetween(
-          Math.max(0, $from.parentOffset - 500), // backwards maximum 500
-          $from.parentOffset,
-          undefined,
-          "\ufffc"
-        );
-        const pendingText = textBefore + text;
-
-        try {
-          const tokens = engine.parse(pendingText);
-          console.log(tokens);
-        } catch (e) {
-          if (e instanceof NoParserError) {
-            return false;
-          }
-          throw e;
-        }
-
-        return false;
-      },
+      state,
+      handleTextInput,
+      clipboardTextParser: (text, $context, plain) =>
+        clipboardTextParser(schema, text, $context, plain),
     };
   }
 
@@ -171,9 +234,12 @@ export default class Manager {
     return new Schema({ nodes, marks });
   }
 
-  private createPluginsEngine(schema: Schema) {
+  private createPlugins(schema: Schema) {
     const allPlugins: Plugin[] = [];
     const engine = new Engine();
+
+    // EditorProps handlers will retrieve engine from the schema cache
+    schema.cached.engine = engine;
 
     const keys = union(
       [...Object.keys(schema.nodes), ...Object.keys(schema.marks)],
@@ -185,6 +251,7 @@ export default class Manager {
       const { plugins = [], rule } = this.getExtension(key) || {};
 
       if (rule) {
+        // TODO: engine rule order might be opposite of keys'
         if (type.isBlock) {
           engine.block.addRule(key, rule as BlockRule);
         } else if (type.isInline) {
@@ -202,7 +269,7 @@ export default class Manager {
       allPlugins.push(...thisPlugins);
     }
 
-    return { plugins: allPlugins, engine };
+    return allPlugins;
   }
 
   eachExtension = (fn: (extension: Extension, name: string) => void) => {
@@ -216,11 +283,6 @@ export default class Manager {
     this.extensions[name];
 
   private init = () => {
-    for (const item of minimalExtensions) {
-      if (this.extensions[item] === undefined) {
-        throw new MissingContentError(item);
-      }
-    }
     for (const name in this.extensions) {
       const extension = this.getExtension(name) as NodeExtension;
       const node: NodeSpec | undefined = extension.node;
@@ -396,84 +458,4 @@ export default class Manager {
 
     return n < minimal;
   };
-}
-
-export function createConfig(
-  extensions: Record<string, Extension>,
-  autoFix: boolean
-) {
-  let manager: Manager | undefined;
-  let err: Error | undefined;
-
-  for (let i = 0; i < 10; ++i) {
-    try {
-      // TODO: create Manager under Web Worker
-      manager = new Manager(extensions);
-      err = undefined;
-    } catch (e) {
-      err = e;
-      if (e instanceof MissingContentError && autoFix) {
-        switch (e.content) {
-          case "doc":
-            extensions = {
-              ...extensions,
-              doc: {
-                node: {
-                  content: "block+",
-                },
-              },
-            };
-            continue;
-
-          case "paragraph":
-            extensions = {
-              ...extensions,
-              paragraph: {
-                node: {
-                  content: "inline*",
-                  group: "block",
-                  parseDOM: [{ tag: "p" }],
-                  toDOM: () => ["p", 0],
-                },
-              },
-            };
-            continue;
-
-          case "inline":
-            extensions = {
-              ...extensions,
-              text: {
-                node: {
-                  group: "inline",
-                },
-              },
-            };
-            continue;
-
-          case "text":
-            extensions = {
-              ...extensions,
-              text: { node: {} },
-            };
-            continue;
-
-          case "keymap":
-            extensions = {
-              ...extensions,
-              keymap: {
-                plugins: [keymap(baseKeymap)],
-              },
-            };
-            continue;
-        }
-      }
-    }
-    break;
-  }
-
-  if (err) {
-    throw err;
-  }
-
-  return manager?.createConfig();
 }

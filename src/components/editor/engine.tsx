@@ -1,6 +1,6 @@
 // Text engine pruning from markdown-it
 
-import { env } from "process";
+import execWithIndices, { RegExpExecArray } from "regexp-match-indices";
 
 export class NoParserError extends Error {}
 
@@ -92,17 +92,15 @@ function expandTab(n: number) {
   return 4 - (n % 4);
 }
 
-type AttrData = [string, string];
-
 // Babel does not support `const enum` yet
 // 1: opening, 0: self closing, -1: clsoing
 type Nesting = 1 | 0 | -1;
 
-class Token {
-  // Html attributes. Format: `[ [ name1, value1 ], [ name2, value2 ] ]`
-  attrs?: AttrData[];
-  // Source map info. Format: `[ line_begin, line_end ]`
-  map?: [number, number];
+export class Token {
+  // Html attributes.
+  attrs?: Record<string, any>;
+  // Source map info. Format: `[ line_begin, line_end, index_begin?, index_end? ]`
+  map?: [number, number, number?, number?];
   // nesting level, the same as `state.level`
   level?: number;
   // An array of child nodes (inline and img tokens)
@@ -130,56 +128,33 @@ class Token {
     // Level change for the tag
     public nesting: Nesting
   ) {}
+}
 
-  attrIndex(name: string) {
-    const i = this.attrs?.findIndex((item) => item[0] === name);
-    return i === undefined ? -1 : i;
-  }
-
-  attrPush(attrData: AttrData) {
-    if (this.attrs) {
-      this.attrs.push(attrData);
-    } else {
-      this.attrs = [attrData];
-    }
-  }
-
-  attrSet(name: AttrData[0], value: AttrData[1]) {
-    const idx = this.attrIndex(name);
-    const attrData = [name, value] as AttrData;
-
-    if (idx < 0) {
-      this.attrPush(attrData);
-    } else {
-      this.attrs![idx] = attrData;
-    }
-  }
-
-  attrGet(name: AttrData[0]) {
-    const idx = this.attrIndex(name);
-    return idx >= 0 ? this.attrs![idx][1] : undefined;
-  }
-
-  attrJoin(name: AttrData[0], value: AttrData[1]) {
-    const idx = this.attrIndex(name);
-
-    if (idx < 0) {
-      this.attrPush([name, value]);
-    } else {
-      this.attrs![idx][1] = this.attrs![idx][1] + " " + value;
-    }
-  }
+interface StateProps<T> {
+  // the instance made up by parsers
+  engine: T;
+  // the input raw source code
+  src: string;
+  // the output parsed tokens
+  tokens: Token[];
+  // out-of-band properites
+  env: Record<string, any>;
 }
 
 class State<T> {
   inlineMode = false;
 
-  constructor(
-    public readonly src: string,
-    public readonly engine: T,
-    public readonly env: Record<string, any>,
-    public readonly tokens: Token[] = []
-  ) {}
+  readonly engine: T;
+  readonly src: string;
+  readonly tokens: Token[];
+  readonly env: Record<string, any>;
+
+  constructor({ src, engine, tokens, env }: StateProps<T>) {
+    this.src = src;
+    this.engine = engine;
+    this.tokens = tokens;
+    this.env = env;
+  }
 }
 
 type Rule<H> = {
@@ -368,21 +343,22 @@ class Ruler<H extends Function> {
   }
 }
 
-type MatchedData<T = string> = T | ((matched: string[]) => T);
+type MatchedData<T = string> = T | MatchedDataGetter<T>;
+type MatchedDataGetter<T> = (matched: RegExpExecArray) => T;
 
 type RegexRule = {
   match: RegExp;
-  tag: MatchedData;
-  markup: MatchedData;
-  content: MatchedData;
+  content?: MatchedData;
+  markup?: MatchedData;
+  tag?: MatchedData;
   lines?: MatchedData<number>;
+  attrs?: MatchedData<Record<string, any>>;
 };
 
-function matchedData<T extends string | number>(
-  matched: string[],
-  data: MatchedData<T>
-): T {
-  return typeof data === "function" ? data(matched) : data;
+function matchedData<T>(matched: RegExpExecArray, data: MatchedData<T>): T {
+  return typeof data === "function"
+    ? (data as MatchedDataGetter<T>)(matched)
+    : data;
 }
 
 abstract class Parser<T, H extends Function> {
@@ -391,7 +367,7 @@ abstract class Parser<T, H extends Function> {
   // Second ruler used for post-processing (e.g. in emphasis-like rules).
   readonly postRuler = new Ruler<H>();
 
-  abstract parse(state: State<T>): void;
+  abstract parse(props: StateProps<T>): void;
 
   cleanup() {
     this.ruler.clean();
@@ -428,7 +404,8 @@ type CoreHandle<T> = (state: State<T>) => void;
 class CoreState<T> extends State<T> {}
 
 class CoreParser<T> extends Parser<T, CoreHandle<T>> {
-  parse(state: CoreState<T>) {
+  parse(props: StateProps<T>) {
+    const state = new CoreState(props);
     this.ruler.getRules().forEach((rule) => rule(state));
   }
 }
@@ -465,20 +442,15 @@ class BlockState<T> extends State<T> {
   // nesting level
   level = 0;
 
-  constructor(
-    src: string,
-    engine: T,
-    env: Record<string, any>,
-    tokens: Token[]
-  ) {
-    super(src, engine, env, tokens);
+  constructor(props: StateProps<T>) {
+    super(props);
 
     let indentFound = false;
     let start = 0;
     let indent = 0;
     let offset = 0;
-    for (let pos = 0, len = src.length; pos < len; pos++) {
-      const ch = src.charCodeAt(pos);
+    for (let pos = 0, len = this.src.length; pos < len; pos++) {
+      const ch = this.src.charCodeAt(pos);
 
       if (!indentFound) {
         if (isSpace(ch)) {
@@ -619,7 +591,7 @@ class BlockState<T> extends State<T> {
       const lineStart = this.bMarks[line];
       let lineIndent = 0;
       let first = lineStart;
-      let last: number | undefined;
+      let last: number;
 
       if (line + 1 < end || keepLastLF) {
         // No need for bounds check because we have fake entry on tail.
@@ -676,22 +648,25 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
   T,
   BlockHandle<T>
 > {
-  parse({ src, engine, env, tokens }: State<T>) {
-    if (!src) {
+  parse(props: StateProps<T>) {
+    if (!props.src) {
       return;
     }
 
-    const state = new BlockState<T>(src, engine, env, tokens);
+    const state = new BlockState<T>(props);
     this.tokenize(state, state.line, state.lineMax);
   }
 
   createRegexRule(
     name: string,
-    { match, tag, markup, content, lines }: RegexRule
+    { match, tag, markup, content, lines, attrs }: RegexRule
   ): BlockHandle<T> {
-    return (state, silent, line) => {
-      const raw = state.src.slice(state.bMarks[line], state.eMarks[line]);
-      const matched = raw.match(match);
+    return (state, silent, startLine, endLine) => {
+      const raw = state.src.slice(
+        state.bMarks[startLine],
+        state.eMarks[startLine]
+      );
+      const matched = execWithIndices(match, raw);
       if (!matched) {
         return false;
       }
@@ -700,19 +675,36 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
         return true;
       }
 
-      state.line = line + (lines ? matchedData(matched, lines) : 1);
+      const matchedGroups = matched.groups;
+      const matchedGroupsIndices = matched.indices.groups;
+      state.line = startLine + (lines ? matchedData(matched, lines) : 1);
 
       const tokenOpen = state.push(
         `${name}_open`,
-        matchedData(matched, tag),
+        tag ? matchedData(matched, tag) : matchedGroups?.tag || name,
         1
       );
-      tokenOpen.markup = matchedData(matched, markup);
-      tokenOpen.map = [line, state.line];
+      tokenOpen.markup = markup
+        ? matchedData(matched, markup)
+        : matchedGroups?.markup;
+      tokenOpen.map = [
+        startLine,
+        state.line,
+        ...(matchedGroupsIndices?.markup || []),
+      ];
+      if (attrs) {
+        tokenOpen.attrs = matchedData(matched, attrs);
+      }
 
       const tokenInline = state.push("inline", "", 0);
-      tokenInline.content = matchedData(matched, content);
-      tokenInline.map = [line, state.line];
+      tokenInline.content = content
+        ? matchedData(matched, content)
+        : matchedGroups?.content;
+      tokenInline.map = [
+        startLine,
+        state.line,
+        ...(matchedGroupsIndices?.content || []),
+      ];
       tokenInline.children = [];
 
       const tokenClose = state.push(`${name}_close`, tokenOpen.tag, -1);
@@ -898,8 +890,8 @@ class InlineState<T> extends State<T> {
       }
     }
 
-    let open: boolean | undefined;
-    let close: boolean | undefined;
+    let open: boolean;
+    let close: boolean;
 
     if (!canSplitWord) {
       open = leftFlanking && (!rightFlanking || isLastPunctChar);
@@ -922,8 +914,8 @@ type InlineHandle<T> = (state: InlineState<T>, silent: boolean) => boolean;
 class InlineParser<
   T extends { options: { maxNesting: number } }
 > extends Parser<T, InlineHandle<T>> {
-  parse({ src, engine, env, tokens }: State<T>) {
-    const state = new InlineState(src, engine, env, tokens);
+  parse(props: StateProps<T>) {
+    const state = new InlineState(props);
     this.tokenize(state);
     this.postRuler.getRules().forEach((rule) => rule(state, false));
   }
@@ -1051,10 +1043,10 @@ export default class Engine {
     );
   }
 
-  parse(src: string, env: Record<string, any> = {}) {
-    const state = new CoreState(src, this, env);
-    this.core.parse(state);
-    return state.tokens;
+  parse(src: string, env: Record<string, any> = {}): Token[] {
+    const props = { engine: this, src, env, tokens: [] };
+    this.core.parse(props);
+    return props.tokens;
   }
 }
 
