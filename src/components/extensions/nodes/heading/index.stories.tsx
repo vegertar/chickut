@@ -8,7 +8,32 @@ export default extensionMeta(Extension);
 
 const Template: Story = (args) => <Extension {...args} />;
 
-export const Default = Template.bind({});
-Default.args = {
-  text: "hello",
+export const First = Template.bind({});
+First.args = {
+  text: "# hello",
+};
+
+export const Second = Template.bind({});
+Second.args = {
+  text: "## hello",
+};
+
+export const Third = Template.bind({});
+Third.args = {
+  text: "### hello",
+};
+
+export const Fourth = Template.bind({});
+Fourth.args = {
+  text: "#### hello",
+};
+
+export const Fifth = Template.bind({});
+Fifth.args = {
+  text: "##### hello",
+};
+
+export const Sixth = Template.bind({});
+Sixth.args = {
+  text: "###### hello",
 };

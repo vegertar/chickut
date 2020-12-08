@@ -6,7 +6,6 @@ import React, {
 } from "react";
 import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";
-import { Selection } from "prosemirror-state";
 import ReactIs from "react-is";
 
 import { useManager } from "./hooks";
@@ -21,14 +20,6 @@ interface Handle {
 interface Props {
   style?: Record<string, string | number>;
   children?: React.ReactNode;
-}
-
-function focus(view: EditorView) {
-  const selection = Selection.atEnd(view.state.doc);
-  const transaction = view.state.tr.setSelection(selection);
-  view.dispatch(transaction);
-  view.focus();
-  return view;
 }
 
 function applyDevTools(view: EditorView) {
@@ -65,7 +56,6 @@ export default forwardRef<Handle, Props>(function Editor(props, ref) {
   useEffect(() => {
     if (view) {
       applyDevTools(view);
-      // focus(view);
     }
   }, [view]);
 

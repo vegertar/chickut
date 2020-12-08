@@ -12,12 +12,27 @@ import {
   Node as ProsemirrorNode,
   Schema,
 } from "prosemirror-model";
+import { Selection } from "prosemirror-state";
 import produce from "immer";
 
-import Manager, { Events, MissingContentError } from "./manager";
+import Manager, { Extension, MissingContentError } from "./manager";
 
-type Extension = Events["load"];
-type ExtensionView = Events["create-view"];
+type ExtensionView = {
+  dom: Node;
+  contentDOM: Node;
+  content: React.ReactNode;
+  node: ProsemirrorNode;
+  getPos: boolean | (() => number);
+  decorations: Decoration[];
+};
+
+interface Events {
+  load: Extension;
+  ["off-load"]: {};
+  ["create-view"]: ExtensionView;
+  ["update-view"]: Pick<ExtensionView, "node" | "decorations">;
+  ["destroy-view"]: {};
+}
 
 export type ExtensionContextProps = {
   editorView?: EditorView<Schema>;
@@ -39,6 +54,7 @@ interface Action extends Partial<Events> {
   target: string;
 }
 
+// IMPORTANT: reducer should be a pure function, so Action should be a pure action as well
 function reducer(state: State, action: Action) {
   const target = action.target;
 
@@ -126,23 +142,29 @@ function createNodeViewDOMs(name: string, node: ProsemirrorNode) {
   const spec = node.type.spec.toDOM?.(node);
   const renderer = spec ? DOMSerializer.renderSpec(document, spec) : null;
 
-  const contentWrapper = renderer?.contentDOM || document.createElement("span");
+  const dom = createDOM(node);
+
+  const contentWrapper = renderer?.dom || createDOM(node);
   if (contentWrapper.nodeType !== Node.ELEMENT_NODE) {
     return;
   }
 
-  let dom = renderer?.dom;
-  if (dom === renderer?.contentDOM || !dom) {
-    dom = createDOM(node);
+  let contentDOM = renderer?.contentDOM;
+  if (contentDOM === contentWrapper || !contentDOM) {
+    contentDOM = document.createElement("span");
   }
-
-  const contentDOM = document.createElement("span");
+  if (contentDOM.nodeType !== Node.ELEMENT_NODE) {
+    return;
+  }
 
   contentWrapper.appendChild(contentDOM);
   dom.appendChild(contentWrapper);
-  (dom as HTMLElement).classList.add(`${name}-view`);
-  (contentWrapper as HTMLElement).classList.add(`${name}-content-wrapper`);
-  contentDOM.classList.add(`${name}-content`);
+  dom.classList.add(name, "extension-view");
+  (contentWrapper as HTMLElement).classList.add(
+    name,
+    "extension-content-wrapper"
+  );
+  (contentDOM as HTMLElement).classList.add(name, "extension-content");
 
   return {
     dom,
@@ -181,8 +203,9 @@ export function useManager(element: HTMLDivElement | null) {
         target: name,
         "create-view": {
           dom,
-          node,
+          contentDOM,
           content,
+          node,
           getPos,
           decorations,
         },
@@ -304,4 +327,43 @@ export function useExtension(extension: Extension) {
   );
 
   return context;
+}
+
+function getLastContentDOM(editorView: EditorView) {
+  const selection = Selection.atEnd(editorView.state.doc);
+  const { node } = editorView.domAtPos(selection.$to.pos);
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return;
+  }
+
+  const contentDOM = node as HTMLElement;
+  if (contentDOM.classList.contains("extension-content")) {
+    return contentDOM;
+  }
+}
+
+function useContentDOM() {
+  const [contentDOM, setContentDOM] = useState<Node>();
+  const { editorView, extensionView } = useExtensionContext();
+  const presentContentDOM = extensionView?.contentDOM;
+
+  useEffect(() => {
+    if (presentContentDOM) {
+      setContentDOM(presentContentDOM);
+    } else if (editorView) {
+      setContentDOM(getLastContentDOM(editorView));
+    }
+  }, [presentContentDOM, editorView]);
+
+  return contentDOM;
+}
+
+export function useText(text?: string) {
+  const contentDOM = useContentDOM();
+
+  useEffect(() => {
+    if (contentDOM && text !== undefined) {
+      contentDOM.textContent = text;
+    }
+  }, [text, contentDOM]);
 }

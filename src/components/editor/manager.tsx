@@ -4,12 +4,11 @@ import {
   MarkSpec,
   NodeType,
   MarkType,
-  Node as ProsemirrorNode,
   Slice,
   ResolvedPos,
 } from "prosemirror-model";
-import { EditorState, Plugin } from "prosemirror-state";
-import { Decoration, DirectEditorProps, EditorView } from "prosemirror-view";
+import { EditorState, Plugin, Transaction } from "prosemirror-state";
+import { DirectEditorProps, EditorView } from "prosemirror-view";
 import union from "lodash.union";
 
 import Engine, { Token, BlockRule, InlineRule, NoParserError } from "./engine";
@@ -36,23 +35,7 @@ type PluginExtension = Base & {
   plugins: Plugin[];
 };
 
-type Extension = NodeExtension | MarkExtension | PluginExtension;
-
-type ExtensionView = {
-  dom: Node;
-  content: React.ReactNode;
-  node: ProsemirrorNode;
-  getPos: boolean | (() => number);
-  decorations: Decoration[];
-};
-
-export interface Events {
-  load: Extension;
-  ["off-load"]: {};
-  ["create-view"]: ExtensionView;
-  ["update-view"]: Pick<ExtensionView, "node" | "decorations">;
-  ["destroy-view"]: {};
-}
+export type Extension = NodeExtension | MarkExtension | PluginExtension;
 
 const defaultPrecedence = [
   "p",
@@ -77,7 +60,7 @@ const parseDeps = (node?: NodeSpec) => {
 };
 
 // TODO: support multiple extensions for the same name
-type Extensions = Record<string, Events["load"]>;
+type Extensions = Record<string, Extension>;
 type Dependency = { content: string; minimal?: number };
 
 type DfsStatus = undefined | 1 | 2;
@@ -129,45 +112,9 @@ function handleTextInput(
   const schema = state.schema as Schema;
   const engine = schema.cached.engine as Engine;
 
-  let tr = state.tr;
-  let offset = 0;
-  const transform = (tokens: Token[]) => {
-    for (const token of tokens) {
-      offset += token.nesting;
-
-      let [first, last] = token.map?.slice(2) || [];
-      if (first !== undefined && last !== undefined) {
-        first += offset;
-        last += offset;
-      }
-
-      if (
-        token.nesting === 1 &&
-        token.block &&
-        first !== undefined &&
-        last !== undefined
-      ) {
-        // right trim "_open" postfix
-        const key = token.type.slice(0, token.type.length - 5);
-        const type = schema.nodes[key];
-        tr = tr
-          .deleteRange(first, last)
-          .setBlockType(first, first, type, token.attrs);
-      }
-
-      if (token.children?.length) {
-        transform(token.children);
-      }
-    }
-  };
-
+  let tokens: Token[];
   try {
-    const tokens = engine.parse(pendingText);
-    if (tokens.length) {
-      transform(tokens);
-      view.dispatch(tr);
-      return true;
-    }
+    tokens = engine.parse(pendingText);
   } catch (e) {
     if (e instanceof NoParserError) {
       return false;
@@ -175,7 +122,36 @@ function handleTextInput(
     throw e;
   }
 
-  return false;
+  let offset = 0;
+  let tr: Transaction | undefined;
+  for (const token of engine.walk(tokens)) {
+    offset += token.nesting;
+    switch (token.nesting) {
+      case 1: {
+        if (!tr) {
+          tr = state.tr.deleteRange(start, end);
+        }
+
+        // right trim "_open" postfix
+        const key = token.type.slice(0, token.type.length - 5);
+        const type = schema.nodes[key];
+        tr = tr.setBlockType(offset, undefined, type, token.attrs);
+
+        break;
+      }
+      case 0:
+        if (token.content && token.type === "text") {
+          offset += token.content.length;
+          tr?.insertText(token.content);
+        }
+        break;
+    }
+  }
+
+  if (tr) {
+    view.dispatch(tr);
+  }
+  return !!tr;
 }
 
 export default class Manager {

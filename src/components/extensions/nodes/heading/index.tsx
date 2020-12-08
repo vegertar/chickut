@@ -1,47 +1,43 @@
-import React, { createElement, useEffect, useState } from "react";
+import React, { createElement, useEffect } from "react";
 import { Node as ProsemirrorNode, DOMOutputSpec } from "prosemirror-model";
 import range from "lodash.range";
 
 import { Extension, useExtension } from "../../../editor";
 
 import "./style.scss";
+import { useText } from "../../../editor/hooks";
 
 type Props = {
   text?: string;
 };
 
 const levels = range(1, 7);
-
 const renderers = levels.map(
-  (level) => () => ({
+  (level) => ({
     children,
     ...props
   }: React.HTMLAttributes<HTMLHeadingElement>) =>
     createElement(`h${level}`, props, children)
 );
 
-const parseDOM = levels.map((level) => ({
-  tag: `h${level}`,
-  attrs: { level },
-}));
-
-const toDOM = (node: ProsemirrorNode): DOMOutputSpec => [
-  `h${node.attrs.level}`,
-  0,
-];
+function H({
+  level,
+  children,
+  ...props
+}: { level: number } & React.HTMLAttributes<HTMLHeadingElement>) {
+  const FC = renderers[level - 1];
+  return <FC {...props}>{children}</FC>;
+}
 
 export default function Heading({ text }: Props = {}) {
   const { extensionView } = useExtension(Heading);
-  const [Renderer, setRenderer] = useState(renderers[0]);
+  const level = extensionView?.node.attrs.level || 1;
 
-  useEffect(() => {
-    const level = extensionView?.node.attrs.level || 1;
-    setRenderer(renderers[level - 1]);
-  }, [extensionView]);
+  useText(text);
 
   return (
     <Extension>
-      <Renderer>{extensionView?.content}</Renderer>
+      <H level={level}>{extensionView?.content}</H>
     </Extension>
   );
 }
@@ -56,8 +52,11 @@ Heading.node = {
   group: "block",
   defining: true,
   draggable: false,
-  parseDOM,
-  toDOM,
+  parseDOM: levels.map((level) => ({
+    tag: `h${level}`,
+    attrs: { level },
+  })),
+  toDOM: (node: ProsemirrorNode): DOMOutputSpec => [`h${node.attrs.level}`, 0],
 };
 
 Heading.rule = {
