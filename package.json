@@ -66,6 +66,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "test:debug": "react-scripts --inspect-brk test --runInBand --no-cache",
+    "test:coverage": "react-scripts test -- --coverage",
     "eject": "react-scripts eject",
     "storybook": "start-storybook -p 6006 -s public --no-dll",
     "build-storybook": "build-storybook -s public --no-dll"

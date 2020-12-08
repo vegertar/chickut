@@ -342,7 +342,7 @@ function getLastContentDOM(editorView: EditorView) {
   }
 }
 
-function useContentDOM() {
+export function useContent(): [Node?, React.ReactNode?] {
   const [contentDOM, setContentDOM] = useState<Node>();
   const { editorView, extensionView } = useExtensionContext();
   const presentContentDOM = extensionView?.contentDOM;
@@ -355,15 +355,17 @@ function useContentDOM() {
     }
   }, [presentContentDOM, editorView]);
 
-  return contentDOM;
+  return [contentDOM, extensionView?.content];
 }
 
-export function useText(text?: string) {
-  const contentDOM = useContentDOM();
+export function useTextContent(text?: string) {
+  const [contentDOM, contentNode] = useContent();
 
   useEffect(() => {
     if (contentDOM && text !== undefined) {
       contentDOM.textContent = text;
     }
   }, [text, contentDOM]);
+
+  return contentNode;
 }

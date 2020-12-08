@@ -1,11 +1,10 @@
-import React, { createElement, useEffect } from "react";
+import React, { createElement } from "react";
 import { Node as ProsemirrorNode, DOMOutputSpec } from "prosemirror-model";
 import range from "lodash.range";
 
-import { Extension, useExtension } from "../../../editor";
+import { Extension, useExtension, useTextContent } from "../../../editor";
 
 import "./style.scss";
-import { useText } from "../../../editor/hooks";
 
 type Props = {
   text?: string;
@@ -31,13 +30,12 @@ function H({
 
 export default function Heading({ text }: Props = {}) {
   const { extensionView } = useExtension(Heading);
+  const content = useTextContent(text);
   const level = extensionView?.node.attrs.level || 1;
-
-  useText(text);
 
   return (
     <Extension>
-      <H level={level}>{extensionView?.content}</H>
+      <H level={level}>{content}</H>
     </Extension>
   );
 }

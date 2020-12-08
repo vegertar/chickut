@@ -14,17 +14,19 @@ export const minimalExtensions = (
   </>
 );
 
-export const withThemedEditor = (
-  Extension: React.FC<any>,
+export function withThemedEditor<P>(
+  Extension: React.FC<P>,
   addon = minimalExtensions
-) => () => (
-  <Theme>
-    <Editor>
-      <Extension />
-      {addon}
-    </Editor>
-  </Theme>
-);
+) {
+  return (props: P) => (
+    <Theme>
+      <Editor>
+        <Extension {...props} />
+        {addon}
+      </Editor>
+    </Theme>
+  );
+}
 
 export const extensionMeta = (extension: any, addon = minimalExtensions) => {
   const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";

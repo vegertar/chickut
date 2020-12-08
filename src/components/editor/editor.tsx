@@ -23,7 +23,8 @@ interface Props {
 }
 
 function applyDevTools(view: EditorView) {
-  if (process.env.NODE_ENV !== "production") {
+  const { NODE_ENV, JEST_WORKER_ID } = process.env;
+  if (NODE_ENV !== "production" && JEST_WORKER_ID === undefined) {
     const DEVTOOLS_CLASS_NAME = "__prosemirror-dev-tools__";
     const place = document.querySelector(`.${DEVTOOLS_CLASS_NAME}`);
     if (place) {
