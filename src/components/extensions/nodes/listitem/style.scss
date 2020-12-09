@@ -1,4 +1,9 @@
 .editor {
+  .listitem.extension-content {
+    // the default `display: inline` makes a strange height in firefox
+    display: inline-block;
+  }
+
   li {
     position: relative;
     margin-bottom: 0;

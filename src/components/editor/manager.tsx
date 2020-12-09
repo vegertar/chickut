@@ -9,6 +9,7 @@ import {
 } from "prosemirror-model";
 import { EditorState, Plugin, Transaction } from "prosemirror-state";
 import { DirectEditorProps, EditorView } from "prosemirror-view";
+import { findWrapping } from "prosemirror-transform";
 import union from "lodash.union";
 
 import Engine, { Token, BlockRule, InlineRule, NoParserError } from "./engine";
@@ -82,6 +83,56 @@ function clipboardTextParser(
   return Slice.empty;
 }
 
+function* walk(tokens: Token[]): Generator<Token> {
+  for (const token of tokens) {
+    yield token;
+    if (token.children) {
+      yield* walk(token.children);
+    }
+  }
+}
+
+function transform(
+  state: EditorState,
+  tokens: Token[],
+  start: number,
+  end: number
+) {
+  let offset = 0;
+  let tr: Transaction | undefined;
+  for (const token of walk(tokens)) {
+    offset += token.nesting;
+    switch (token.nesting) {
+      case 1: {
+        if (!tr) {
+          tr = state.tr.deleteRange(start, end);
+        }
+
+        // right trim "_open" postfix
+        const key = token.type.slice(0, token.type.length - 5);
+        const type = state.schema.nodes[key];
+
+        if (type.isTextblock) {
+          tr.setBlockType(offset, undefined, type, token.attrs);
+        } else {
+          const range = tr.doc.resolve(offset + start - 1).blockRange();
+          const wrapping = range && findWrapping(range, type, token.attrs);
+          wrapping && tr.wrap(range!, wrapping);
+        }
+
+        break;
+      }
+      case 0:
+        if (token.content && token.type === "text") {
+          offset += token.content.length;
+          tr?.insertText(token.content);
+        }
+        break;
+    }
+  }
+  return tr;
+}
+
 function handleTextInput(
   view: EditorView,
   from: number,
@@ -105,16 +156,11 @@ function handleTextInput(
     undefined,
     "\ufffc"
   );
-  const pendingText = textBefore + text;
-  const start = from - textBefore.length;
-  const end = to;
-
-  const schema = state.schema as Schema;
-  const engine = schema.cached.engine as Engine;
 
   let tokens: Token[];
   try {
-    tokens = engine.parse(pendingText);
+    const engine = (state.schema as Schema).cached.engine as Engine;
+    tokens = engine.parse(textBefore + text);
   } catch (e) {
     if (e instanceof NoParserError) {
       return false;
@@ -122,36 +168,12 @@ function handleTextInput(
     throw e;
   }
 
-  let offset = 0;
-  let tr: Transaction | undefined;
-  for (const token of engine.walk(tokens)) {
-    offset += token.nesting;
-    switch (token.nesting) {
-      case 1: {
-        if (!tr) {
-          tr = state.tr.deleteRange(start, end);
-        }
-
-        // right trim "_open" postfix
-        const key = token.type.slice(0, token.type.length - 5);
-        const type = schema.nodes[key];
-        tr = tr.setBlockType(offset, undefined, type, token.attrs);
-
-        break;
-      }
-      case 0:
-        if (token.content && token.type === "text") {
-          offset += token.content.length;
-          tr?.insertText(token.content);
-        }
-        break;
-    }
-  }
-
+  const tr = transform(state, tokens, from - textBefore.length, to);
   if (tr) {
     view.dispatch(tr);
+    return true;
   }
-  return !!tr;
+  return false;
 }
 
 export default class Manager {

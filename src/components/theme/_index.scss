@@ -38,7 +38,7 @@ $default-theme-map: meta.module-variables("light");
 }
 
 .light {
-  --foo: bar;
+  @include spread-module("light");
 }
 
 .dark {

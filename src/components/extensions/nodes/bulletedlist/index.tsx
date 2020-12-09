@@ -1,5 +1,4 @@
-import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
-import { NodeSpec, NodeType } from "prosemirror-model";
+import { DOMOutputSpec } from "prosemirror-model";
 
 import { useExtension } from "../../../editor";
 
@@ -14,11 +13,9 @@ BulletedList.node = {
   content: "listitem+",
   group: "block",
   parseDOM: [{ tag: "ul" }],
-  toDOM: () => ["ul", 0],
-} as NodeSpec;
+  toDOM: (): DOMOutputSpec => ["ul", 0],
+};
 
-BulletedList.plugins = (type: NodeType) => [
-  inputRules({
-    rules: [wrappingInputRule(/^\s*([-+*])\s$/, type)],
-  }),
-];
+BulletedList.rule = {
+  match: /^ {0,3}(?:[-+*])\s+/,
+};

@@ -5,14 +5,7 @@ import Theme, { themes } from "./theme";
 import Editor from "./editor";
 import { Doc, Paragraph, Text, Keymap } from "./extensions";
 
-export const minimalExtensions = (
-  <>
-    <Doc />
-    <Paragraph />
-    <Text />
-    <Keymap />
-  </>
-);
+export const minimalExtensions = [Doc, Paragraph, Text, Keymap];
 
 export function withThemedEditor<P>(
   Extension: React.FC<P>,
@@ -22,7 +15,9 @@ export function withThemedEditor<P>(
     <Theme>
       <Editor>
         <Extension {...props} />
-        {addon}
+        {addon.map((Extension) => (
+          <Extension key={Extension.name} />
+        ))}
       </Editor>
     </Theme>
   );
@@ -51,7 +46,9 @@ export const extensionMeta = (extension: any, addon = minimalExtensions) => {
           >
             <Editor>
               <NamedStory />
-              {addon}
+              {addon.map((Extension) => (
+                <Extension key={Extension.name} />
+              ))}
             </Editor>
           </Theme>
         );

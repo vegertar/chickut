@@ -1048,15 +1048,6 @@ export default class Engine {
     this.core.parse(props);
     return props.tokens;
   }
-
-  *walk(tokens: Token[]): Generator<Token> {
-    for (const token of tokens) {
-      yield token;
-      if (token.children) {
-        yield* this.walk(token.children);
-      }
-    }
-  }
 }
 
 export type CoreRule = CoreHandle<Engine>;
