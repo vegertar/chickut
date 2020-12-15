@@ -1,18 +1,18 @@
 import {
-  NodeSpec,
   Schema,
-  MarkSpec,
+  Node as ProsemirrorNode,
+  NodeSpec as ProsemirrorNodeSpec,
+  MarkSpec as ProsemirrorMarkSpec,
   NodeType,
   MarkType,
   Slice,
   ResolvedPos,
 } from "prosemirror-model";
-import { EditorState, Plugin, Transaction } from "prosemirror-state";
-import { DirectEditorProps, EditorView } from "prosemirror-view";
-import { findWrapping } from "prosemirror-transform";
+import { EditorState, Plugin } from "prosemirror-state";
+import { DirectEditorProps } from "prosemirror-view";
 import union from "lodash.union";
 
-import Engine, { Token, BlockRule, InlineRule, NoParserError } from "./engine";
+import Engine, { BlockRule, InlineRule } from "./engine";
 
 type Base = {
   rule?: BlockRule | InlineRule;
@@ -23,12 +23,14 @@ type ExtensionSpec<T> = T & SpecBase;
 type ExtensionPlugins<T> = (type: T) => Plugin[];
 
 type NodeExtension = Base & {
-  node: ExtensionSpec<NodeSpec>;
+  node: ExtensionSpec<ProsemirrorNodeSpec> & {
+    toText?: (node: ProsemirrorNode) => string;
+  };
   plugins?: Plugin[] | ExtensionPlugins<NodeType>;
 };
 
 type MarkExtension = Base & {
-  mark: ExtensionSpec<MarkSpec>;
+  mark: ExtensionSpec<ProsemirrorMarkSpec>;
   plugins?: Plugin[] | ExtensionPlugins<MarkType>;
 };
 
@@ -37,6 +39,7 @@ type PluginExtension = Base & {
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;
+export type NodeSpec = NodeExtension["node"];
 
 const defaultPrecedence = [
   "p",
@@ -50,7 +53,7 @@ const defaultPrecedence = [
 ];
 
 const content = /(\w+)(\+)?/; // TODO: match "paragraph block*"
-const parseDeps = (node?: NodeSpec) => {
+const parseDeps = (node?: ProsemirrorNodeSpec) => {
   const result = (node?.content || "").match(content);
   if (result) {
     const content = result[1];
@@ -81,99 +84,6 @@ function clipboardTextParser(
 ) {
   console.log(text, $context, plain);
   return Slice.empty;
-}
-
-function* walk(tokens: Token[]): Generator<Token> {
-  for (const token of tokens) {
-    yield token;
-    if (token.children) {
-      yield* walk(token.children);
-    }
-  }
-}
-
-function transform(
-  state: EditorState,
-  tokens: Token[],
-  start: number,
-  end: number
-) {
-  let offset = 0;
-  let tr: Transaction | undefined;
-  for (const token of walk(tokens)) {
-    offset += token.nesting;
-    switch (token.nesting) {
-      case 1: {
-        if (!tr) {
-          tr = state.tr.deleteRange(start, end);
-        }
-
-        // right trim "_open" postfix
-        const key = token.type.slice(0, token.type.length - 5);
-        const type = state.schema.nodes[key];
-
-        if (type.isTextblock) {
-          tr.setBlockType(offset, undefined, type, token.attrs);
-        } else {
-          const range = tr.doc.resolve(offset + start - 1).blockRange();
-          const wrapping = range && findWrapping(range, type, token.attrs);
-          wrapping && tr.wrap(range!, wrapping);
-        }
-
-        break;
-      }
-      case 0:
-        if (token.content && token.type === "text") {
-          offset += token.content.length;
-          tr?.insertText(token.content);
-        }
-        break;
-    }
-  }
-  return tr;
-}
-
-function handleTextInput(
-  view: EditorView,
-  from: number,
-  to: number,
-  text: string
-) {
-  if (view.composing) {
-    // TODO: what is composition?
-    return false;
-  }
-
-  const state = view.state;
-  const $from = state.doc.resolve(from);
-  if ($from.parent.type.spec.code) {
-    return false;
-  }
-
-  const textBefore = $from.parent.textBetween(
-    Math.max(0, $from.parentOffset - 500), // backwards maximum 500
-    $from.parentOffset,
-    undefined,
-    "\ufffc"
-  );
-
-  let tokens: Token[];
-  try {
-    const engine = (state.schema as Schema).cached.engine as Engine;
-    tokens = engine.parse(textBefore + text);
-  } catch (e) {
-    if (e instanceof NoParserError) {
-      return false;
-    }
-    throw e;
-  }
-
-  const tr = transform(state, tokens, from - textBefore.length, to);
-  if (tr) {
-    view.dispatch(tr);
-    return true;
-  }
-  return false;
 }
 
 export default class Manager {
@@ -208,19 +118,20 @@ export default class Manager {
 
     return {
       state,
-      handleTextInput,
       clipboardTextParser: (text, $context, plain) =>
         clipboardTextParser(schema, text, $context, plain),
     };
   }
 
   private createSchema() {
-    const nodes: Record<string, NodeSpec> = {};
-    const marks: Record<string, MarkSpec> = {};
+    const nodes: Record<string, ProsemirrorNodeSpec> = {};
+    const marks: Record<string, ProsemirrorMarkSpec> = {};
 
     this.eachExtension((extension, name) => {
-      const node: NodeSpec | undefined = (extension as NodeExtension).node;
-      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
+      const node: ProsemirrorNodeSpec | undefined = (extension as NodeExtension)
+        .node;
+      const mark: ProsemirrorMarkSpec | undefined = (extension as MarkExtension)
+        .mark;
 
       if (node) {
         nodes[name] = node;
@@ -234,7 +145,7 @@ export default class Manager {
 
   private createPlugins(schema: Schema) {
     const allPlugins: Plugin[] = [];
-    const engine = new Engine();
+    const engine = new Engine({ ignoreError: true });
 
     // EditorProps handlers will retrieve engine from the schema cache
     schema.cached.engine = engine;
@@ -249,11 +160,10 @@ export default class Manager {
       const { plugins = [], rule } = this.getExtension(key) || {};
 
       if (rule) {
-        // TODO: engine rule order might be opposite of keys'
         if (type.isBlock) {
-          engine.block.addRule(key, rule as BlockRule);
+          engine.block.insert(key, rule as BlockRule, 0);
         } else if (type.isInline) {
-          engine.inline.addRule(key, rule as InlineRule);
+          engine.inline.insert(key, rule as InlineRule, 0);
         }
       }
 
@@ -283,7 +193,7 @@ export default class Manager {
   private init = () => {
     for (const name in this.extensions) {
       const extension = this.getExtension(name) as NodeExtension;
-      const node: NodeSpec | undefined = extension.node;
+      const node: ProsemirrorNodeSpec | undefined = extension.node;
       const group = node?.group;
 
       if (group) {

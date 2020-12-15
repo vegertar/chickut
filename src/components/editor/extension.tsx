@@ -10,14 +10,22 @@ import {
 } from "./hooks";
 
 type Props = {
+  id?: string;
   children?: React.ReactNode;
 };
 
-export default function Extension({ children }: Props) {
+export default function Extension({ id, children }: Props) {
   const { extensionView } = useExtensionContext();
-  return extensionView
-    ? ReactDOM.createPortal(children, extensionView.dom as HTMLElement)
-    : null;
+  if (!extensionView || !id) {
+    return null;
+  }
+
+  const nodeView = extensionView.find((item) => item.id === id);
+  if (!nodeView) {
+    return null;
+  }
+
+  return ReactDOM.createPortal(children, nodeView.dom as HTMLElement);
 }
 
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<

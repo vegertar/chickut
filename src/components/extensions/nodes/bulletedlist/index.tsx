@@ -1,11 +1,12 @@
-import { DOMOutputSpec } from "prosemirror-model";
+import { NodeSpec } from "prosemirror-model";
 
-import { useExtension } from "../../../editor";
+import { useTextExtension, BlockRule } from "../../../editor";
 
 import "./style.scss";
 
-export default function BulletedList() {
-  useExtension(BulletedList);
+export default function BulletedList(props?: { text?: string }) {
+  useTextExtension(BulletedList, props?.text);
+
   return null;
 }
 
@@ -13,9 +14,10 @@ BulletedList.node = {
   content: "listitem+",
   group: "block",
   parseDOM: [{ tag: "ul" }],
-  toDOM: (): DOMOutputSpec => ["ul", 0],
-};
+  toDOM: () => ["ul", 0],
+} as NodeSpec;
 
 BulletedList.rule = {
-  match: /^ {0,3}(?:[-+*])\s+/,
-};
+  match: /^ {0,3}(?:[-+*])\s+(?<content>.*)/,
+  contentTag: "listitem",
+} as BlockRule;

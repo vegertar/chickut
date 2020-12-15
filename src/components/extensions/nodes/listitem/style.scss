@@ -1,7 +1,7 @@
 .editor {
   .listitem.extension-content {
-    // the default `display: inline` makes a strange height in firefox
-    display: inline-block;
+    // the default `display: inline` makes a srange downward float in firefox
+    display: list-item;
   }
 
   li {

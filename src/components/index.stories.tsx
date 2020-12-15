@@ -3,9 +3,9 @@ import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 
 import Theme, { themes } from "./theme";
 import Editor from "./editor";
-import { Doc, Paragraph, Text, Keymap } from "./extensions";
+import { Doc, Paragraph, Text, Hardbreak, Keymap } from "./extensions";
 
-export const minimalExtensions = [Doc, Paragraph, Text, Keymap];
+export const minimalExtensions = [Doc, Paragraph, Text, Hardbreak, Keymap];
 
 export function withThemedEditor<P>(
   Extension: React.FC<P>,
@@ -23,7 +23,10 @@ export function withThemedEditor<P>(
   );
 }
 
-export const extensionMeta = (extension: any, addon = minimalExtensions) => {
+export const extensionMeta = (
+  extension: any,
+  addon = minimalExtensions.filter((x) => x !== extension)
+) => {
   const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
   const name = extension.name;
 

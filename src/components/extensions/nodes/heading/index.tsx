@@ -1,14 +1,14 @@
 import React, { createElement } from "react";
-import { Node as ProsemirrorNode, DOMOutputSpec } from "prosemirror-model";
 import range from "lodash.range";
 
-import { Extension, useExtension, useTextContent } from "../../../editor";
+import {
+  Extension,
+  BlockRule,
+  NodeSpec,
+  useTextExtension,
+} from "../../../editor";
 
 import "./style.scss";
-
-type Props = {
-  text?: string;
-};
 
 const levels = range(1, 7);
 const renderers = levels.map(
@@ -28,14 +28,12 @@ function H({
   return <FC {...props}>{children}</FC>;
 }
 
-export default function Heading({ text }: Props = {}) {
-  const { extensionView } = useExtension(Heading);
-  const content = useTextContent(text);
-  const level = extensionView?.node.attrs.level || 1;
+export default function Heading(props?: { text?: string }) {
+  const { content, attrs, id } = useTextExtension(Heading, props?.text);
 
   return (
-    <Extension>
-      <H level={level}>{content}</H>
+    <Extension id={id}>
+      <H level={attrs?.level || 1}>{content}</H>
     </Extension>
   );
 }
@@ -54,10 +52,11 @@ Heading.node = {
     tag: `h${level}`,
     attrs: { level },
   })),
-  toDOM: (node: ProsemirrorNode): DOMOutputSpec => [`h${node.attrs.level}`, 0],
-};
+  toDOM: (node) => [`h${node.attrs.level}`, 0],
+  toText: (node) => `${"#".repeat(node.attrs.level)} ${node.textContent}`,
+} as NodeSpec;
 
 Heading.rule = {
-  match: /^ {0,3}(?<markup>#{1,6}) +(?<content>[^\n]*?)(?: +#+)? *(?:\n+|$)/,
-  attrs: (matched: string[]) => ({ level: matched[1].length }),
-};
+  match: /^ {0,3}(?<markup>#{1,6}) +(?<content>.*)/,
+  attrs: (matched) => ({ level: matched.groups?.markup.length }),
+} as BlockRule;

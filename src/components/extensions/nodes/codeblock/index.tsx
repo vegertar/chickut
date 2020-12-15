@@ -8,13 +8,9 @@ import "./style.scss";
 
 export default function CodeBlock() {
   const { extensionView } = useExtension(CodeBlock);
-  const textContent = extensionView?.node.textContent;
+  // const textContent = extensionView?.node.textContent;
 
-  return (
-    <Extension>
-      <pre>{textContent}</pre>
-    </Extension>
-  );
+  return <Extension></Extension>;
 }
 
 CodeBlock.node = {

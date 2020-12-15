@@ -23,8 +23,7 @@ interface Props {
 }
 
 function applyDevTools(view: EditorView) {
-  const { NODE_ENV, JEST_WORKER_ID } = process.env;
-  if (NODE_ENV !== "production" && JEST_WORKER_ID === undefined) {
+  if (process.env.JEST_WORKER_ID === undefined) {
     const DEVTOOLS_CLASS_NAME = "__prosemirror-dev-tools__";
     const place = document.querySelector(`.${DEVTOOLS_CLASS_NAME}`);
     if (place) {
@@ -55,8 +54,11 @@ export default forwardRef<Handle, Props>(function Editor(props, ref) {
   const { view } = context;
 
   useEffect(() => {
-    if (view) {
-      applyDevTools(view);
+    if (process.env.NODE_ENV !== "production") {
+      if (typeof window !== "undefined") {
+        (window as any).view = view;
+      }
+      view && applyDevTools(view);
     }
   }, [view]);
 

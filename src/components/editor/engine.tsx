@@ -1,8 +1,14 @@
 // Text engine pruning from markdown-it
 
+import merge from "lodash.merge";
 import execWithIndices, { RegExpExecArray } from "regexp-match-indices";
 
 export class NoParserError extends Error {}
+
+export interface Options {
+  maxNesting: number;
+  ignoreError: boolean;
+}
 
 function isSpace(code: number) {
   switch (code) {
@@ -92,42 +98,38 @@ function expandTab(n: number) {
   return 4 - (n % 4);
 }
 
+type Type = "open" | "close" | "block" | "inline" | "text";
+
 // Babel does not support `const enum` yet
 // 1: opening, 0: self closing, -1: clsoing
 type Nesting = 1 | 0 | -1;
 
 export class Token {
-  // Html attributes.
+  // Token attributes, e.g. html attributes, heading level, fence info, etc.
   attrs?: Record<string, any>;
-  // Source map info. Format: `[ line_begin, line_end, index_begin?, index_end? ]`
-  map?: [number, number, number?, number?];
+  // Source map info. Format: `[ line_begin, line_end ]`
+  map?: [number, number];
+  // Source indices info. Format: `[index_begin, index_end ]`
+  indices?: [number, number];
   // nesting level, the same as `state.level`
   level?: number;
-  // An array of child nodes (inline and img tokens)
+  // An array of child nodes, only available for block/inline token
   children?: Token[];
-  // In a case of self-closing tag (code, html, fence, etc.), it has contents of this tag.
+  // Text content of this tag.
   content?: string;
   // '*' or '_' for emphasis, fence string for fence, etc.
   markup?: string;
-  // fence infostring
-  info?: string;
   // A place for plugins to store an arbitrary data
   meta?: Record<string, any>;
-  // True for block-level tokens, false for inline tokens.  Used in renderer to calculate line breaks
-  block?: boolean;
-  // If it's true, ignore this element when rendering. Used for tight lists to hide paragraphs.
-  hidden?: boolean;
 
-  constructor(
-    // Type of the token (e.g. "paragraph_open")
-    public type: string,
+  constructor(public type: Type, public tag: string, public nesting: Nesting) {}
 
-    // html tag name, e.g. "p"
-    public tag: string,
-
-    // Level change for the tag
-    public nesting: Nesting
-  ) {}
+  clone(options?: Partial<Token>) {
+    return merge(new Token(this.type, this.tag, this.nesting), {
+      ...this,
+      ...options,
+    });
+  }
 }
 
 interface StateProps<T> {
@@ -221,26 +223,13 @@ class Ruler<H extends Function> {
     return this;
   }
 
-  // Add new rule to chain before one with given name.
-  addBefore(beforeName: string, ...rules: Rule<H>[]) {
-    const index = this.find(beforeName);
-    if (index === -1) {
-      throw new Error("Parser rule not found: " + beforeName);
+  // Insert new rules at the specific index.
+  insert(index: number | undefined, ...rules: Rule<H>[]) {
+    if (index === undefined || index >= this.rules.length) {
+      return this.add(...rules);
     }
 
     this.rules.splice(index, 0, ...rules);
-    this.cache = undefined;
-    return this;
-  }
-
-  // Add new rules to chain after one with given name
-  addAfter(afterName: string, ...rules: Rule<H>[]) {
-    const index = this.find(afterName);
-    if (index === -1) {
-      throw new Error("Parser rule not found: " + afterName);
-    }
-
-    this.rules.splice(index + 1, 0, ...rules);
     this.cache = undefined;
     return this;
   }
@@ -348,9 +337,10 @@ type MatchedDataGetter<T> = (matched: RegExpExecArray) => T;
 
 type RegexRule = {
   match: RegExp;
-  content?: MatchedData;
   markup?: MatchedData;
   tag?: MatchedData;
+  content?: MatchedData;
+  contentTag?: MatchedData;
   lines?: MatchedData<number>;
   attrs?: MatchedData<Record<string, any>>;
 };
@@ -364,37 +354,31 @@ function matchedData<T>(matched: RegExpExecArray, data: MatchedData<T>): T {
 abstract class Parser<T, H extends Function> {
   readonly ruler = new Ruler<H>();
 
-  // Second ruler used for post-processing (e.g. in emphasis-like rules).
-  readonly postRuler = new Ruler<H>();
-
   abstract parse(props: StateProps<T>): void;
 
   cleanup() {
     this.ruler.clean();
-    this.postRuler.clean();
+    return this;
   }
 
-  addRule(name: string, rule: RegexRule | H, postRule?: boolean): void {
-    const handle =
-      typeof rule === "function"
-        ? rule
-        : this.createRegexRule(name, rule as RegexRule);
+  insert(names: string | string[], rule: RegexRule | H, index?: number) {
+    const [name, ...alt] = Array.isArray(names) ? names : [names];
 
-    const item = { name, handle };
-    if (process.env.NODE_ENV !== "production") {
+    const handle =
+      typeof rule === "function" ? rule : this.regex(name, rule as RegexRule);
+
+    const item: Rule<H> = { name, handle, alt };
+    if (process.env.NODE_ENV !== "production" && handle.name !== name) {
       item.handle = { [name]: (...args: any[]) => handle(...args) }[
         name
       ] as any;
     }
 
-    if (postRule) {
-      this.postRuler.add(item);
-    } else {
-      this.ruler.add(item);
-    }
+    this.ruler.insert(index, item);
+    return this;
   }
 
-  createRegexRule(name: string, rule: RegexRule): H {
+  protected regex(name: string, rule: RegexRule): H {
     throw new Error(`Not support yet`);
   }
 }
@@ -437,8 +421,7 @@ class BlockState<T> extends State<T> {
   // indent of the current list block (-1 if there isn't any)
   listIndent = -1;
   // can be 'blockquote', 'list', 'root', 'paragraph' or 'reference' used in lists to determine if they interrupt a paragraph
-  parentType: "blockquote" | "list" | "root" | "paragraph" | "reference" =
-    "root";
+  parentType = "root";
   // nesting level
   level = 0;
 
@@ -498,9 +481,8 @@ class BlockState<T> extends State<T> {
   }
 
   // Push new token to "stream".
-  push(type: string, tag: string, nesting: Nesting) {
+  push(type: Type, tag: string, nesting: Nesting) {
     const token = new Token(type, tag, nesting);
-    token.block = true;
 
     // closing tag
     if (nesting < 0) {
@@ -644,7 +626,7 @@ type BlockHandle<T> = (
   endLine: number
 ) => boolean;
 
-class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
+class BlockParser<T extends { options: Options }> extends Parser<
   T,
   BlockHandle<T>
 > {
@@ -657,9 +639,9 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
     this.tokenize(state, state.line, state.lineMax);
   }
 
-  createRegexRule(
+  regex(
     name: string,
-    { match, tag, markup, content, lines, attrs }: RegexRule
+    { match, tag, markup, content, contentTag: sub, lines, attrs }: RegexRule
   ): BlockHandle<T> {
     return (state, silent, startLine, endLine) => {
       const raw = state.src.slice(
@@ -680,34 +662,31 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
       state.line = startLine + (lines ? matchedData(matched, lines) : 1);
 
       const tokenOpen = state.push(
-        `${name}_open`,
+        "open",
         tag ? matchedData(matched, tag) : matchedGroups?.tag || name,
         1
       );
       tokenOpen.markup = markup
         ? matchedData(matched, markup)
         : matchedGroups?.markup;
-      tokenOpen.map = [
-        startLine,
-        state.line,
-        ...(matchedGroupsIndices?.markup || []),
-      ];
-      if (attrs) {
-        tokenOpen.attrs = matchedData(matched, attrs);
-      }
+      tokenOpen.map = [startLine, state.line];
+      tokenOpen.indices = matchedGroupsIndices?.markup;
+      tokenOpen.attrs = matchedData(matched, attrs);
 
-      const tokenInline = state.push("inline", "", 0);
-      tokenInline.content = content
+      const subBlock = matchedData(matched, sub);
+      const tokenContent = state.push(
+        subBlock ? "block" : "inline",
+        subBlock || "",
+        0
+      );
+      tokenContent.content = content
         ? matchedData(matched, content)
         : matchedGroups?.content;
-      tokenInline.map = [
-        startLine,
-        state.line,
-        ...(matchedGroupsIndices?.content || []),
-      ];
-      tokenInline.children = [];
+      tokenContent.map = [startLine, state.line];
+      tokenContent.indices = matchedGroupsIndices?.content;
+      tokenContent.children = [];
 
-      const tokenClose = state.push(`${name}_close`, tokenOpen.tag, -1);
+      const tokenClose = state.push("close", tokenOpen.tag, -1);
       tokenClose.markup = tokenOpen.markup;
 
       return true;
@@ -716,7 +695,7 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
 
   tokenize(state: BlockState<T>, startLine: number, endLine: number) {
     const rules = this.ruler.getRules();
-    const maxNesting = state.engine.options.maxNesting;
+    const { maxNesting, ignoreError } = state.engine.options;
     let line = startLine;
     let hasEmptyLines = false;
 
@@ -770,6 +749,10 @@ class BlockParser<T extends { options: { maxNesting: number } }> extends Parser<
       }
 
       if (line === lineBefore) {
+        if (ignoreError) {
+          break;
+        }
+
         const src = state.src.slice(state.bMarks[line], state.eMarks[line]);
         throw new NoParserError(
           `proper parsers are not available for line<${line}>: ${src}`
@@ -815,7 +798,7 @@ class InlineState<T> extends State<T> {
   }
 
   // Push new token to "stream". If pending text exists - flush it as text token
-  push(type: string, tag: string, nesting: Nesting) {
+  push(type: Type, tag: string, nesting: Nesting) {
     if (this.pending) {
       this.pushPending();
     }
@@ -911,13 +894,13 @@ class InlineState<T> extends State<T> {
 
 type InlineHandle<T> = (state: InlineState<T>, silent: boolean) => boolean;
 
-class InlineParser<
-  T extends { options: { maxNesting: number } }
-> extends Parser<T, InlineHandle<T>> {
+class InlineParser<T extends { options: Options }> extends Parser<
+  T,
+  InlineHandle<T>
+> {
   parse(props: StateProps<T>) {
     const state = new InlineState(props);
     this.tokenize(state);
-    this.postRuler.getRules().forEach((rule) => rule(state, false));
   }
 
   tokenize(state: InlineState<T>) {
@@ -1001,52 +984,126 @@ export default class Engine {
   readonly block = new BlockParser<Engine>();
   readonly inline = new InlineParser<Engine>();
 
-  readonly options = {
+  readonly options: Options = {
     // Internal protection, recursion limit
     maxNesting: 100,
+    // Throw error if no proper parser found by default
+    ignoreError: false,
   };
 
-  constructor() {
+  constructor(options?: Partial<Options>) {
+    merge(this.options, options);
     this.reset();
   }
 
   reset() {
-    this.core.cleanup();
+    this.core
+      .cleanup()
+      .insert("block", function block(state) {
+        if (state.inlineMode) {
+          const token = new Token("inline", "", 0);
+          token.content = state.src;
+          token.map = [0, 1];
+          token.children = [];
+          state.tokens.push(token);
+        } else {
+          state.engine.block.parse(state);
+        }
+      })
+      .insert("sub", function sub(state) {
+        for (const { type, content: src, children: tokens } of state.tokens) {
+          if (type === "block" && src && tokens) {
+            state.engine.core.parse({ ...state, src, tokens });
+          }
+        }
+      })
+      .insert("inline", function inline(state) {
+        for (const { type, content: src, children: tokens } of state.tokens) {
+          if (type === "inline" && src && tokens) {
+            state.engine.inline.parse({ ...state, src, tokens });
+          }
+        }
+      })
+      .insert("merge", function merge(state) {
+        const tokens: Token[] = [];
+
+        const canMatch = (a: Token, b: Token) =>
+          a.type === b.type && a.tag === b.tag;
+
+        const canMerge = (group: Token[]) => {
+          if (!canMatch(group[group.length - 1], tokens[tokens.length - 1])) {
+            return false;
+          }
+          const content = group[1];
+          let i = tokens.length - 2;
+          while (i >= 0 && canMatch(tokens[i], content)) {
+            --i;
+          }
+          return i >= 0 && canMatch(tokens[i], group[0]);
+        };
+
+        let merging = false;
+        for (let i = 0; i < state.tokens.length; i += 3) {
+          const group = state.tokens.slice(i, i + 3);
+          if (group[1].type !== "block") {
+            tokens.push(...group);
+            merging = false;
+          } else if (!merging) {
+            tokens.push(...group);
+            merging = true;
+          } else if (!canMerge(group)) {
+            tokens.push(...group);
+            merging = false;
+          } else {
+            tokens.splice(tokens.length - 1, 1, ...group.slice(1));
+          }
+        }
+
+        if (tokens.length && tokens.length !== state.tokens.length) {
+          state.tokens.splice(0, state.tokens.length, ...tokens);
+        }
+      });
+
     this.block.cleanup();
     this.inline.cleanup();
 
-    this.core.ruler.add(
-      {
-        name: "block",
-        handle: function block(state) {
-          if (state.inlineMode) {
-            const token = new Token("inline", "", 0);
-            token.content = state.src;
-            token.map = [0, 1];
-            token.children = [];
-            state.tokens.push(token);
-          } else {
-            state.engine.block.parse(state);
-          }
-        },
-      },
-      {
-        name: "inline",
-        handle: function inline(state) {
-          for (const { type, content: src, children: tokens } of state.tokens) {
-            if (type === "inline" && src && tokens) {
-              state.engine.inline.parse({ ...state, src, tokens });
-            }
-          }
-        },
-      }
-    );
+    return this;
   }
 
   parse(src: string, env: Record<string, any> = {}): Token[] {
-    const props = { engine: this, src, env, tokens: [] };
+    const props = {
+      engine: this,
+      src: src.replace(/\r\n/g, "\n").replace(/\u2424/g, "\n"),
+      env,
+      tokens: [],
+    };
     this.core.parse(props);
     return props.tokens;
+  }
+
+  expand(tokens: Token[], level = 0): Token[] {
+    const output: Token[] = [];
+
+    for (let i = 0; i < tokens.length; ) {
+      output.push(tokens[i++].clone({ level, nesting: 1 }));
+      ++level;
+      while (i < tokens.length && tokens[i].type !== "close") {
+        const token = tokens[i++];
+        if (token.type === "inline") {
+          output.push(token.clone({ level, nesting: 0 }));
+        } else if (token.type === "block") {
+          output.push(
+            token.clone({ type: "open", level, nesting: 1 }),
+            ...this.expand(token.children || [], level + 1),
+            token.clone({ type: "close", level, nesting: -1 })
+          );
+        }
+      }
+      --level;
+      output.push(tokens[i++].clone({ level, nesting: -1 }));
+    }
+
+    return output;
   }
 }
 

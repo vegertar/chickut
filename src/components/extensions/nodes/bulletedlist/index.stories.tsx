@@ -7,6 +7,17 @@ import { extensionMeta, minimalExtensions } from "../../../index.stories";
 
 export default extensionMeta(Extension, [...minimalExtensions, ListItem]);
 
-const Template: Story = (args) => <Extension {...args} />;
+type Args = Parameters<typeof Extension>[0];
+const Template: Story<Args> = (args) => <Extension {...args} />;
 
-export const Default = Template.bind({});
+export const Single = Template.bind({});
+Single.args = {
+  text: "- the first line",
+};
+
+export const Multiple = Template.bind({});
+Multiple.args = {
+  text: `${Single.args.text}
+- the second line
+- the third line`,
+};
