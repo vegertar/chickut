@@ -29,11 +29,11 @@ function H({
 }
 
 export default function Heading(props?: { text?: string }) {
-  const { content, attrs, id } = useTextExtension(Heading, props?.text);
+  const { content, node, id } = useTextExtension(Heading, props?.text);
 
   return (
     <Extension id={id}>
-      <H level={attrs?.level || 1}>{content}</H>
+      <H level={node?.attrs?.level || 1}>{content}</H>
     </Extension>
   );
 }

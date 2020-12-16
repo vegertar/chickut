@@ -5,18 +5,23 @@ import React, {
   useCallback,
   useReducer,
   createContext,
+  useRef,
 } from "react";
-import { EditorView, Decoration, NodeView } from "prosemirror-view";
+import {
+  EditorView,
+  Decoration,
+  NodeView,
+  DirectEditorProps,
+} from "prosemirror-view";
 import {
   DOMSerializer,
   Node as ProsemirrorNode,
   Schema,
 } from "prosemirror-model";
-import { Selection } from "prosemirror-state";
 import produce from "immer";
+import remove from "lodash.remove";
 
 import Manager, { Extension, MissingContentError, NodeSpec } from "./manager";
-import remove from "lodash.remove";
 
 var seq = 0;
 
@@ -63,6 +68,7 @@ interface Action extends Partial<Events> {
 // IMPORTANT: reducer should be a pure function, so Action should be a pure action as well
 function reducer(state: State, action: Action) {
   const target = action.target;
+  console.info(action);
 
   if (action.load) {
     const data = action.load;
@@ -197,6 +203,7 @@ function createNodeViewDOMs(name: string, node: ProsemirrorNode) {
 }
 
 export function useManager(element: HTMLDivElement | null) {
+  const viewRef = useRef<EditorView>();
   const [view, setView] = useState<EditorView>();
   const [{ extensions, extensionViews }, dispatch] = useReducer(reducer, {
     extensions: {},
@@ -300,21 +307,26 @@ export function useManager(element: HTMLDivElement | null) {
         {} as Record<string, ReturnType<typeof createNodeView>>
       );
 
-      const view = new EditorView(element, {
-        ...config,
-        nodeViews,
-        dispatchTransaction(tr) {
-          console.log(
-            "Document size went from",
-            tr.before.content.size,
-            "to",
-            tr.doc.content.size
-          );
-          const newState = view.state.apply(tr);
-          view.updateState(newState);
-        },
-      });
-      setView(view);
+      const props: DirectEditorProps = { ...config, nodeViews };
+      if (viewRef.current) {
+        viewRef.current.setProps(props);
+      } else {
+        const view = new EditorView(element, {
+          ...props,
+          dispatchTransaction(tr) {
+            console.log(
+              "Document went from",
+              tr.before.content.toString(),
+              "to",
+              tr.doc.content.toString()
+            );
+            const newState = this.state.apply(tr);
+            this.updateState(newState);
+          },
+        });
+        viewRef.current = view;
+        setView(view);
+      }
     },
     [extensions, createNodeView, element]
   );
@@ -349,100 +361,78 @@ export function useExtension(extension: Extension) {
   return context;
 }
 
-function getLastContentDOM(editorView: EditorView) {
-  if (!editorView.dom.parentElement) {
-    return;
-  }
-
-  const selection = Selection.atEnd(editorView.state.doc);
-  const { node } = editorView.domAtPos(selection.$to.pos);
-  if (node.nodeType !== Node.ELEMENT_NODE) {
-    return;
-  }
-
-  const contentDOM = node as HTMLElement;
-  if (contentDOM.classList.contains("extension-content")) {
-    return contentDOM;
-  }
-}
-
 function toText(node?: ProsemirrorNode) {
-  return (
-    node && ((node.type.spec as NodeSpec).toText?.(node) || node.textContent)
-  );
+  return node && (node.type.spec as NodeSpec).toText?.(node);
 }
-
-export function useContentDOM(
-  editorView?: EditorView,
-  extensionView?: ExtensionView,
-  pos = 1
-) {
-  const [contentDOM, setContentDOM] = useState<HTMLElement>();
-
-  useEffect(() => {
-    if (!editorView) {
-      return;
-    }
-
-    const { node } = editorView.domAtPos(pos);
-    if (node.nodeType !== Node.ELEMENT_NODE) {
-      return;
-    }
-
-    const contentDOM = node as HTMLElement;
-    if (!contentDOM.classList.contains("extension-content")) {
-      return;
-    }
-
-    setContentDOM(contentDOM);
-  }, [editorView, pos]);
-
-  return contentDOM;
-}
-
-// export function useTextContent(text?: string) {
-//   const [contentDOM, content, node] = useContent();
-//   const presentText = useRef<string>();
-
-//   useEffect(() => {
-//     presentText.current = toText(node);
-//   }, [node]);
-
-//   useEffect(() => {
-//     if (!contentDOM) {
-//       return;
-//     }
-//     const s = text?.replace(/\r\n/g, "\n").replace(/\n/g, "\u2424");
-//     if (s !== undefined && s !== presentText.current) {
-//       contentDOM.textContent = s;
-//     }
-//   }, [text, contentDOM]);
-
-//   return content;
-// }
 
 function normalizeText(text?: string) {
   return text?.replace(/\r\n/g, "\n").replace(/\n/g, "\u2424");
 }
 
-export function useTextExtension(extension: Extension, text?: string, pos = 1) {
-  const { editorView, extensionView } = useExtension(extension);
-  const contentDOM = useContentDOM(editorView, extensionView, pos);
-  const nodeView = extensionView?.find((item) => item.id === contentDOM?.id);
+export function useExtensionView(
+  editorView?: EditorView,
+  extensionView?: ExtensionView
+) {
+  const [nodeView, setNodeView] = useState<
+    Partial<ExtensionNodeView> & Pick<ExtensionNodeView, "id">
+  >();
 
   useEffect(() => {
+    if (!editorView) {
+      setNodeView(undefined);
+      return;
+    }
+
+    const pos = editorView.state.selection.$from.start();
+    const { node } = editorView.domAtPos(pos);
+    if (extensionView) {
+      for (const nodeView of extensionView) {
+        if (nodeView.contentDOM === node) {
+          setNodeView(nodeView);
+          return;
+        }
+      }
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      setNodeView(undefined);
+      return;
+    }
+
+    const contentDOM = node as HTMLElement;
+    setNodeView(
+      contentDOM.classList.contains("extension-content")
+        ? { id: contentDOM.id }
+        : undefined
+    );
+  }, [editorView, extensionView]);
+
+  return nodeView;
+}
+
+export function useTextExtension(extension: Extension, text?: string) {
+  const contentRef = useRef<string>();
+  const { editorView, extensionView } = useExtension(extension);
+  const { id, node, ...data } =
+    useExtensionView(editorView, extensionView) || {};
+
+  useEffect(() => {
+    contentRef.current = toText(node);
+  }, [node]);
+
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+    const contentDOM = document.getElementById(id);
     if (!contentDOM) {
       return;
     }
-    const s = normalizeText(text);
-    if (s !== undefined) {
-      contentDOM.textContent = s;
+    const content = normalizeText(text);
+    if (content !== undefined && content !== contentRef.current) {
+      contentDOM.textContent = content;
     }
-  }, [text, contentDOM]);
+  }, [text, id]);
 
-  return {
-    id: contentDOM?.id,
-    attrs: nodeView?.node.attrs,
-    content: nodeView?.content,
-  };
+  return { id, node, ...data };
 }
