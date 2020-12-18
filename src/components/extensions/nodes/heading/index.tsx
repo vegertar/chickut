@@ -29,10 +29,16 @@ function H({
 }
 
 export default function Heading(props?: { text?: string }) {
-  const { content, node, id } = useTextExtension(Heading, props?.text);
+  const contentView = useTextExtension(Heading, props?.text);
+  if (!contentView) {
+    return null;
+  }
+
+  const { node, content, dom, id } = contentView;
+  console.log(">>>>>>>>>", id, node.textContent);
 
   return (
-    <Extension id={id}>
+    <Extension dom={dom}>
       <H level={node?.attrs?.level || 1}>{content}</H>
     </Extension>
   );

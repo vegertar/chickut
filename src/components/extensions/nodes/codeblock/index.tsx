@@ -10,7 +10,7 @@ export default function CodeBlock() {
   const { extensionView } = useExtension(CodeBlock);
   // const textContent = extensionView?.node.textContent;
 
-  return <Extension></Extension>;
+  return null;
 }
 
 CodeBlock.node = {

@@ -91,13 +91,10 @@ Paragraph.plugins = (type: NodeType) => [
 
       const engine = state.schema.cached.engine as Engine;
       const tokens = engine.expand(engine.parse(textBefore + text));
-      if (!tokens.length) {
-        return false;
-      }
 
       const tr = this.transform(state, tokens, from - textBefore.length, to);
       tr && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
-      return true;
+      return !!tr;
     }
 
     transform(

@@ -145,7 +145,7 @@ export default class Manager {
 
   private createPlugins(schema: Schema) {
     const allPlugins: Plugin[] = [];
-    const engine = new Engine({ ignoreError: true });
+    const engine = new Engine();
 
     // EditorProps handlers will retrieve engine from the schema cache
     schema.cached.engine = engine;

@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom";
 
 import {
-  useExtensionContext,
   ExtensionContextProvider,
   ExtensionContextProps,
   State,
@@ -10,22 +9,12 @@ import {
 } from "./hooks";
 
 type Props = {
-  id?: string;
+  dom: HTMLElement;
   children?: React.ReactNode;
 };
 
-export default function Extension({ id, children }: Props) {
-  const { extensionView } = useExtensionContext();
-  if (!extensionView || !id) {
-    return null;
-  }
-
-  const nodeView = extensionView.find((item) => item.id === id);
-  if (!nodeView) {
-    return null;
-  }
-
-  return ReactDOM.createPortal(children, nodeView.dom as HTMLElement);
+export default function Extension({ dom, children }: Props) {
+  return ReactDOM.createPortal(children, dom);
 }
 
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<
@@ -64,7 +53,6 @@ export function ExtensionProvider({
   ...context
 }: ExtensionProviderProps) {
   const props = { ...context, editorView };
-
   return (
     <>
       {React.Children.map(children, (child) =>
