@@ -131,7 +131,7 @@ function ExtensionContent({
   dom: HTMLElement;
   contentDOM: HTMLElement;
 }) {
-  const contentWrapperRef = useRef(contentDOM.parentElement);
+  const contentWrapperRef = useRef<HTMLElement | null>(null);
 
   return (
     <span
@@ -368,6 +368,7 @@ export function useContentView(
   let node: Node;
 
   try {
+    // binding an event handler is not light, so handling directly without useEffect
     const pos = editorView.state.selection.$anchor.start();
     ({ node } = editorView.domAtPos(pos));
   } catch (e) {
@@ -408,39 +409,42 @@ function toContentView(data: ReturnType<typeof useContentView>) {
 }
 
 export function useTextContent(
-  contentView: ReturnType<typeof useContentView>,
+  context: ReturnType<typeof useExtension>,
   text?: string
 ) {
-  const contentViewRef = useRef<ContentView>();
+  const { editorView, extensionView } = context;
+  const contentView = useContentView(editorView, extensionView);
   const [textContent, setTextContent] = useState<string>();
+  const [i, reset] = useReducer((x) => x + 1, 0);
+  const idRef = useRef<string>();
 
   useEffect(() => {
-    contentViewRef.current = contentView as ContentView;
-    if (contentView) {
-      const s = normalizeText(text);
-      if (s !== toText(contentViewRef.current?.node)) {
-        setTextContent(s);
-      }
+    !extensionView && reset();
+  }, [extensionView]);
+
+  useEffect(() => {
+    idRef.current = contentView?.id;
+    const s = normalizeText(text);
+    if (!contentView || s === undefined) {
+      return;
+    }
+
+    if (s !== toText(toContentView(contentView)?.node)) {
+      setTextContent(s);
     }
   }, [contentView, text]);
 
   useEffect(() => {
-    const id = contentViewRef.current?.id;
-    if (!id) {
-      return;
-    }
-
-    const contentDOM = document.getElementById(id);
+    const id = idRef.current;
+    const contentDOM = id && document.getElementById(id);
     if (contentDOM && textContent !== undefined) {
       contentDOM.textContent = textContent;
     }
-  }, [textContent]);
+  }, [textContent, i]);
 
   return toContentView(contentView);
 }
 
 export function useTextExtension(extension: Extension, text?: string) {
-  const { editorView, extensionView } = useExtension(extension);
-  const contentView = useContentView(editorView, extensionView);
-  return useTextContent(contentView, text);
+  return useTextContent(useExtension(extension), text);
 }

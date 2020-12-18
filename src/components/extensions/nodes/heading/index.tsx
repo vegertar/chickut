@@ -34,8 +34,7 @@ export default function Heading(props?: { text?: string }) {
     return null;
   }
 
-  const { node, content, dom, id } = contentView;
-  console.log(">>>>>>>>>", id, node.textContent);
+  const { node, content, dom } = contentView;
 
   return (
     <Extension dom={dom}>
