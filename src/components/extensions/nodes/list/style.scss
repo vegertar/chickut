@@ -1,0 +1,38 @@
+.editor {
+  ul {
+    margin: 0 0.1em;
+    padding: 0 0 0 1em;
+
+    ul {
+      margin: 0;
+    }
+  }
+
+  ol {
+    margin: 0 0.1em;
+    padding: 0 0 0 1em;
+
+    ol {
+      margin: 0;
+      list-style: lower-alpha;
+
+      ol {
+        list-style: lower-roman;
+      }
+    }
+  }
+
+  .listitem.extension-content {
+    // the default `display: inline` makes a srange downward float in firefox
+    display: list-item;
+  }
+
+  li {
+    position: relative;
+    margin-bottom: 0;
+  }
+
+  li p:first-child {
+    margin: 0;
+  }
+}

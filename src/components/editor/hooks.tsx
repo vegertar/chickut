@@ -21,7 +21,12 @@ import {
 import produce from "immer";
 import remove from "lodash.remove";
 
-import Manager, { Extension, MissingContentError, NodeSpec } from "./manager";
+import Manager, {
+  Extension,
+  ExtensionPack,
+  MissingContentError,
+  NodeSpec,
+} from "./manager";
 
 var seq = 0;
 
@@ -38,8 +43,8 @@ type ContentView = {
 type ExtensionView = ContentView[];
 
 interface Events {
-  load: Extension;
-  ["off-load"]: {};
+  load: Extension | ExtensionPack;
+  ["off-load"]: Extension | ExtensionPack;
   ["create-view"]: ContentView;
   ["update-view"]: Pick<ContentView, "id" | "node" | "decorations">;
   ["destroy-view"]: Pick<ContentView, "id">;
@@ -72,18 +77,33 @@ function reducer(state: State, action: Action) {
 
   if (action.load) {
     const data = action.load;
-    if (state.extensions[target] !== undefined) {
-      throw new Error(`extension ${target} is existed`);
-    }
-
     return produce(state, (draft) => {
-      draft.extensions[target] = data;
+      if (Array.isArray(data)) {
+        for (const { name, ...extension } of data) {
+          if (state.extensions[name] !== undefined) {
+            throw new Error(`extension ${name} is existed`);
+          }
+          draft.extensions[name] = extension;
+        }
+      } else {
+        if (state.extensions[target] !== undefined) {
+          throw new Error(`extension ${target} is existed`);
+        }
+        draft.extensions[target] = data;
+      }
     });
   }
 
   if (action["off-load"]) {
+    const data = action["off-load"];
     return produce(state, (draft) => {
-      delete draft.extensions[target];
+      if (Array.isArray(data)) {
+        for (const { name } of data) {
+          delete draft.extensions[`${target}${name}`];
+        }
+      } else {
+        delete draft.extensions[target];
+      }
     });
   }
 
@@ -342,14 +362,14 @@ export function useExtensionContext() {
   return { ...context, dispatch: extensionDispatch, extensionName };
 }
 
-export function useExtension(extension: Extension) {
+export function useExtension(extension: Extension | ExtensionPack) {
   const context = useExtensionContext();
   const dispatch = context.dispatch;
 
   useEffect(
     function setupExtension() {
       dispatch({ load: extension });
-      return () => dispatch({ "off-load": {} });
+      return () => dispatch({ "off-load": extension });
     },
     [dispatch, extension]
   );
@@ -408,19 +428,25 @@ function toContentView(data: ReturnType<typeof useContentView>) {
   return contentView?.dom && contentView;
 }
 
+export function useExtensionVersion(extensionView?: ExtensionView) {
+  const [i, update] = useReducer((x) => x + 1, 0);
+
+  useEffect(() => {
+    !extensionView && update();
+  }, [extensionView]);
+
+  return i;
+}
+
 export function useTextContent(
   context: ReturnType<typeof useExtension>,
   text?: string
 ) {
   const { editorView, extensionView } = context;
+  const version = useExtensionVersion(extensionView);
   const contentView = useContentView(editorView, extensionView);
   const [textContent, setTextContent] = useState<string>();
-  const [i, reset] = useReducer((x) => x + 1, 0);
   const idRef = useRef<string>();
-
-  useEffect(() => {
-    !extensionView && reset();
-  }, [extensionView]);
 
   useEffect(() => {
     idRef.current = contentView?.id;
@@ -440,7 +466,7 @@ export function useTextContent(
     if (contentDOM && textContent !== undefined) {
       contentDOM.textContent = textContent;
     }
-  }, [textContent, i]);
+  }, [textContent, version]);
 
   return toContentView(contentView);
 }

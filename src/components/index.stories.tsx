@@ -23,15 +23,15 @@ export function withThemedEditor<P>(
   );
 }
 
-export const extensionMeta = (
-  extension: any,
+export function extensionMeta<P = {}>(
+  kind: "Nodes" | "Marks" | "Plugins",
+  extension: React.FC<P>,
   addon = minimalExtensions.filter((x) => x !== extension)
-) => {
-  const kind = extension.node ? "Nodes" : extension.mark ? "Marks" : "Plugins";
+) {
   const name = extension.name;
 
   return {
-    title: `extensions/${kind}/${extension.name}`,
+    title: `extensions/${kind}/${name}`,
     component: extension,
     decorators: [
       (Story: Story, { args }: StoryContext) => {
@@ -72,4 +72,4 @@ export const extensionMeta = (
       backgrounds: { default: "light" },
     },
   } as Meta;
-};
+}

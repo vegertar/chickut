@@ -137,6 +137,18 @@ describe("bulletedlist", () => {
       { type: "close", tag: "ul", level: 0, nesting: -1 },
     ]);
   });
+
+  const nestedList = `+ Create a list by starting a line with +, -, or *
++ Sub-lists are made by indenting 2 spaces:
+  - Marker character change forces new list start:
+    * Ac tristique libero volutpat at
+    + Facilisis in pretium nisl aliquet
+    - Nulla volutpat aliquam velit
++ Very easy!`;
+
+  it("parse nested list", () => {
+    console.log(t.parse(nestedList));
+  });
 });
 
 describe("heading", () => {

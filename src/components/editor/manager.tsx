@@ -1,5 +1,5 @@
 import {
-  Schema,
+  Schema as ProsemirrorSchema,
   Node as ProsemirrorNode,
   NodeSpec as ProsemirrorNodeSpec,
   MarkSpec as ProsemirrorMarkSpec,
@@ -39,7 +39,14 @@ type PluginExtension = Base & {
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;
+export type ExtensionPack = ({ name: string } & Extension)[];
 export type NodeSpec = NodeExtension["node"];
+export type Schema = ProsemirrorSchema & {
+  cached: {
+    engine: Engine;
+    [key: string]: any;
+  };
+};
 
 const defaultPrecedence = [
   "p",
@@ -77,9 +84,9 @@ export class MissingContentError extends Error {
 }
 
 function clipboardTextParser(
-  schema: Schema,
+  schema: ProsemirrorSchema,
   text: string,
-  $context: ResolvedPos<Schema>,
+  $context: ResolvedPos<ProsemirrorSchema>,
   plain: boolean
 ) {
   console.log(text, $context, plain);
@@ -105,7 +112,7 @@ export default class Manager {
     this.sortDeps();
   }
 
-  createConfig(): DirectEditorProps | undefined {
+  createConfig(): DirectEditorProps<Schema> | undefined {
     if (!this.bfsPath.length) {
       return undefined;
     }
@@ -114,7 +121,7 @@ export default class Manager {
     const plugins = this.createPlugins(schema);
 
     // TODO: transfer history
-    const state = EditorState.create({ schema, plugins });
+    const state = EditorState.create<Schema>({ schema, plugins });
 
     return {
       state,
@@ -140,16 +147,15 @@ export default class Manager {
       }
     });
 
-    return new Schema({ nodes, marks });
+    const schema = new ProsemirrorSchema({ nodes, marks }) as Schema;
+    // EditorProps handlers will retrieve engine from the schema cache
+    schema.cached.engine = new Engine();
+    return schema;
   }
 
   private createPlugins(schema: Schema) {
     const allPlugins: Plugin[] = [];
-    const engine = new Engine();
-
-    // EditorProps handlers will retrieve engine from the schema cache
-    schema.cached.engine = engine;
-
+    const engine = schema.cached.engine;
     const keys = union(
       [...Object.keys(schema.nodes), ...Object.keys(schema.marks)],
       Object.keys(this.extensions)
