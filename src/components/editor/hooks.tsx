@@ -22,7 +22,7 @@ import Manager, {
 
 var seq = 0;
 
-type ContentView = {
+export type ContentView = {
   id: string;
   dom: HTMLElement;
   contentDOM: HTMLElement;
@@ -32,7 +32,7 @@ type ContentView = {
   decorations: Decoration[];
 };
 
-type ExtensionView = ContentView[];
+export type ExtensionView = ContentView[];
 
 interface Events {
   load: Extension | ExtensionPack;

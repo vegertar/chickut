@@ -6,6 +6,7 @@ import {
   ExtensionContextProps,
   State,
   useManager,
+  ExtensionView,
 } from "./hooks";
 
 type Props = {
@@ -26,6 +27,8 @@ type ExtensionProviderProps = { children: React.ReactNode } & Pick<
 type ExtensionViews = ExtensionProviderProps["extensionViews"];
 type ExtensionPacks = ExtensionProviderProps["extensionPacks"];
 
+const cachedViews: { [name: string]: ExtensionView } = {};
+
 function provideExtension(
   child: React.ReactNode,
   extensionViews: ExtensionViews,
@@ -33,20 +36,40 @@ function provideExtension(
   props?: ExtensionContextProps
 ) {
   let extensionName: string | undefined;
-  let extensionView: ExtensionViews["string"] | undefined;
+  let extensionView: ExtensionView | undefined;
+
   if (React.isValidElement(child) && typeof child.type === "function") {
     extensionName = child.type.name.toLowerCase();
     extensionView = extensionViews[extensionName];
-    extensionPacks[extensionName]?.forEach((name) => {
-      const view = extensionViews[name];
-      if (!view?.length) {
-        return;
+
+    const extensionPack = extensionPacks[extensionName];
+    if (extensionPack?.length) {
+      let updated = false;
+      for (const name of extensionPack) {
+        const view = extensionViews[name];
+        if (!view?.length) {
+          updated = true;
+          delete cachedViews[name];
+          continue;
+        }
+        if (!extensionView) {
+          extensionView = [];
+        }
+        if (view !== cachedViews[name]) {
+          cachedViews[name] = view;
+          updated = true;
+        }
+        extensionView.push(...view);
       }
+
       if (!extensionView) {
-        extensionView = [];
+        delete cachedViews[extensionName];
+      } else if (updated) {
+        cachedViews[extensionName] = extensionView;
+      } else {
+        extensionView = cachedViews[extensionName];
       }
-      extensionView.push(...view);
-    });
+    }
   }
 
   return (
