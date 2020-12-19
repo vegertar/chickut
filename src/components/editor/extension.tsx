@@ -19,22 +19,34 @@ export default function Extension({ dom, children }: Props) {
 
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<
   State,
-  "extensionViews"
+  "extensionViews" | "extensionPacks"
 > &
   ReturnType<typeof useManager>;
 
-type ExtensionView = ExtensionProviderProps["extensionViews"][string];
+type ExtensionViews = ExtensionProviderProps["extensionViews"];
+type ExtensionPacks = ExtensionProviderProps["extensionPacks"];
 
 function provideExtension(
   child: React.ReactNode,
-  extensionViews: Record<string, ExtensionView>,
+  extensionViews: ExtensionViews,
+  extensionPacks: ExtensionPacks,
   props?: ExtensionContextProps
 ) {
   let extensionName: string | undefined;
-  let extensionView: ExtensionView | undefined;
+  let extensionView: ExtensionViews["string"] | undefined;
   if (React.isValidElement(child) && typeof child.type === "function") {
     extensionName = child.type.name.toLowerCase();
     extensionView = extensionViews[extensionName];
+    extensionPacks[extensionName]?.forEach((name) => {
+      const view = extensionViews[name];
+      if (!view?.length) {
+        return;
+      }
+      if (!extensionView) {
+        extensionView = [];
+      }
+      extensionView.push(...view);
+    });
   }
 
   return (
@@ -48,6 +60,7 @@ function provideExtension(
 
 export function ExtensionProvider({
   extensionViews,
+  extensionPacks,
   children,
   view: editorView,
   ...context
@@ -56,7 +69,7 @@ export function ExtensionProvider({
   return (
     <>
       {React.Children.map(children, (child) =>
-        provideExtension(child, extensionViews, props)
+        provideExtension(child, extensionViews, extensionPacks, props)
       )}
     </>
   );

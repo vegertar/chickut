@@ -1,23 +1,14 @@
 import React, {
+  createContext,
   useContext,
   useEffect,
   useState,
   useCallback,
   useReducer,
-  createContext,
   useRef,
 } from "react";
-import {
-  EditorView,
-  Decoration,
-  NodeView,
-  DirectEditorProps,
-} from "prosemirror-view";
-import {
-  DOMSerializer,
-  Node as ProsemirrorNode,
-  Schema,
-} from "prosemirror-model";
+import { EditorView, Decoration, NodeView } from "prosemirror-view";
+import { DOMSerializer, Node as ProsemirrorNode } from "prosemirror-model";
 import produce from "immer";
 import remove from "lodash.remove";
 
@@ -26,6 +17,7 @@ import Manager, {
   ExtensionPack,
   MissingContentError,
   NodeSpec,
+  Schema,
 } from "./manager";
 
 var seq = 0;
@@ -64,6 +56,7 @@ export const ExtensionContextProvider = ExtensionContext.Provider;
 export interface State {
   extensions: Record<string, Extension>;
   extensionViews: Record<string, ExtensionView>;
+  extensionPacks: Record<string, string[]>;
 }
 
 interface Action extends Partial<Events> {
@@ -79,12 +72,18 @@ function reducer(state: State, action: Action) {
     const data = action.load;
     return produce(state, (draft) => {
       if (Array.isArray(data)) {
+        if (state.extensionPacks[target] !== undefined) {
+          throw new Error(`extension pack ${target} is existed`);
+        }
+        const pack: string[] = [];
         for (const { name, ...extension } of data) {
           if (state.extensions[name] !== undefined) {
             throw new Error(`extension ${name} is existed`);
           }
           draft.extensions[name] = extension;
+          pack.push(name);
         }
+        draft.extensionPacks[target] = pack;
       } else {
         if (state.extensions[target] !== undefined) {
           throw new Error(`extension ${target} is existed`);
@@ -99,8 +98,9 @@ function reducer(state: State, action: Action) {
     return produce(state, (draft) => {
       if (Array.isArray(data)) {
         for (const { name } of data) {
-          delete draft.extensions[`${target}${name}`];
+          delete draft.extensions[name];
         }
+        delete draft.extensionPacks[target];
       } else {
         delete draft.extensions[target];
       }
@@ -220,10 +220,14 @@ function createNodeViewDOMs(name: string, node: ProsemirrorNode) {
 export function useManager(element: HTMLDivElement | null) {
   const viewRef = useRef<EditorView>();
   const [view, setView] = useState<EditorView>();
-  const [{ extensions, extensionViews }, dispatch] = useReducer(reducer, {
-    extensions: {},
-    extensionViews: {},
-  });
+  const [{ extensions, extensionViews, extensionPacks }, dispatch] = useReducer(
+    reducer,
+    {
+      extensions: {},
+      extensionViews: {},
+      extensionPacks: {},
+    }
+  );
 
   const createNodeView = useCallback((name: string) => {
     return (
@@ -323,7 +327,7 @@ export function useManager(element: HTMLDivElement | null) {
         {} as Record<string, ReturnType<typeof createNodeView>>
       );
 
-      const props: DirectEditorProps = { ...config, nodeViews };
+      const props = { ...config, nodeViews };
       if (viewRef.current) {
         viewRef.current.setProps(props);
       } else {
@@ -347,7 +351,7 @@ export function useManager(element: HTMLDivElement | null) {
     [extensions, createNodeView, element]
   );
 
-  return { view, dispatch, extensionViews };
+  return { view, dispatch, extensionViews, extensionPacks };
 }
 
 export function useExtensionContext() {
@@ -471,6 +475,9 @@ export function useTextContent(
   return toContentView(contentView);
 }
 
-export function useTextExtension(extension: Extension, text?: string) {
+export function useTextExtension(
+  extension: Extension | ExtensionPack,
+  text?: string
+) {
   return useTextContent(useExtension(extension), text);
 }

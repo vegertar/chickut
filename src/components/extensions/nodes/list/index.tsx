@@ -6,10 +6,12 @@ import {
   liftListItem,
 } from "prosemirror-schema-list";
 
-import { useExtension, BlockRule } from "../../../editor";
+import { useTextExtension, BlockRule } from "../../../editor";
 
-export default function List() {
-  useExtension(List.pack);
+import "./style.scss";
+
+export default function List(props?: { text?: string }) {
+  useTextExtension(List.pack, props?.text);
   return null;
 }
 

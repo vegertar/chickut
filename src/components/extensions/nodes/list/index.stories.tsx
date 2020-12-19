@@ -6,8 +6,8 @@ import { extensionMeta } from "../../../index.stories";
 
 export default extensionMeta("Nodes", Extension);
 
-// type Args = Parameters<typeof Extension>[0];
-const Template: Story = (args) => <Extension {...args} />;
+type Args = Parameters<typeof Extension>[0];
+const Template: Story<Args> = (args) => <Extension {...args} />;
 
 export const Single = Template.bind({});
 Single.args = {
