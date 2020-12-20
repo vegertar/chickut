@@ -3,9 +3,9 @@ import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 
 import Theme, { themes } from "./theme";
 import Editor from "./editor";
-import { Doc, Paragraph, Text, Hardbreak, Keymap } from "./extensions";
+import { Base, Paragraph } from "./extensions";
 
-export const minimalExtensions = [Doc, Paragraph, Text, Hardbreak, Keymap];
+export const minimalExtensions = [Base, Paragraph];
 
 export function withThemedEditor<P>(
   Extension: React.FC<P>,

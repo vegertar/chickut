@@ -12,32 +12,25 @@ import { EditorState, Plugin } from "prosemirror-state";
 import { DirectEditorProps } from "prosemirror-view";
 import union from "lodash.union";
 
-import Engine, {
-  BlockRule,
-  BlockRuleHandle,
-  InlineRule,
-  InlineRuleHandle,
-} from "./engine";
+import Engine, { BlockRule, InlineRule } from "./engine";
 
-type Base = Partial<Pick<BlockRule | InlineRule, "alt" | "handle">>;
-type SpecBase = {};
-
-type ExtensionSpec<T> = T & SpecBase;
+type ExtensionRule = Partial<Pick<BlockRule | InlineRule, "alt" | "handle">>;
+type ExtensionSpec<T> = T;
 type ExtensionPlugins<T> = (type: T) => Plugin[];
 
-type NodeExtension = Base & {
+type NodeExtension = ExtensionRule & {
   node: ExtensionSpec<ProsemirrorNodeSpec> & {
     toText?: (node: ProsemirrorNode) => string;
   };
   plugins?: Plugin[] | ExtensionPlugins<NodeType>;
 };
 
-type MarkExtension = Base & {
+type MarkExtension = ExtensionRule & {
   mark: ExtensionSpec<ProsemirrorMarkSpec>;
   plugins?: Plugin[] | ExtensionPlugins<MarkType>;
 };
 
-type PluginExtension = Base & {
+type PluginExtension = ExtensionRule & {
   plugins: Plugin[];
 };
 
@@ -163,16 +156,7 @@ export class Manager {
 
     for (const key of keys) {
       const type = schema.nodes[key] || schema.marks[key];
-      const { plugins = [], alt, handle } = this.getExtension(key) || {};
-
-      if (handle) {
-        const names = alt ? [key, ...alt] : key;
-        if (type.isBlock) {
-          engine.block.insert(names, handle as BlockRuleHandle, 0);
-        } else if (type.isInline) {
-          engine.inline.insert(names, handle as InlineRuleHandle, 0);
-        }
-      }
+      const { plugins = [], handle, alt } = this.getExtension(key) || {};
 
       let thisPlugins: Plugin[] = [];
       if (typeof plugins === "function") {
@@ -182,6 +166,16 @@ export class Manager {
       }
 
       allPlugins.push(...thisPlugins);
+
+      if (handle) {
+        // TODO: support mark type
+        const rule = { name: key, handle, alt };
+        if (type.isBlock) {
+          engine.block.ruler.insert(rule as BlockRule, 0);
+        } else if (type.isInline) {
+          engine.inline.ruler.insert(rule as InlineRule, 0);
+        }
+      }
     }
 
     return allPlugins;
@@ -215,8 +209,7 @@ export class Manager {
       }
       this.deps[name]!.push(...parseDeps(node));
 
-      // TODO:
-      if (node && node.parseDOM) {
+      if (node?.parseDOM) {
         for (const { tag } of node.parseDOM) {
           if (tag) {
             this.tags[name] = tag;

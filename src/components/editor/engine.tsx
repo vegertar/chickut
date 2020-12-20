@@ -97,7 +97,6 @@ function expandTab(n: number) {
   return 4 - (n % 4);
 }
 
-// Babel does not support `const enum` yet
 // 1: opening, 0: self closing, -1: clsoing
 type Nesting = 1 | 0 | -1;
 
@@ -120,13 +119,6 @@ export class Token {
   hidden = false;
 
   constructor(public name: string, public nesting: Nesting) {}
-
-  clone(options?: Partial<Token>) {
-    return merge(new Token(this.name, this.nesting), {
-      ...this,
-      ...options,
-    });
-  }
 }
 
 interface StateProps<T> {
@@ -277,23 +269,7 @@ export class Ruler<H extends Function> {
 
 export abstract class Parser<T, H extends Function> {
   readonly ruler = new Ruler<H>();
-
   abstract parse(props: StateProps<T>): void;
-
-  cleanup() {
-    this.ruler.clean();
-    return this;
-  }
-
-  insert(names: string | string[], handle: H, index?: number) {
-    const [name, ...alt] = Array.isArray(names) ? names : [names];
-    if (!name) {
-      throw new Error(`Not given a valid rule name`);
-    }
-
-    this.ruler.insert({ name, handle, alt }, index);
-    return this;
-  }
 }
 
 export type CoreHandle<T> = (
@@ -864,33 +840,40 @@ export class Engine {
   }
 
   reset() {
-    this.core
-      .cleanup()
-      .insert("block", function block(state) {
-        if (state.inlineMode) {
-          const token = new Token("", 0);
-          token.content = state.src;
-          token.map = [0, 1];
-          token.children = [];
-          state.tokens.push(token);
-        } else {
-          state.engine.block.parse(state);
-        }
-      })
-      .insert("inline", function inline(state) {
-        for (const {
-          nesting,
-          content: src,
-          children: tokens,
-        } of state.tokens) {
-          if (nesting === 0 && src && tokens) {
-            state.engine.inline.parse({ ...state, src, tokens });
-          }
-        }
-      });
+    this.block.ruler.clean();
+    this.inline.ruler.clean();
 
-    this.block.cleanup();
-    this.inline.cleanup();
+    this.core.ruler.clean().add(
+      {
+        name: "block",
+        handle: function block(state) {
+          if (state.inlineMode) {
+            const token = new Token("", 0);
+            token.content = state.src;
+            token.map = [0, 1];
+            token.children = [];
+            state.tokens.push(token);
+          } else {
+            state.engine.block.parse(state);
+          }
+        },
+      },
+
+      {
+        name: "inline",
+        handle: function inline(state) {
+          for (const {
+            nesting,
+            content: src,
+            children: tokens,
+          } of state.tokens) {
+            if (nesting === 0 && src && tokens) {
+              state.engine.inline.parse({ ...state, src, tokens });
+            }
+          }
+        },
+      }
+    );
 
     return this;
   }
