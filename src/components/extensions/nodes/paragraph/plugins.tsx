@@ -70,7 +70,7 @@ export default function plugins(type: NodeType) {
         );
 
         const engine = state.schema.cached.engine;
-        const tokens = engine.expand(engine.parse(textBefore + text));
+        const tokens = engine.parse(textBefore + text);
 
         const tr = this.transform(state, tokens, from - textBefore.length, to);
         tr && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
@@ -132,13 +132,13 @@ export default function plugins(type: NodeType) {
         for (const token of tokens) {
           switch (token.nesting) {
             case 1: {
-              const type = schema.nodes[token.tag];
+              const type = schema.nodes[token.name];
               stack.push({ type, content: [], attrs: token.attrs });
               break;
             }
 
             case 0: {
-              if (token.content && token.type === "inline") {
+              if (token.content) {
                 stack[stack.length - 1].content.push(
                   schema.text(token.content)
                 );

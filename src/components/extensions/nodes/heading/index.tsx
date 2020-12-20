@@ -1,12 +1,8 @@
 import React, { createElement } from "react";
 import range from "lodash.range";
 
-import {
-  Extension,
-  BlockRule,
-  NodeSpec,
-  useTextExtension,
-} from "../../../editor";
+import { Extension, NodeSpec, useTextExtension } from "../../../editor";
+import handle from "./handle";
 
 import "./style.scss";
 
@@ -19,6 +15,28 @@ const renderers = levels.map(
     createElement(`h${level}`, props, children)
 );
 
+const extension = {
+  handle,
+  alt: ["paragraph", "reference", "blockquote"],
+  node: {
+    attrs: {
+      level: {
+        default: 1,
+      },
+    },
+    content: "inline*",
+    group: "block",
+    defining: true,
+    draggable: false,
+    parseDOM: levels.map((level) => ({
+      tag: `h${level}`,
+      attrs: { level },
+    })),
+    toDOM: (node) => [`h${node.attrs.level}`, 0],
+    toText: (node) => `${"#".repeat(node.attrs.level)} ${node.textContent}`,
+  } as NodeSpec,
+};
+
 function H({
   level,
   children,
@@ -29,7 +47,7 @@ function H({
 }
 
 export default function Heading(props?: { text?: string }) {
-  const contentView = useTextExtension(Heading, props?.text);
+  const contentView = useTextExtension(extension, props?.text);
   if (!contentView) {
     return null;
   }
@@ -42,26 +60,3 @@ export default function Heading(props?: { text?: string }) {
     </Extension>
   );
 }
-
-Heading.node = {
-  attrs: {
-    level: {
-      default: 1,
-    },
-  },
-  content: "inline*",
-  group: "block",
-  defining: true,
-  draggable: false,
-  parseDOM: levels.map((level) => ({
-    tag: `h${level}`,
-    attrs: { level },
-  })),
-  toDOM: (node) => [`h${node.attrs.level}`, 0],
-  toText: (node) => `${"#".repeat(node.attrs.level)} ${node.textContent}`,
-} as NodeSpec;
-
-Heading.rule = {
-  match: /^ {0,3}(?<markup>#{1,6}) +(?<content>.*)/,
-  attrs: (matched) => ({ level: matched.groups?.markup.length }),
-} as BlockRule;

@@ -53,7 +53,7 @@ const ExtensionContext = createContext<ExtensionContextProps>({});
 
 export const ExtensionContextProvider = ExtensionContext.Provider;
 
-export interface State {
+export interface ExtensionState {
   extensions: Record<string, Extension>;
   extensionViews: Record<string, ExtensionView>;
   extensionPacks: Record<string, string[]>;
@@ -64,7 +64,7 @@ interface Action extends Partial<Events> {
 }
 
 // IMPORTANT: reducer should be a pure function, so Action should be a pure action as well
-function reducer(state: State, action: Action) {
+function reducer(state: ExtensionState, action: Action) {
   const target = action.target;
   console.info(action);
 
@@ -109,7 +109,7 @@ function reducer(state: State, action: Action) {
 
   if (action["create-view"]) {
     const data = action["create-view"];
-    return produce(state, (draft: State) => {
+    return produce(state, (draft: ExtensionState) => {
       if (!draft.extensionViews[target]) {
         draft.extensionViews[target] = [];
       }

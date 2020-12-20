@@ -12,11 +12,14 @@ import { EditorState, Plugin } from "prosemirror-state";
 import { DirectEditorProps } from "prosemirror-view";
 import union from "lodash.union";
 
-import Engine, { BlockRule, InlineRule } from "./engine";
+import Engine, {
+  BlockRule,
+  BlockRuleHandle,
+  InlineRule,
+  InlineRuleHandle,
+} from "./engine";
 
-type Base = {
-  rule?: BlockRule | InlineRule;
-};
+type Base = Partial<Pick<BlockRule | InlineRule, "alt" | "handle">>;
 type SpecBase = {};
 
 type ExtensionSpec<T> = T & SpecBase;
@@ -44,7 +47,6 @@ export type NodeSpec = NodeExtension["node"];
 export type Schema = ProsemirrorSchema & {
   cached: {
     engine: Engine;
-    [key: string]: any;
   };
 };
 
@@ -70,7 +72,6 @@ const parseDeps = (node?: ProsemirrorNodeSpec) => {
   return [];
 };
 
-// TODO: support multiple extensions for the same name
 type Extensions = Record<string, Extension>;
 type Dependency = { content: string; minimal?: number };
 
@@ -93,7 +94,7 @@ function clipboardTextParser(
   return Slice.empty;
 }
 
-export default class Manager {
+export class Manager {
   readonly deps: Record<string, Dependency[] | undefined> = {};
   readonly groups: Record<string, string[] | undefined> = {};
   readonly tags: Record<string, string | undefined> = {};
@@ -148,7 +149,6 @@ export default class Manager {
     });
 
     const schema = new ProsemirrorSchema({ nodes, marks }) as Schema;
-    // EditorProps handlers will retrieve engine from the schema cache
     schema.cached.engine = new Engine();
     return schema;
   }
@@ -163,13 +163,14 @@ export default class Manager {
 
     for (const key of keys) {
       const type = schema.nodes[key] || schema.marks[key];
-      const { plugins = [], rule } = this.getExtension(key) || {};
+      const { plugins = [], alt, handle } = this.getExtension(key) || {};
 
-      if (rule) {
+      if (handle) {
+        const names = alt ? [key, ...alt] : key;
         if (type.isBlock) {
-          engine.block.insert(key, rule as BlockRule, 0);
+          engine.block.insert(names, handle as BlockRuleHandle, 0);
         } else if (type.isInline) {
-          engine.inline.insert(key, rule as InlineRule, 0);
+          engine.inline.insert(names, handle as InlineRuleHandle, 0);
         }
       }
 
@@ -373,3 +374,5 @@ export default class Manager {
     return n < minimal;
   };
 }
+
+export default Manager;

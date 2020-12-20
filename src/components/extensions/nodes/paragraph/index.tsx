@@ -1,11 +1,13 @@
 import { NodeSpec } from "prosemirror-model";
 
-import { BlockRule, useExtension } from "../../../editor";
+import { useExtension } from "../../../editor";
+import handle from "./handle";
 import plugins from "./plugins";
 
 import "./style.scss";
 
 const extension = {
+  handle,
   plugins,
   node: {
     content: "inline*",
@@ -13,9 +15,6 @@ const extension = {
     parseDOM: [{ tag: "p" }],
     toDOM: () => ["p", 0],
   } as NodeSpec,
-  rule: {
-    match: /(?<content>.*)/,
-  } as BlockRule,
 };
 
 export default function Paragraph() {

@@ -4,7 +4,7 @@ import ReactDOM from "react-dom";
 import {
   ExtensionContextProvider,
   ExtensionContextProps,
-  State,
+  ExtensionState,
   useManager,
   ExtensionView,
 } from "./hooks";
@@ -14,12 +14,12 @@ type Props = {
   children?: React.ReactNode;
 };
 
-export default function Extension({ dom, children }: Props) {
+export function Extension({ dom, children }: Props) {
   return ReactDOM.createPortal(children, dom);
 }
 
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<
-  State,
+  ExtensionState,
   "extensionViews" | "extensionPacks"
 > &
   ReturnType<typeof useManager>;
@@ -97,3 +97,5 @@ export function ExtensionProvider({
     </>
   );
 }
+
+export default Extension;
