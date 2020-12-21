@@ -97,6 +97,9 @@ function expandTab(n: number) {
   return 4 - (n % 4);
 }
 
+const NEWLINES_RE = /\r\n?|\n|\u2424/g;
+const NULL_RE = /\0/g;
+
 // 1: opening, 0: self closing, -1: clsoing
 type Nesting = 1 | 0 | -1;
 
@@ -118,7 +121,12 @@ export class Token {
   // If it's true, ignore this element when rendering. Used for tight lists hide paragraphs.
   hidden = false;
 
-  constructor(public name: string, public nesting: Nesting) {}
+  constructor(
+    // Token is inline if the name is "" and children is a valid array, which contains any inlined token with arbitary name, e.g. "text"
+    public name: string,
+    // In case of inline token, nesting is 0
+    public nesting: Nesting
+  ) {}
 }
 
 interface StateProps<T> {
@@ -135,10 +143,10 @@ interface StateProps<T> {
 class State<T> {
   inlineMode = false;
 
-  readonly engine: T;
-  readonly src: string;
-  readonly tokens: Token[];
-  readonly env: Record<string, any>;
+  engine: T;
+  src: string;
+  tokens: Token[];
+  env: Record<string, any>;
 
   constructor({ src, engine, tokens, env }: StateProps<T>) {
     this.src = src;
@@ -250,7 +258,7 @@ export class Ruler<H extends Function> {
   }
 
   // Clean up all rules.
-  clean() {
+  clear() {
     this.rules.splice(0);
     this.cache = undefined;
     return this;
@@ -822,6 +830,47 @@ export class InlineParser<T extends { options: Options }> extends Parser<
   }
 }
 
+const defaultRules = [
+  {
+    name: "normalize",
+    handle: function normalize<T>(state: State<T>) {
+      state.src = state.src
+        .replace(NEWLINES_RE, "\n")
+        .replace(NULL_RE, "\uFFFD");
+    },
+  },
+
+  {
+    name: "block",
+    handle: function block<
+      T extends { options: Options; block: BlockParser<T> }
+    >(state: State<T>) {
+      if (state.inlineMode) {
+        const token = new Token("", 0);
+        token.content = state.src;
+        token.map = [0, 1];
+        token.children = [];
+        state.tokens.push(token);
+      } else {
+        state.engine.block.parse(state);
+      }
+    },
+  },
+
+  {
+    name: "inline",
+    handle: function inline<
+      T extends { options: Options; inline: InlineParser<T> }
+    >(state: State<T>) {
+      for (const { name, content: src, children: tokens } of state.tokens) {
+        if (name === "" && src && tokens) {
+          state.engine.inline.parse({ ...state, src, tokens });
+        }
+      }
+    },
+  },
+];
+
 export class Engine {
   readonly core = new CoreParser<Engine>();
   readonly block = new BlockParser<Engine>();
@@ -840,51 +889,15 @@ export class Engine {
   }
 
   reset() {
-    this.block.ruler.clean();
-    this.inline.ruler.clean();
-
-    this.core.ruler.clean().add(
-      {
-        name: "block",
-        handle: function block(state) {
-          if (state.inlineMode) {
-            const token = new Token("", 0);
-            token.content = state.src;
-            token.map = [0, 1];
-            token.children = [];
-            state.tokens.push(token);
-          } else {
-            state.engine.block.parse(state);
-          }
-        },
-      },
-
-      {
-        name: "inline",
-        handle: function inline(state) {
-          for (const {
-            nesting,
-            content: src,
-            children: tokens,
-          } of state.tokens) {
-            if (nesting === 0 && src && tokens) {
-              state.engine.inline.parse({ ...state, src, tokens });
-            }
-          }
-        },
-      }
-    );
+    this.block.ruler.clear();
+    this.inline.ruler.clear();
+    this.core.ruler.clear().add(...defaultRules);
 
     return this;
   }
 
   parse(src: string, env: Record<string, any> = {}): Token[] {
-    const props = {
-      engine: this,
-      src: src.replace(/\r\n/g, "\n").replace(/\u2424/g, "\n"),
-      env,
-      tokens: [],
-    };
+    const props = { engine: this, src, env, tokens: [] };
     this.core.parse(props);
     return props.tokens;
   }

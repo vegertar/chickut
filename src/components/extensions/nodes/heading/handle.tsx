@@ -1,5 +1,6 @@
 import { BlockRuleHandle, isSpace } from "../../../editor";
 
+// heading (# , ## , ...)
 const handle: BlockRuleHandle = function (state, silent, startLine) {
   let pos = state.bMarks[startLine] + state.tShift[startLine];
   let max = state.eMarks[startLine];
@@ -23,7 +24,8 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
     ch = state.src.charCodeAt(++pos);
   }
 
-  if (level > 6 || (pos < max && !isSpace(ch))) {
+  // The commonmark spec(so did the original markdown-it code) treats '#...' without tailing chars as the empty heading, i.e. the condition (pos < max) is legal, but which makes hard typing for different levels.
+  if (pos === max || level > 6 || (pos < max && !isSpace(ch))) {
     return false;
   }
 

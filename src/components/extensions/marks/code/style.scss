@@ -1,11 +1,11 @@
 @use "../../../theme" as *;
 
 .editor {
-  code {
-    border-radius: 4px;
-    border: 1px solid theme-var(codeBorder);
-    padding: 3px 4px;
-    font-family: theme-var(fontFamilyMono);
-    font-size: 85%;
-  }
+  // code {
+  //   border-radius: 4px;
+  //   border: 1px solid theme-var(codeBorder);
+  //   padding: 3px 4px;
+  //   font-family: theme-var(fontFamilyMono);
+  //   font-size: 85%;
+  // }
 }

@@ -432,12 +432,18 @@ function toContentView(data: ReturnType<typeof useContentView>) {
   return contentView?.dom && contentView;
 }
 
-export function useExtensionVersion(extensionView?: ExtensionView) {
+export function useContentVersion(
+  extensionView?: ExtensionView,
+  contentView?: { id: string }
+) {
   const [i, update] = useReducer((x) => x + 1, 0);
 
   useEffect(() => {
-    !extensionView && update();
-  }, [extensionView]);
+    // only apply new version when this extension unloaded
+    if (!extensionView) {
+      update();
+    }
+  }, [extensionView, contentView?.id]);
 
   return i;
 }
@@ -447,8 +453,8 @@ export function useTextContent(
   text?: string
 ) {
   const { editorView, extensionView } = context;
-  const version = useExtensionVersion(extensionView);
   const contentView = useContentView(editorView, extensionView);
+  const version = useContentVersion(extensionView, contentView);
   const [textContent, setTextContent] = useState<string>();
   const idRef = useRef<string>();
 

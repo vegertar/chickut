@@ -6,7 +6,7 @@ const numbered = {
   name: "numberedlist",
   node: {
     attrs: {
-      order: {
+      start: {
         default: 1,
       },
     },
@@ -16,10 +16,7 @@ const numbered = {
       {
         tag: "ol",
         getAttrs: (dom: Node) => ({
-          order: parseInt(
-            (dom as HTMLElement).getAttribute("start") || "1",
-            10
-          ),
+          start: parseInt((dom as HTMLElement).getAttribute("start") || "1"),
         }),
       },
     ],

@@ -139,8 +139,10 @@ export default function plugins(type: NodeType) {
 
             case 0: {
               if (token.content) {
+                const content = schema.text(token.content);
+                const type = token.name ? schema.nodes[token.name] : null;
                 stack[stack.length - 1].content.push(
-                  schema.text(token.content)
+                  type?.createAndFill(token.attrs, content) || content
                 );
               }
               break;

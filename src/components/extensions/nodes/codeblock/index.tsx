@@ -1,50 +1,37 @@
-import React from "react";
-import { NodeSpec, NodeType } from "prosemirror-model";
-import { inputRules, textblockTypeInputRule } from "prosemirror-inputrules";
+import { NodeSpec } from "prosemirror-model";
 
-import { useExtension, Extension } from "../../../editor";
+import { useTextExtension } from "../../../editor";
+import handle from "./handle";
+import plugins from "./plugins";
 
 import "./style.scss";
 
-export default function CodeBlock() {
-  const { extensionView } = useExtension(CodeBlock);
-  // const textContent = extensionView?.node.textContent;
+const extension = {
+  handle,
+  plugins,
+  node: {
+    content: "text*",
+    marks: "",
+    group: "block",
+    code: true,
+    defining: true,
+    draggable: false,
+    parseDOM: [
+      {
+        tag: "pre",
+        preserveWhitespace: "full",
+        contentElement: "code",
+      },
+    ],
+    toDOM: (node) => [
+      "pre",
+      { "data-language": node.attrs.language },
+      ["code", 0],
+    ],
+  } as NodeSpec,
+};
 
+export default function CodeBlock(props?: { text?: string }) {
+  useTextExtension(extension, props?.text);
   return null;
 }
-
-CodeBlock.node = {
-  attrs: {
-    language: {
-      default: "javascript",
-    },
-  },
-  content: "text*",
-  marks: "",
-  group: "block",
-  code: true,
-  defining: true,
-  draggable: false,
-  parseDOM: [
-    { tag: "pre", preserveWhitespace: "full" },
-    {
-      tag: ".codeblock",
-      preserveWhitespace: "full",
-      contentElement: "code",
-      getAttrs: (node) => ({
-        language: (node as HTMLElement).dataset.language,
-      }),
-    },
-  ],
-  toDOM: (node) => [
-    "div",
-    { class: "codeblock", "data-language": node.attrs.language },
-    ["pre", ["code", { spellCheck: "false" }, 0]],
-  ],
-} as NodeSpec;
-
-CodeBlock.plugins = (type: NodeType) => [
-  inputRules({
-    rules: [textblockTypeInputRule(/^```$/, type)],
-  }),
-];
