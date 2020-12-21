@@ -194,7 +194,7 @@ const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
   let prevEmptyEnd = false;
 
   const terminatorRules = state.engine.block.ruler.getRules(this.name);
-  const oldParentType = state.parent;
+  const oldParent = state.parent;
   state.parent = this.name;
 
   while (nextLine < endLine) {
@@ -352,7 +352,7 @@ const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
   listLines[1] = nextLine;
   state.line = nextLine;
 
-  state.parent = oldParentType;
+  state.parent = oldParent;
 
   // mark paragraphs tight if needed
   if (tight) {

@@ -7,8 +7,12 @@ import plugins from "./plugins";
 import "./style.scss";
 
 const extension = {
-  handle,
   plugins,
+
+  rule: {
+    handle,
+  },
+
   node: {
     content: "inline*",
     group: "block",

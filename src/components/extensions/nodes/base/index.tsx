@@ -1,7 +1,7 @@
 import { baseKeymap } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 
-import { NodeSpec, useExtension } from "../../../editor";
+import { ExtensionPack, useExtension } from "../../../editor";
 
 export default function Base() {
   useExtension(Base.pack);
@@ -13,7 +13,7 @@ Base.pack = [
     name: "doc",
     node: {
       content: "block+",
-    } as NodeSpec,
+    },
     plugins: [keymap(baseKeymap)],
   },
 
@@ -21,7 +21,7 @@ Base.pack = [
     name: "text",
     node: {
       group: "inline",
-    } as NodeSpec,
+    },
   },
 
   {
@@ -32,6 +32,6 @@ Base.pack = [
       selectable: false,
       parseDOM: [{ tag: "br" }],
       toDOM: () => ["br"],
-    } as NodeSpec,
+    },
   },
-];
+] as ExtensionPack;

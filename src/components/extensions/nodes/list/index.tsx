@@ -18,7 +18,9 @@ List.pack = [
 
   {
     ...item,
-    handle,
-    alt: ["paragraph", "reference", "blockquote"],
+    rule: {
+      handle,
+      alt: ["paragraph", "reference", "blockquote"],
+    },
   },
 ];

@@ -18,25 +18,28 @@ type ExtensionRule = Partial<Pick<BlockRule | InlineRule, "alt" | "handle">>;
 type ExtensionSpec<T> = T;
 type ExtensionPlugins<T> = (type: T) => Plugin[];
 
-type NodeExtension = ExtensionRule & {
+type BaseExtension = {
+  rule?: ExtensionRule;
+};
+
+export type NodeExtension = BaseExtension & {
   node: ExtensionSpec<ProsemirrorNodeSpec> & {
     toText?: (node: ProsemirrorNode) => string;
   };
   plugins?: Plugin[] | ExtensionPlugins<NodeType>;
 };
 
-type MarkExtension = ExtensionRule & {
+export type MarkExtension = BaseExtension & {
   mark: ExtensionSpec<ProsemirrorMarkSpec>;
   plugins?: Plugin[] | ExtensionPlugins<MarkType>;
 };
 
-type PluginExtension = ExtensionRule & {
+export type PluginExtension = BaseExtension & {
   plugins: Plugin[];
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;
 export type ExtensionPack = ({ name: string } & Extension)[];
-export type NodeSpec = NodeExtension["node"];
 export type Schema = ProsemirrorSchema & {
   cached: {
     engine: Engine;
@@ -45,13 +48,14 @@ export type Schema = ProsemirrorSchema & {
 
 const defaultPrecedence = [
   "p",
-  "blockquote",
-  "pre",
+  "div",
+  /^h[1-6]$/,
   "ol",
   "li",
   "ul",
-  /^h[1-6]$/,
   "hr",
+  "blockquote",
+  "pre",
 ];
 
 const content = /(\w+)(\+)?/; // TODO: match "paragraph block*"
@@ -156,7 +160,7 @@ export class Manager {
 
     for (const key of keys) {
       const type = schema.nodes[key] || schema.marks[key];
-      const { plugins = [], handle, alt } = this.getExtension(key) || {};
+      const { plugins = [], rule = {} } = this.getExtension(key) || {};
 
       let thisPlugins: Plugin[] = [];
       if (typeof plugins === "function") {
@@ -167,6 +171,7 @@ export class Manager {
 
       allPlugins.push(...thisPlugins);
 
+      const { handle, alt } = rule;
       if (handle) {
         // TODO: support mark type
         const rule = { name: key, handle, alt };

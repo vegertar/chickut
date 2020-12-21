@@ -191,7 +191,9 @@ export class Ruler<H extends Function> {
     chains.add("");
 
     this.rules.forEach(
-      (rule) => !rule.disabled && rule.alt?.forEach((item) => chains.add(item))
+      (rule) =>
+        !rule.disabled &&
+        rule.alt?.forEach((item) => chains.add(item === "." ? rule.name : item))
     );
 
     const cache: Cache<H> = {};
@@ -203,7 +205,12 @@ export class Ruler<H extends Function> {
           return;
         }
 
-        if (chain && rule.alt && rule.alt.indexOf(chain) < 0) {
+        if (
+          chain &&
+          rule.alt &&
+          rule.alt.indexOf(chain) < 0 &&
+          (rule.name !== chain || rule.alt.indexOf(".") < 0)
+        ) {
           return;
         }
 

@@ -16,7 +16,7 @@ import Manager, {
   Extension,
   ExtensionPack,
   MissingContentError,
-  NodeSpec,
+  NodeExtension,
   Schema,
 } from "./manager";
 
@@ -420,7 +420,7 @@ export function useContentView(
 }
 
 function toText(node?: ProsemirrorNode) {
-  return node && (node.type.spec as NodeSpec).toText?.(node);
+  return node && (node.type.spec as NodeExtension["node"]).toText?.(node);
 }
 
 function normalizeText(text?: string) {

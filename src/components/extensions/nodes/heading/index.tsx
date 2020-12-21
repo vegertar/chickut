@@ -1,7 +1,7 @@
 import React, { createElement } from "react";
 import range from "lodash.range";
 
-import { Extension, NodeSpec, useTextExtension } from "../../../editor";
+import { Extension, NodeExtension, useTextExtension } from "../../../editor";
 import handle from "./handle";
 
 import "./style.scss";
@@ -15,9 +15,12 @@ const renderers = levels.map(
     createElement(`h${level}`, props, children)
 );
 
-const extension = {
-  handle,
-  alt: ["paragraph", "reference", "blockquote"],
+const extension: NodeExtension = {
+  rule: {
+    handle,
+    alt: ["paragraph", "reference", "blockquote"],
+  },
+
   node: {
     attrs: {
       level: {
@@ -34,7 +37,7 @@ const extension = {
     })),
     toDOM: (node) => [`h${node.attrs.level}`, 0],
     toText: (node) => `${"#".repeat(node.attrs.level)} ${node.textContent}`,
-  } as NodeSpec,
+  },
 };
 
 function H({

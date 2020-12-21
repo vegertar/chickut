@@ -1,8 +1,8 @@
-import { NodeSpec } from "../../../editor";
+import { ExtensionPack } from "../../../editor";
 
 import item from "./item";
 
-const numbered = {
+const numbered: ExtensionPack[0] = {
   name: "numberedlist",
   node: {
     attrs: {
@@ -15,7 +15,7 @@ const numbered = {
     parseDOM: [
       {
         tag: "ol",
-        getAttrs: (dom: Node) => ({
+        getAttrs: (dom) => ({
           start: parseInt((dom as HTMLElement).getAttribute("start") || "1"),
         }),
       },
@@ -24,7 +24,7 @@ const numbered = {
       node.attrs.order === 1
         ? ["ol", 0]
         : ["ol", { start: node.attrs.order }, 0],
-  } as NodeSpec,
+  },
 };
 
 export default numbered;

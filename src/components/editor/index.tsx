@@ -8,4 +8,10 @@ export * from "./engine";
 export default Editor;
 
 export type { CoreRule, BlockRule, InlineRule, Token } from "./engine";
-export type { NodeSpec, Schema } from "./manager";
+export type {
+  ExtensionPack,
+  NodeExtension,
+  MarkExtension,
+  PluginExtension,
+  Schema,
+} from "./manager";

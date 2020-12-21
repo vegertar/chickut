@@ -5,7 +5,7 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
   const terminatorRules = state.engine.block.ruler.getRules(name);
   const endLine = state.lineMax;
 
-  const oldParentType = state.parent;
+  const oldParent = state.parent;
   state.parent = name;
 
   let nextLine = startLine + 1;
@@ -52,7 +52,7 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
   // close token
   state.push(name, -1);
 
-  state.parent = oldParentType;
+  state.parent = oldParent;
 
   return true;
 };
