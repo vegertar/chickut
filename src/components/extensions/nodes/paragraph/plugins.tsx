@@ -70,7 +70,7 @@ export default function plugins(type: NodeType) {
         );
 
         const engine = state.schema.cached.engine;
-        const tokens = engine.parse(textBefore + text);
+        const tokens = engine.parse(textBefore + text, { typing: true });
 
         const tr = this.transform(state, tokens, from - textBefore.length, to);
         tr && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
@@ -123,7 +123,7 @@ export default function plugins(type: NodeType) {
           tr.insert(to, tail);
         }
 
-        return tr;
+        return tr.scrollIntoView();
       }
 
       parse(schema: Schema, tokens: Token[], context: ParseContext) {

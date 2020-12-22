@@ -1,13 +1,9 @@
-import React from "react";
-import { Story } from "@storybook/react/types-6-0";
-
 import Extension from "./index";
-import { extensionMeta } from "../../../index.stories";
+import { meta, template } from "../../../index.stories";
 
-export default extensionMeta("Nodes", Extension);
+export default meta("Nodes", Extension);
 
-type Args = Parameters<typeof Extension>[0];
-const Template: Story<Args> = (args) => <Extension {...args} />;
+const Template = template(Extension);
 
 export const Single = Template.bind({});
 Single.args = {

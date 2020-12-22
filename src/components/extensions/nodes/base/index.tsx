@@ -1,5 +1,6 @@
 import { baseKeymap } from "prosemirror-commands";
-import { keymap } from "prosemirror-keymap";
+import { keydownHandler } from "prosemirror-keymap";
+import { Plugin, PluginKey } from "prosemirror-state";
 
 import { ExtensionPack, useExtension } from "../../../editor";
 
@@ -14,7 +15,14 @@ Base.pack = [
     node: {
       content: "block+",
     },
-    plugins: [keymap(baseKeymap)],
+    plugins: [
+      new Plugin({
+        key: new PluginKey("base"),
+        props: {
+          handleKeyDown: keydownHandler(baseKeymap),
+        },
+      }),
+    ],
   },
 
   {

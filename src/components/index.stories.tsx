@@ -5,12 +5,13 @@ import Theme, { themes } from "./theme";
 import Editor from "./editor";
 import { Base, Paragraph } from "./extensions";
 
-export const minimalExtensions = [Base, Paragraph];
+export function template<P = {}, U = {}>(Component: React.FC<U>): Story<P & U> {
+  return (args: P & U) => <Component {...args} />;
+}
 
-export function withThemedEditor<P>(
-  Extension: React.FC<P>,
-  addon = minimalExtensions
-) {
+export const minimal = [Base, Paragraph];
+
+export function withThemedEditor<P>(Extension: React.FC<P>, addon = minimal) {
   return (props: P) => (
     <Theme>
       <Editor>
@@ -23,10 +24,10 @@ export function withThemedEditor<P>(
   );
 }
 
-export function extensionMeta<P = {}>(
+export function meta<P = {}>(
   kind: "Nodes" | "Marks" | "Plugins",
   extension: React.FC<P>,
-  addon = minimalExtensions.filter((x) => x !== extension)
+  addon = minimal.filter((x) => x !== extension)
 ) {
   const name = extension.name;
 

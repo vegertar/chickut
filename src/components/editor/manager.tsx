@@ -39,7 +39,7 @@ export type PluginExtension = BaseExtension & {
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;
-export type ExtensionPack = ({ name: string } & Extension)[];
+export type ExtensionPack<T = Extension> = ({ name: string } & T)[];
 export type Schema = ProsemirrorSchema & {
   cached: {
     engine: Engine;
@@ -48,11 +48,10 @@ export type Schema = ProsemirrorSchema & {
 
 const defaultPrecedence = [
   "p",
+  "iframe",
   "div",
   /^h[1-6]$/,
-  "ol",
-  "li",
-  "ul",
+  /ul|ol|li/,
   "hr",
   "blockquote",
   "pre",

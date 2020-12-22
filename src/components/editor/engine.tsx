@@ -9,6 +9,11 @@ export interface Options {
   ignoreError: boolean;
 }
 
+export interface Env {
+  typing?: boolean;
+  [key: string]: any;
+}
+
 export function isSpace(code: number) {
   switch (code) {
     case 0x09:
@@ -129,7 +134,7 @@ export class Token {
   ) {}
 }
 
-interface StateProps<T> {
+interface StateProps<T, P> {
   // the instance made up by parsers
   engine: T;
   // the input raw source code
@@ -137,18 +142,18 @@ interface StateProps<T> {
   // the output parsed tokens
   tokens: Token[];
   // out-of-band properites
-  env: Record<string, any>;
+  env: P;
 }
 
-class State<T> {
+class State<T, P> {
   inlineMode = false;
 
   engine: T;
   src: string;
   tokens: Token[];
-  env: Record<string, any>;
+  env: P;
 
-  constructor({ src, engine, tokens, env }: StateProps<T>) {
+  constructor({ src, engine, tokens, env }: StateProps<T, P>) {
     this.src = src;
     this.engine = engine;
     this.tokens = tokens;
@@ -282,26 +287,26 @@ export class Ruler<H extends Function> {
   }
 }
 
-export abstract class Parser<T, H extends Function> {
+abstract class Parser<T, P, H extends Function> {
   readonly ruler = new Ruler<H>();
-  abstract parse(props: StateProps<T>): void;
+  abstract parse(props: StateProps<T, P>): void;
 }
 
-export type CoreHandle<T> = (
-  this: Rule<CoreHandle<T>>,
-  state: State<T>
+type CoreHandle<T, P> = (
+  this: Rule<CoreHandle<T, P>>,
+  state: State<T, P>
 ) => void;
 
-export class CoreState<T> extends State<T> {}
+export class CoreState<T = {}, P = {}> extends State<T, P> {}
 
-export class CoreParser<T> extends Parser<T, CoreHandle<T>> {
-  parse(props: StateProps<T>) {
+class CoreParser<T, P> extends Parser<T, P, CoreHandle<T, P>> {
+  parse(props: StateProps<T, P>) {
     const state = new CoreState(props);
     this.ruler.getRules().forEach((rule) => rule(state));
   }
 }
 
-export class BlockState<T> extends State<T> {
+export class BlockState<T = {}, P = {}> extends State<T, P> {
   // The index of bMarks/eMarks/tShift/sCount/bsCount is the zero-based line number.
   // line begin offsets for fast jumps
   bMarks: number[] = [];
@@ -332,7 +337,7 @@ export class BlockState<T> extends State<T> {
   // nesting level
   level = 0;
 
-  constructor(props: StateProps<T>) {
+  constructor(props: StateProps<T, P>) {
     super(props);
 
     let indentFound = false;
@@ -523,9 +528,9 @@ export class BlockState<T> extends State<T> {
   }
 }
 
-export type BlockHandle<T> = (
-  this: Rule<BlockHandle<T>>,
-  state: BlockState<T>,
+type BlockHandle<T, P> = (
+  this: Rule<BlockHandle<T, P>>,
+  state: BlockState<T, P>,
 
   // silent (validation) mode used to check if markup can terminate previous block without empty line. That's used as look-ahead, to detect block end. see: https://github.com/markdown-it/markdown-it/issues/323#issuecomment-271629253
   silent: boolean,
@@ -534,20 +539,21 @@ export type BlockHandle<T> = (
   endLine: number
 ) => boolean;
 
-export class BlockParser<T extends { options: Options }> extends Parser<
+class BlockParser<T extends { options: Options }, P> extends Parser<
   T,
-  BlockHandle<T>
+  P,
+  BlockHandle<T, P>
 > {
-  parse(props: StateProps<T>) {
+  parse(props: StateProps<T, P>) {
     if (!props.src) {
       return;
     }
 
-    const state = new BlockState<T>(props);
+    const state = new BlockState<T, P>(props);
     this.tokenize(state, state.line, state.lineMax);
   }
 
-  tokenize(state: BlockState<T>, startLine: number, endLine: number) {
+  tokenize(state: BlockState<T, P>, startLine: number, endLine: number) {
     const rules = this.ruler.getRules();
     const { maxNesting, ignoreError } = state.engine.options;
     let line = startLine;
@@ -623,7 +629,7 @@ export type Delimiter = {
   [key: string]: any;
 };
 
-export class InlineState<T> extends State<T> {
+export class InlineState<T = {}, P = {}> extends State<T, P> {
   tokensMeta = Array(this.tokens.length);
   pos = 0;
   posMax = this.src.length;
@@ -746,22 +752,23 @@ export class InlineState<T> extends State<T> {
   }
 }
 
-export type InlineHandle<T> = (
-  this: Rule<InlineHandle<T>>,
-  state: InlineState<T>,
+type InlineHandle<T, P> = (
+  this: Rule<InlineHandle<T, P>>,
+  state: InlineState<T, P>,
   silent: boolean
 ) => boolean;
 
-export class InlineParser<T extends { options: Options }> extends Parser<
+class InlineParser<T extends { options: Options }, P> extends Parser<
   T,
-  InlineHandle<T>
+  P,
+  InlineHandle<T, P>
 > {
-  parse(props: StateProps<T>) {
+  parse(props: StateProps<T, P>) {
     const state = new InlineState(props);
     this.tokenize(state);
   }
 
-  tokenize(state: InlineState<T>) {
+  tokenize(state: InlineState<T, P>) {
     const rules = this.ruler.getRules();
     const maxNesting = state.engine.options.maxNesting;
 
@@ -798,7 +805,7 @@ export class InlineParser<T extends { options: Options }> extends Parser<
     }
   }
 
-  skipToken(state: InlineState<T>) {
+  skipToken(state: InlineState<T, P>) {
     const { pos, cache } = state;
     if (cache[pos] !== undefined) {
       state.pos = cache[pos];
@@ -840,7 +847,7 @@ export class InlineParser<T extends { options: Options }> extends Parser<
 const defaultRules = [
   {
     name: "normalize",
-    handle: function normalize<T>(state: State<T>) {
+    handle: function normalize<T, P>(state: State<T, P>) {
       state.src = state.src
         .replace(NEWLINES_RE, "\n")
         .replace(NULL_RE, "\uFFFD");
@@ -850,8 +857,9 @@ const defaultRules = [
   {
     name: "block",
     handle: function block<
-      T extends { options: Options; block: BlockParser<T> }
-    >(state: State<T>) {
+      T extends { options: Options; block: BlockParser<T, P> },
+      P
+    >(state: State<T, P>) {
       if (state.inlineMode) {
         const token = new Token("", 0);
         token.content = state.src;
@@ -867,8 +875,9 @@ const defaultRules = [
   {
     name: "inline",
     handle: function inline<
-      T extends { options: Options; inline: InlineParser<T> }
-    >(state: State<T>) {
+      T extends { options: Options; inline: InlineParser<T, P> },
+      P
+    >(state: State<T, P>) {
       for (const { name, content: src, children: tokens } of state.tokens) {
         if (name === "" && src && tokens) {
           state.engine.inline.parse({ ...state, src, tokens });
@@ -878,10 +887,10 @@ const defaultRules = [
   },
 ];
 
-export class Engine {
-  readonly core = new CoreParser<Engine>();
-  readonly block = new BlockParser<Engine>();
-  readonly inline = new InlineParser<Engine>();
+export class Engine<P extends Record<string, any> = Env> {
+  readonly core = new CoreParser<Engine<P>, P>();
+  readonly block = new BlockParser<Engine<P>, P>();
+  readonly inline = new InlineParser<Engine<P>, P>();
 
   readonly options: Options = {
     // Internal protection, recursion limit
@@ -903,18 +912,18 @@ export class Engine {
     return this;
   }
 
-  parse(src: string, env: Record<string, any> = {}): Token[] {
+  parse(src: string, env = {} as P): Token[] {
     const props = { engine: this, src, env, tokens: [] };
     this.core.parse(props);
     return props.tokens;
   }
 }
 
-export type CoreRule = Rule<CoreHandle<Engine>>;
+export type CoreRule<P = Env> = Rule<CoreHandle<Engine<P>, P>>;
 export type CoreRuleHandle = CoreRule["handle"];
-export type BlockRule = Rule<BlockHandle<Engine>>;
+export type BlockRule<P = Env> = Rule<BlockHandle<Engine<P>, P>>;
 export type BlockRuleHandle = BlockRule["handle"];
-export type InlineRule = Rule<InlineHandle<Engine>>;
+export type InlineRule<P = Env> = Rule<InlineHandle<Engine<P>, P>>;
 export type InlineRuleHandle = InlineRule["handle"];
 
 export default Engine;

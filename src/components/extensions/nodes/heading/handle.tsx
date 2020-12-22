@@ -24,8 +24,12 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
     ch = state.src.charCodeAt(++pos);
   }
 
-  // The commonmark spec(so did the original markdown-it code) treats '#...' without tailing chars as the empty heading, i.e. the condition (pos < max) is legal, but which makes hard typing for different levels.
-  if (pos === max || level > 6 || (pos < max && !isSpace(ch))) {
+  if (level > 6 || (pos < max && !isSpace(ch))) {
+    return false;
+  }
+
+  if (state.env.typing && pos === max) {
+    // The commonmark spec(so did the original markdown-it code) treats '#...' without tailing chars as the empty heading, i.e. the condition (pos < max) is legal, but which makes hard typing for different levels.
     return false;
   }
 

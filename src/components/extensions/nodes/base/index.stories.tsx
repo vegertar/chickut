@@ -4,7 +4,7 @@ import { Story } from "@storybook/react/types-6-0";
 import Extension from "./index";
 import { meta } from "../../../index.stories";
 
-export default meta("Marks", Extension);
+export default meta("Nodes", Extension, []);
 
 const Template: Story = (args) => <Extension {...args} />;
 

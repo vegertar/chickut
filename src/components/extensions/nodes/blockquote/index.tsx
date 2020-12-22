@@ -1,7 +1,4 @@
-// import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
-// import { NodeSpec, NodeType } from "prosemirror-model";
-
-import { useExtension, NodeExtension } from "../../../editor";
+import { NodeExtension, useTextExtension } from "../../../editor";
 import handle from "./handle";
 
 import "./style.scss";
@@ -21,14 +18,7 @@ const extension: NodeExtension = {
   },
 };
 
-export default function Blockquote() {
-  useExtension(extension);
-
+export default function Blockquote(props?: { text?: string }) {
+  useTextExtension(extension, props?.text);
   return null;
 }
-
-// Blockquote.plugins = (type: NodeType) => [
-//   inputRules({
-//     rules: [wrappingInputRule(/^\s*>\s$/, type)],
-//   }),
-// ];

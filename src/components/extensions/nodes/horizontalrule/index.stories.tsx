@@ -2,9 +2,9 @@ import React from "react";
 import { Story } from "@storybook/react/types-6-0";
 
 import Extension from "./index";
-import { extensionMeta } from "../../../index.stories";
+import { meta } from "../../../index.stories";
 
-export default extensionMeta("Nodes", Extension);
+export default meta("Nodes", Extension);
 
 const Template: Story = (args) => <Extension {...args} />;
 

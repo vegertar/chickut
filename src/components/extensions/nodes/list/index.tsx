@@ -1,4 +1,4 @@
-import { useTextExtension } from "../../../editor";
+import { useTextExtension, ExtensionPack } from "../../../editor";
 
 import handle from "./handle";
 import item from "./item";
@@ -23,4 +23,4 @@ List.pack = [
       alt: ["paragraph", "reference", "blockquote"],
     },
   },
-];
+] as ExtensionPack;

@@ -182,7 +182,7 @@ function createDOM(node: ProsemirrorNode) {
 }
 
 function createNodeViewDOMs(name: string, node: ProsemirrorNode) {
-  if (node.isText) {
+  if (!node.type.spec.content) {
     return;
   }
 
@@ -308,6 +308,7 @@ export function useManager(element: HTMLDivElement | null) {
         manager = new Manager(extensions);
       } catch (e) {
         if (e instanceof MissingContentError) {
+          // TODO: set error boundry
           console.warn(e);
           return;
         }

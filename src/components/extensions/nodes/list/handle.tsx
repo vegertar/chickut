@@ -1,4 +1,4 @@
-import { BlockRuleHandle, BlockState, isSpace } from "../../../editor";
+import { BlockRuleHandle, BlockState, Env, isSpace } from "../../../editor";
 
 import item from "./item";
 import bulleted from "./bulleted";
@@ -6,7 +6,7 @@ import numbered from "./numbered";
 
 // Search `[-+*][\n ]`, returns next pos after marker on success
 // or -1 on fail.
-function skipBulletListMarker<T>(state: BlockState<T>, startLine: number) {
+function skipBulletListMarker<T>(state: BlockState<T, Env>, startLine: number) {
   const max = state.eMarks[startLine];
   let pos = state.bMarks[startLine] + state.tShift[startLine];
   const marker = state.src.charCodeAt(pos++);
@@ -20,12 +20,14 @@ function skipBulletListMarker<T>(state: BlockState<T>, startLine: number) {
     return -1;
   }
 
-  if (pos < max) {
-    const ch = state.src.charCodeAt(pos);
-    if (!isSpace(ch)) {
-      // " -test " - is not a list item
-      return -1;
-    }
+  if (pos === max && state.env.typing) {
+    // "-" is not a list item on typing mode
+    return -1;
+  }
+
+  if (pos < max && !isSpace(state.src.charCodeAt(pos))) {
+    // " -test " - is not a list item
+    return -1;
   }
 
   return pos;
@@ -33,7 +35,10 @@ function skipBulletListMarker<T>(state: BlockState<T>, startLine: number) {
 
 // Search `\d+[.)][\n ]`, returns next pos after marker on success
 // or -1 on fail.
-function skipOrderedListMarker<T>(state: BlockState<T>, startLine: number) {
+function skipOrderedListMarker<T>(
+  state: BlockState<T, Env>,
+  startLine: number
+) {
   const start = state.bMarks[startLine] + state.tShift[startLine];
   const max = state.eMarks[startLine];
   let pos = start;
@@ -74,17 +79,22 @@ function skipOrderedListMarker<T>(state: BlockState<T>, startLine: number) {
     return -1;
   }
 
-  if (pos < max) {
-    ch = state.src.charCodeAt(pos);
-    if (!isSpace(ch)) {
-      // " 1.test " - is not a list item
-      return -1;
-    }
+  if (pos === max && state.env.typing) {
+    // "1." is not a list item on typing mode
+    return -1;
   }
+
+  if (pos < max && !isSpace(state.src.charCodeAt(pos))) {
+    // " 1.test " - is not a list item
+    return -1;
+  }
+
+  // if (state.env)
+
   return pos;
 }
 
-function markTightParagraphs<T>(state: BlockState<T>, idx: number) {
+function markTightParagraphs(state: BlockState, idx: number) {
   const level = state.level + 2;
   for (let i = idx + 2, l = state.tokens.length - 2; i < l; i++) {
     if (
@@ -125,7 +135,6 @@ const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
   // limit conditions when list can interrupt
   // a paragraph (validation mode only)
   if (silent && state.parent === "paragraph") {
-    // TODO: xxx
     // Next list item should still terminate previous list item;
     //
     // This code can fail if plugins use blkIndent as well as lists,

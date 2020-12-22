@@ -7,30 +7,17 @@ const Template = template(Extension);
 
 export const First = Template.bind({});
 First.args = {
-  text: "# hello",
+  text: "> This is the first layer quote...",
 };
 
 export const Second = Template.bind({});
 Second.args = {
-  text: "## hello",
+  text: `${First.args.text}
+>> This is the second layer quote...`,
 };
 
 export const Third = Template.bind({});
 Third.args = {
-  text: "### hello",
-};
-
-export const Fourth = Template.bind({});
-Fourth.args = {
-  text: "#### hello",
-};
-
-export const Fifth = Template.bind({});
-Fifth.args = {
-  text: "##### hello",
-};
-
-export const Sixth = Template.bind({});
-Sixth.args = {
-  text: "###### hello",
+  text: `${Second.args.text}
+> > > This is the third layer quote...`,
 };

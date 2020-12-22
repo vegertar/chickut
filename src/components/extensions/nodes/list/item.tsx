@@ -1,12 +1,13 @@
 import { keymap } from "prosemirror-keymap";
-import { NodeSpec, NodeType } from "prosemirror-model";
 import {
   splitListItem,
   sinkListItem,
   liftListItem,
 } from "prosemirror-schema-list";
 
-const item = {
+import { ExtensionPack, NodeExtension } from "../../../editor";
+
+const item: ExtensionPack<NodeExtension>[0] = {
   name: "listitem",
 
   node: {
@@ -15,9 +16,9 @@ const item = {
     draggable: true,
     parseDOM: [{ tag: "li" }],
     toDOM: () => ["li", 0],
-  } as NodeSpec,
+  },
 
-  plugins: (type: NodeType) => [
+  plugins: (type) => [
     keymap({
       Enter: splitListItem(type),
       Tab: sinkListItem(type),

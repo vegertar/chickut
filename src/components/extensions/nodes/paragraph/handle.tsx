@@ -35,9 +35,11 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
     }
   }
 
-  const content = state
-    .getLines(startLine, nextLine, state.blkIndent, false)
-    .trim();
+  // we don't trim content for friendly typing, however
+  let content = state.getLines(startLine, nextLine, state.blkIndent, false);
+  if (!state.env.typing) {
+    content = content.trim();
+  }
 
   state.line = nextLine;
 
