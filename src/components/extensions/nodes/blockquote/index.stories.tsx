@@ -5,19 +5,19 @@ export default meta("Nodes", Extension);
 
 const Template = template(Extension);
 
-export const First = Template.bind({});
-First.args = {
+export const One = Template.bind({});
+One.args = {
   text: "> This is the first layer quote...",
 };
 
-export const Second = Template.bind({});
-Second.args = {
-  text: `${First.args.text}
+export const Two = Template.bind({});
+Two.args = {
+  text: `${One.args.text}
 >> This is the second layer quote...`,
 };
 
-export const Third = Template.bind({});
-Third.args = {
-  text: `${Second.args.text}
+export const Three = Template.bind({});
+Three.args = {
+  text: `${Two.args.text}
 > > > This is the third layer quote...`,
 };

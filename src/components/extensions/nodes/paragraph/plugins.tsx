@@ -133,12 +133,16 @@ class ParagraphPlugin extends Plugin {
         }
 
         case 0: {
-          if (token.content) {
-            const content = schema.text(token.content);
+          if (token.content || token.name) {
+            const content = token.content ? schema.text(token.content) : null;
             const type = token.name ? schema.nodes[token.name] : null;
-            stack[stack.length - 1].content.push(
-              type?.createAndFill(token.attrs, content) || content
-            );
+            const node =
+              type && content
+                ? type.createAndFill(token.attrs, content)
+                : type
+                ? type.create(token.attrs)
+                : content;
+            node && stack[stack.length - 1].content.push(node);
           }
           break;
         }

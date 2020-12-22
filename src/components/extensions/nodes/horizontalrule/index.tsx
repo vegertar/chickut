@@ -1,34 +1,22 @@
-import { InputRule, inputRules } from "prosemirror-inputrules";
-import { NodeSpec, NodeType } from "prosemirror-model";
+import { NodeExtension, useExtension } from "../../../editor";
 
-import { useExtension } from "../../../editor";
+import handle from "./handle";
 
 import "./style.scss";
 
-export default function HorizontalRule() {
-  useExtension(HorizontalRule);
+const extension: NodeExtension = {
+  rule: {
+    handle,
+  },
 
+  node: {
+    group: "block",
+    parseDOM: [{ tag: "hr" }],
+    toDOM: () => ["hr"],
+  },
+};
+
+export default function HorizontalRule() {
+  useExtension(extension);
   return null;
 }
-
-HorizontalRule.node = {
-  group: "block",
-  parseDOM: [{ tag: "hr" }],
-  toDOM: () => ["hr"],
-} as NodeSpec;
-
-HorizontalRule.plugins = (type: NodeType) => [
-  inputRules({
-    rules: [
-      new InputRule(/^(?:---|___\s|\*\*\*\s)$/, (state, match, start, end) => {
-        const { tr } = state;
-
-        if (match[0]) {
-          tr.replaceWith(start - 1, end, type.create({}));
-        }
-
-        return tr;
-      }),
-    ],
-  }),
-];
