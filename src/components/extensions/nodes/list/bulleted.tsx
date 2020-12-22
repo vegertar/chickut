@@ -4,7 +4,6 @@ import item from "./item";
 
 const bulleted: ExtensionPack[0] = {
   name: "bulletedlist",
-
   node: {
     content: `${item.name}+`,
     group: "block",

@@ -46,6 +46,7 @@ export type Schema = ProsemirrorSchema & {
   };
 };
 
+// the lower index of tag, the more general extension
 const defaultPrecedence = [
   "p",
   "iframe",
@@ -157,7 +158,10 @@ export class Manager {
       Object.keys(this.extensions)
     );
 
-    for (const key of keys) {
+    for (let i = 0; i < keys.length; ++i) {
+      // adding by reverse order, i.e. from special to general
+      const key = keys[keys.length - i - 1];
+
       const type = schema.nodes[key] || schema.marks[key];
       const { plugins = [], rule = {} } = this.getExtension(key) || {};
 
@@ -175,9 +179,9 @@ export class Manager {
         // TODO: support mark type
         const rule = { name: key, handle, alt };
         if (type.isBlock) {
-          engine.block.ruler.insert(rule as BlockRule, 0);
+          engine.block.ruler.add(rule as BlockRule);
         } else if (type.isInline) {
-          engine.inline.ruler.insert(rule as InlineRule, 0);
+          engine.inline.ruler.add(rule as InlineRule);
         }
       }
     }

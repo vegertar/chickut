@@ -1,15 +1,7 @@
-import { keymap } from "prosemirror-keymap";
-import {
-  splitListItem,
-  sinkListItem,
-  liftListItem,
-} from "prosemirror-schema-list";
+import { ExtensionPack } from "../../../editor";
 
-import { ExtensionPack, NodeExtension } from "../../../editor";
-
-const item: ExtensionPack<NodeExtension>[0] = {
+const item: ExtensionPack[0] = {
   name: "listitem",
-
   node: {
     content: "paragraph block*",
     defining: true,
@@ -17,14 +9,6 @@ const item: ExtensionPack<NodeExtension>[0] = {
     parseDOM: [{ tag: "li" }],
     toDOM: () => ["li", 0],
   },
-
-  plugins: (type) => [
-    keymap({
-      Enter: splitListItem(type),
-      Tab: sinkListItem(type),
-      "Shift-Tab": liftListItem(type),
-    }),
-  ],
 };
 
 export default item;

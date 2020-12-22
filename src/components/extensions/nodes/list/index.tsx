@@ -1,6 +1,7 @@
 import { useTextExtension, ExtensionPack } from "../../../editor";
 
 import handle from "./handle";
+import plugins from "./plugins";
 import item from "./item";
 import bulleted from "./bulleted";
 import numbered from "./numbered";
@@ -18,6 +19,7 @@ List.pack = [
 
   {
     ...item,
+    plugins,
     rule: {
       handle,
       alt: ["paragraph", "reference", "blockquote"],
