@@ -27,7 +27,7 @@ export function withThemedEditor<P>(Extension: React.FC<P>, addon = minimal) {
 export function meta<P = {}>(
   kind: "Nodes" | "Marks" | "Plugins",
   extension: React.FC<P>,
-  addon = minimal.filter((x) => x !== extension)
+  addon = minimal
 ) {
   const name = extension.name;
 
