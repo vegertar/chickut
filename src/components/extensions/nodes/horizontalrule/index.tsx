@@ -1,4 +1,4 @@
-import { NodeExtension, useExtension } from "../../../editor";
+import { NodeExtension, useTextExtension } from "../../../editor";
 
 import handle from "./handle";
 
@@ -7,6 +7,7 @@ import "./style.scss";
 const extension: NodeExtension = {
   rule: {
     handle,
+    alt: ["paragraph", "reference", "blockquote", "list"],
   },
 
   node: {
@@ -16,7 +17,7 @@ const extension: NodeExtension = {
   },
 };
 
-export default function HorizontalRule() {
-  useExtension(extension);
+export default function HorizontalRule(props?: { text?: string }) {
+  useTextExtension(extension, props?.text);
   return null;
 }

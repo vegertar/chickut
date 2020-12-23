@@ -46,7 +46,7 @@ export type Schema = ProsemirrorSchema & {
   };
 };
 
-// the lower index of tag, the more general extension
+// the smaller index of tag, the more general extension, the lower priority
 const defaultPrecedence = [
   "p",
   "iframe",

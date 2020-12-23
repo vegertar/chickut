@@ -1,8 +1,8 @@
-import { useTextExtension, NodeExtension } from "../../../editor";
-import handle from "./handle";
-// import plugins from "./plugins";
+import React from "react";
 
-// import "./style.scss";
+import { useTextExtension, NodeExtension, Extension } from "../../../editor";
+
+import handle from "./handle";
 
 const extension: NodeExtension = {
   rule: {
@@ -10,13 +10,7 @@ const extension: NodeExtension = {
     alt: ["paragraph", "reference", "blockquote"],
   },
 
-  // plugins,
   node: {
-    attrs: {
-      language: {
-        default: "html",
-      },
-    },
     content: "text*",
     marks: "",
     group: "block",
@@ -27,19 +21,26 @@ const extension: NodeExtension = {
       {
         tag: "div",
         preserveWhitespace: "full",
-        getAttrs: (node) => {
-          const dom = node as HTMLElement;
-          if (dom.dataset.language !== "html") {
-            return false;
-          }
-        },
       },
     ],
-    toDOM: (node) => ["div", { "data-language": node.attrs.language }, 0],
+    toDOM: (node) => ["div", 0],
   },
 };
 
 export default function Html(props?: { text?: string }) {
-  useTextExtension(extension, props?.text);
-  return null;
+  const { extensionView } = useTextExtension(extension, props?.text);
+  if (!extensionView) {
+    return null;
+  }
+
+  return (
+    <>
+      {extensionView.map(({ id, dom, node, content }) => (
+        <Extension dom={dom} key={id}>
+          <div dangerouslySetInnerHTML={{ __html: node.textContent }} />
+          {content}
+        </Extension>
+      ))}
+    </>
+  );
 }

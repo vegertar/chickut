@@ -50,7 +50,7 @@ function H({
 }
 
 export default function Heading(props?: { text?: string }) {
-  const contentView = useTextExtension(extension, props?.text);
+  const { contentView } = useTextExtension(extension, props?.text);
   if (!contentView) {
     return null;
   }

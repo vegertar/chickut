@@ -1,12 +1,11 @@
-import { NodeSpec } from "prosemirror-model";
+import { NodeExtension, useTextExtension } from "../../../editor";
 
-import { useExtension } from "../../../editor";
 import handle from "./handle";
 import plugins from "./plugins";
 
 import "./style.scss";
 
-const extension = {
+const extension: NodeExtension = {
   plugins,
 
   rule: {
@@ -18,10 +17,10 @@ const extension = {
     group: "block",
     parseDOM: [{ tag: "p" }],
     toDOM: () => ["p", 0],
-  } as NodeSpec,
+  },
 };
 
-export default function Paragraph() {
-  useExtension(extension);
+export default function Paragraph(props?: { text?: string }) {
+  useTextExtension(extension, props?.text);
   return null;
 }

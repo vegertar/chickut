@@ -2,10 +2,10 @@ import { baseKeymap } from "prosemirror-commands";
 import { keydownHandler } from "prosemirror-keymap";
 import { Plugin, PluginKey } from "prosemirror-state";
 
-import { ExtensionPack, useExtension } from "../../../editor";
+import { ExtensionPack, useTextExtension } from "../../../editor";
 
-export default function Base() {
-  useExtension(Base.pack);
+export default function Base(props?: { text?: string }) {
+  useTextExtension(Base.pack, props?.text);
   return null;
 }
 
@@ -33,13 +33,23 @@ Base.pack = [
   },
 
   {
-    name: "hardbreak",
+    name: "br",
     node: {
       inline: true,
       group: "inline",
       selectable: false,
-      parseDOM: [{ tag: "br" }],
+      parseDOM: [{ tag: "br", priority: -1 }],
       toDOM: () => ["br"],
+    },
+  },
+
+  {
+    name: "default-block",
+    node: {
+      content: "inline*",
+      group: "block",
+      parseDOM: [{ tag: "default-block" }],
+      toDOM: () => ["default-block", 0],
     },
   },
 ] as ExtensionPack;

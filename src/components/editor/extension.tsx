@@ -3,7 +3,6 @@ import ReactDOM from "react-dom";
 
 import {
   ExtensionContextProvider,
-  ExtensionContextProps,
   ExtensionState,
   useManager,
   ExtensionView,
@@ -20,27 +19,29 @@ export function Extension({ dom, children }: Props) {
 
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<
   ExtensionState,
-  "extensionViews" | "extensionPacks"
+  "extensionViews" | "extensionPacks" | "extensionVersions"
 > &
   ReturnType<typeof useManager>;
-
-type ExtensionViews = ExtensionProviderProps["extensionViews"];
-type ExtensionPacks = ExtensionProviderProps["extensionPacks"];
 
 const cachedViews: { [name: string]: ExtensionView } = {};
 
 function provideExtension(
   child: React.ReactNode,
-  extensionViews: ExtensionViews,
-  extensionPacks: ExtensionPacks,
-  props?: ExtensionContextProps
+  {
+    extensionViews,
+    extensionPacks,
+    extensionVersions,
+    ...props
+  }: Omit<ExtensionProviderProps, "children">
 ) {
   let extensionName: string | undefined;
   let extensionView: ExtensionView | undefined;
+  let extensionVersion: number | undefined;
 
   if (React.isValidElement(child) && typeof child.type === "function") {
     extensionName = child.type.name.toLowerCase();
     extensionView = extensionViews[extensionName];
+    extensionVersion = extensionVersions[extensionName];
 
     const extensionPack = extensionPacks[extensionName];
     if (extensionPack?.length) {
@@ -74,7 +75,12 @@ function provideExtension(
 
   return (
     <ExtensionContextProvider
-      value={{ ...props, extensionView, extensionName }}
+      value={{
+        ...props,
+        extensionView,
+        extensionName,
+        extensionVersion,
+      }}
     >
       {child}
     </ExtensionContextProvider>
@@ -82,18 +88,12 @@ function provideExtension(
 }
 
 export function ExtensionProvider({
-  extensionViews,
-  extensionPacks,
   children,
-  view: editorView,
-  ...context
+  ...props
 }: ExtensionProviderProps) {
-  const props = { ...context, editorView };
   return (
     <>
-      {React.Children.map(children, (child) =>
-        provideExtension(child, extensionViews, extensionPacks, props)
-      )}
+      {React.Children.map(children, (child) => provideExtension(child, props))}
     </>
   );
 }

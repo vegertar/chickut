@@ -4,6 +4,7 @@ const tags = [
   "aside",
   "base",
   "basefont",
+  "button",
   "blockquote",
   "body",
   "caption",

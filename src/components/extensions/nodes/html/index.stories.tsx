@@ -7,5 +7,5 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: "--- ",
+  text: `<button>click me</button>`,
 };

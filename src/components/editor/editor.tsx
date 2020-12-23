@@ -51,7 +51,7 @@ export default forwardRef<Handle, Props>(function Editor(props, ref) {
   const { style, children } = props || {};
   const divRef = useRef<HTMLDivElement>(null);
   const context = useManager(divRef.current);
-  const { view } = context;
+  const { editorView: view } = context;
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {

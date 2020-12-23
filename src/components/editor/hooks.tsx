@@ -46,6 +46,7 @@ export type ExtensionContextProps = {
   editorView?: EditorView<Schema>;
   extensionView?: ExtensionView;
   extensionName?: string;
+  extensionVersion?: number;
   dispatch?: React.Dispatch<Action>;
 };
 
@@ -57,6 +58,7 @@ export interface ExtensionState {
   extensions: Record<string, Extension>;
   extensionViews: Record<string, ExtensionView>;
   extensionPacks: Record<string, string[]>;
+  extensionVersions: Record<string, number>;
 }
 
 interface Action extends Partial<Events> {
@@ -66,7 +68,7 @@ interface Action extends Partial<Events> {
 // IMPORTANT: reducer should be a pure function, so Action should be a pure action as well
 function reducer(state: ExtensionState, action: Action) {
   const target = action.target;
-  console.info(action);
+  console.info(action, state.extensionVersions[target]);
 
   if (action.load) {
     const data = action.load;
@@ -90,6 +92,11 @@ function reducer(state: ExtensionState, action: Action) {
         }
         draft.extensions[target] = data;
       }
+
+      if (!draft.extensionVersions[target]) {
+        draft.extensionVersions[target] = 0;
+      }
+      draft.extensionVersions[target] += 1;
     });
   }
 
@@ -104,6 +111,8 @@ function reducer(state: ExtensionState, action: Action) {
       } else {
         delete draft.extensions[target];
       }
+
+      draft.extensionVersions[target] += 1;
     });
   }
 
@@ -219,15 +228,13 @@ function createNodeViewDOMs(name: string, node: ProsemirrorNode) {
 
 export function useManager(element: HTMLDivElement | null) {
   const viewRef = useRef<EditorView>();
-  const [view, setView] = useState<EditorView>();
-  const [{ extensions, extensionViews, extensionPacks }, dispatch] = useReducer(
-    reducer,
-    {
-      extensions: {},
-      extensionViews: {},
-      extensionPacks: {},
-    }
-  );
+  const [editorView, setEditorView] = useState<EditorView>();
+  const [{ extensions, ...context }, dispatch] = useReducer(reducer, {
+    extensions: {},
+    extensionViews: {},
+    extensionPacks: {},
+    extensionVersions: {},
+  });
 
   const createNodeView = useCallback((name: string) => {
     return (
@@ -290,10 +297,10 @@ export function useManager(element: HTMLDivElement | null) {
   useEffect(
     function destroyView() {
       return () => {
-        view?.destroy();
+        editorView?.destroy();
       };
     },
-    [view]
+    [editorView]
   );
 
   useEffect(
@@ -346,13 +353,13 @@ export function useManager(element: HTMLDivElement | null) {
           },
         });
         viewRef.current = view;
-        setView(view);
+        setEditorView(view);
       }
     },
     [extensions, createNodeView, element]
   );
 
-  return { view, dispatch, extensionViews, extensionPacks };
+  return { editorView, dispatch, ...context };
 }
 
 export function useExtensionContext() {
@@ -433,43 +440,33 @@ function toContentView(data: ReturnType<typeof useContentView>) {
   return contentView?.dom && contentView;
 }
 
-export function useContentVersion(
-  extensionView?: ExtensionView,
-  contentView?: { id: string }
-) {
-  const [i, update] = useReducer((x) => x + 1, 0);
-
-  useEffect(() => {
-    // only apply new version when this extension unloaded
-    if (!extensionView) {
-      update();
-    }
-  }, [extensionView, contentView?.id]);
-
-  return i;
-}
-
 export function useTextContent(
   context: ReturnType<typeof useExtension>,
   text?: string
 ) {
-  const { editorView, extensionView } = context;
+  const { editorView, extensionView, extensionVersion } = context;
   const contentView = useContentView(editorView, extensionView);
-  const version = useContentVersion(extensionView, contentView);
   const [textContent, setTextContent] = useState<string>();
+  const [isDelayed, setIsDelayed] = useState(0);
+
   const idRef = useRef<string>();
+  const id = contentView?.id;
+  const $contentView = toContentView(contentView);
 
   useEffect(() => {
-    idRef.current = contentView?.id;
-    const s = normalizeText(text);
-    if (!contentView || s === undefined) {
-      return;
+    if (id === idRef.current) {
+      setIsDelayed((x) => x + 1);
     }
+    idRef.current = id;
+  }, [extensionVersion, id]);
 
-    if (s !== toText(toContentView(contentView)?.node)) {
+  useEffect(() => {
+    const node = $contentView?.node;
+    const s = node?.type.spec.code ? text : normalizeText(text);
+    if (s !== undefined && s !== toText(node)) {
       setTextContent(s);
     }
-  }, [contentView, text]);
+  }, [$contentView, text]);
 
   useEffect(() => {
     const id = idRef.current;
@@ -477,9 +474,12 @@ export function useTextContent(
     if (contentDOM && textContent !== undefined) {
       contentDOM.textContent = textContent;
     }
-  }, [textContent, version]);
+  }, [textContent, extensionVersion, isDelayed]);
 
-  return toContentView(contentView);
+  return {
+    ...context,
+    contentView: $contentView,
+  };
 }
 
 export function useTextExtension(

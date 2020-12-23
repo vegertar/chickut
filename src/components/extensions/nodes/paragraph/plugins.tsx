@@ -91,6 +91,10 @@ class ParagraphPlugin extends Plugin {
       content: [],
     });
 
+    if (!head) {
+      return;
+    }
+
     const tr = state.tr;
     if (head.type === this.type) {
       tr.delete(from, to).insertText(head.textContent);
@@ -139,9 +143,7 @@ class ParagraphPlugin extends Plugin {
             const node =
               type && content
                 ? type.createAndFill(token.attrs, content)
-                : type
-                ? type.create(token.attrs)
-                : content;
+                : type?.create(token.attrs) || content;
             node && stack[stack.length - 1].content.push(node);
           }
           break;
