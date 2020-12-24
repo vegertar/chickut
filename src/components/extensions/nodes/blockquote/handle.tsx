@@ -1,7 +1,12 @@
-import { BlockRuleHandle, isSpace } from "../../../editor";
+import { BlockRuleHandle, expandTab, isSpace } from "../../../editor";
 
 // block quote: "> "
-const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
+const handle: BlockRuleHandle = function blockquote(
+  state,
+  silent,
+  startLine,
+  endLine
+) {
   // if it's indented more than 3 spaces, it should be a code block
   if (state.sCount[startLine] - state.blkIndent >= 4) {
     return false;
@@ -79,8 +84,9 @@ const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
 
     if (isSpace(ch)) {
       if (ch === 0x09) {
-        offset +=
-          4 - ((offset + state.bsCount[startLine] + (adjustTab ? 1 : 0)) % 4);
+        offset += expandTab(
+          offset + state.bsCount[startLine] + (adjustTab ? 1 : 0)
+        );
       } else {
         offset++;
       }

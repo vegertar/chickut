@@ -108,7 +108,12 @@ function markTightParagraphs(state: BlockState, idx: number) {
   }
 }
 
-const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
+const handle: BlockRuleHandle = function list(
+  state,
+  silent,
+  startLine,
+  endLine
+) {
   let tight = true;
 
   // if it's indented more than 3 spaces, it should be a code block

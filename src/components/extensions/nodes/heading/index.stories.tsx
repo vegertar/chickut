@@ -5,32 +5,17 @@ export default meta("Nodes", Extension);
 
 const Template = template(Extension);
 
-export const First = Template.bind({});
-First.args = {
-  text: "# hello",
-};
-
-export const Second = Template.bind({});
-Second.args = {
-  text: "## hello",
-};
-
-export const Third = Template.bind({});
-Third.args = {
-  text: "### hello",
-};
-
-export const Fourth = Template.bind({});
-Fourth.args = {
-  text: "#### hello",
-};
-
-export const Fifth = Template.bind({});
-Fifth.args = {
-  text: "##### hello",
-};
-
-export const Sixth = Template.bind({});
-Sixth.args = {
-  text: "###### hello",
+export const Default = Template.bind({});
+Default.args = {
+  text: `# h1
+## h2
+### h3
+#### h4
+##### h5
+###### h6
+####### no h7
+#without tailing spaces is not heading
+   ######             still h6
+    # indent 4 or more is not heading
+`,
 };

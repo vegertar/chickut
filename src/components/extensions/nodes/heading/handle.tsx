@@ -1,7 +1,7 @@
 import { BlockRuleHandle, isSpace } from "../../../editor";
 
 // heading (# , ## , ...)
-const handle: BlockRuleHandle = function (state, silent, startLine) {
+const handle: BlockRuleHandle = function heading(state, silent, startLine) {
   let pos = state.bMarks[startLine] + state.tShift[startLine];
   let max = state.eMarks[startLine];
 

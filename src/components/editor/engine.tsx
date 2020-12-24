@@ -98,7 +98,7 @@ export function isMdAsciiPunct(ch: number) {
   }
 }
 
-function expandTab(n: number) {
+export function expandTab(n: number) {
   return 4 - (n % 4);
 }
 
@@ -211,15 +211,13 @@ export class Ruler<H extends Function> {
         }
 
         if (
-          chain &&
-          rule.alt &&
-          rule.alt.indexOf(chain) < 0 &&
-          (rule.name !== chain || rule.alt.indexOf(".") < 0)
+          !chain ||
+          (rule.alt &&
+            (rule.alt.indexOf(chain) !== -1 ||
+              (rule.name === chain && rule.alt.indexOf(".") !== -1)))
         ) {
-          return;
+          cache[chain].push(rule.handle.bind(rule));
         }
-
-        cache[chain].push(rule.handle.bind(rule));
       });
     });
 

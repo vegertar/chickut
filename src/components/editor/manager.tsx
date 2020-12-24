@@ -110,12 +110,12 @@ export class Manager {
     this.sortDeps();
   }
 
-  createConfig(): DirectEditorProps<Schema> | undefined {
+  createConfig(topNode?: string): DirectEditorProps<Schema> | undefined {
     if (!this.bfsPath.length) {
       return undefined;
     }
 
-    const schema = this.createSchema();
+    const schema = this.createSchema(topNode);
     const plugins = this.createPlugins(schema);
 
     // TODO: transfer history
@@ -128,7 +128,7 @@ export class Manager {
     };
   }
 
-  private createSchema() {
+  private createSchema(topNode = "doc") {
     const nodes: Record<string, ProsemirrorNodeSpec> = {};
     const marks: Record<string, ProsemirrorMarkSpec> = {};
 
@@ -145,7 +145,14 @@ export class Manager {
       }
     });
 
-    const schema = new ProsemirrorSchema({ nodes, marks }) as Schema;
+    if (!nodes[topNode]) {
+      throw new MissingContentError(topNode);
+    }
+    if (!nodes.text) {
+      throw new MissingContentError("text");
+    }
+
+    const schema = new ProsemirrorSchema({ nodes, marks, topNode }) as Schema;
     schema.cached.engine = new Engine();
     return schema;
   }

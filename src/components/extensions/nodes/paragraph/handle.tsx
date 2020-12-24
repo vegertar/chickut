@@ -1,6 +1,6 @@
 import { BlockRuleHandle } from "../../../editor";
 
-const handle: BlockRuleHandle = function (state, silent, startLine) {
+const handle: BlockRuleHandle = function paragraph(state, silent, startLine) {
   const name = this.name;
   const terminatorRules = state.engine.block.ruler.getRules(name);
   const endLine = state.lineMax;

@@ -431,18 +431,22 @@ function toText(node?: ProsemirrorNode) {
   return node && (node.type.spec as NodeExtension["node"]).toText?.(node);
 }
 
-function normalizeText(text?: string) {
-  return text?.replace(/\r\n/g, "\n").replace(/\n/g, "\u2424");
-}
-
 function toContentView(data: ReturnType<typeof useContentView>) {
   const contentView = data as ContentView | undefined;
   return contentView?.dom && contentView;
 }
 
+// TODO: distinguish text input mode
+type TextInputMode = "typing" | "pasting";
+
+function normalizeText(text?: string) {
+  return text?.replace(/\r\n/g, "\n").replace(/\n/g, "\u2424");
+}
+
 export function useTextContent(
   context: ReturnType<typeof useExtension>,
-  text?: string
+  text?: string,
+  mode?: TextInputMode
 ) {
   const { editorView, extensionView, extensionVersion } = context;
   const contentView = useContentView(editorView, extensionView);
@@ -450,21 +454,22 @@ export function useTextContent(
   const [isDelayed, setIsDelayed] = useState(0);
 
   const idRef = useRef<string>();
+  const verRef = useRef<number>();
   const id = contentView?.id;
   const $contentView = toContentView(contentView);
 
   useEffect(() => {
-    if (id === idRef.current) {
+    // we got a new extension but the content dom has not been updated yet
+    if (id === idRef.current && extensionVersion !== verRef.current) {
       setIsDelayed((x) => x + 1);
     }
     idRef.current = id;
+    verRef.current = extensionVersion;
   }, [extensionVersion, id]);
 
   useEffect(() => {
-    const node = $contentView?.node;
-    const s = node?.type.spec.code ? text : normalizeText(text);
-    if (s !== undefined && s !== toText(node)) {
-      setTextContent(s);
+    if (text !== undefined && text !== toText($contentView?.node)) {
+      setTextContent(normalizeText(text));
     }
   }, [$contentView, text]);
 
@@ -484,7 +489,8 @@ export function useTextContent(
 
 export function useTextExtension(
   extension: Extension | ExtensionPack,
-  text?: string
+  text?: string,
+  mode: TextInputMode = "typing"
 ) {
-  return useTextContent(useExtension(extension), text);
+  return useTextContent(useExtension(extension), text, mode);
 }

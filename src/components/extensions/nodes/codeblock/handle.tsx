@@ -1,7 +1,12 @@
 import { BlockRuleHandle } from "../../../editor";
 
 // Code block (4 spaces padded)
-const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
+const handle: BlockRuleHandle = function codeblock(
+  state,
+  silent,
+  startLine,
+  endLine
+) {
   if (state.sCount[startLine] - state.blkIndent < 4) {
     return false;
   }

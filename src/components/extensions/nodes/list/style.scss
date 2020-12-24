@@ -22,9 +22,11 @@
     }
   }
 
-  .listitem.extension-content {
-    // the default `display: inline` makes a srange downward float in firefox
-    display: list-item;
+  @-moz-document url-prefix() {
+    .listitem.extension-content {
+      // fix the alignment between marker and list item in Firefox
+      display: inline-table;
+    }
   }
 
   li {

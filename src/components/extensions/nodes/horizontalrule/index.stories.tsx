@@ -7,5 +7,10 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: "--- ",
+  text: `--- 
+--- with other chars is not hr
+without tailing spaces is not hr
+---
+indent 4 or more is not hr
+    ---`,
 };

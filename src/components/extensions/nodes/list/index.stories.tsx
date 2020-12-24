@@ -5,25 +5,29 @@ export default meta("Nodes", Extension);
 
 const Template = template(Extension);
 
-export const Single = Template.bind({});
-Single.args = {
-  text: "- the first line",
-};
+export const Default = Template.bind({});
+Default.args = {
+  text: `Unordered
 
-export const Multiple = Template.bind({});
-Multiple.args = {
-  text: `${Single.args.text}
-- the second line
-- the third line`,
-};
-
-export const Nested = Template.bind({});
-Nested.args = {
-  text: `+ Create a list by starting a line with +, -, or *
++ Create a list by starting a line with +, -, or *
 + Sub-lists are made by indenting 2 spaces:
   - Marker character change forces new list start:
     * Ac tristique libero volutpat at
     + Facilisis in pretium nisl aliquet
     - Nulla volutpat aliquam velit
-+ Very easy!`,
++ Very easy!
+
+Ordered
+
+1. Lorem ipsum dolor sit amet
+2. Consectetur adipiscing elit
+3. Integer molestie lorem at massa
+
+1. You can use sequential numbers...
+1. ...or keep all the numbers as 1.
+
+Start numbering with offset:
+
+57. foo
+1. bar`,
 };

@@ -8,13 +8,22 @@ import { EditorState, Plugin, PluginKey } from "prosemirror-state";
 import { ReplaceAroundStep } from "prosemirror-transform";
 import { EditorView } from "prosemirror-view";
 
-import { Schema, Token } from "../../../editor";
+import { isWhiteSpace, Schema, Token } from "../../../editor";
 
 type ParseContext = {
   type: NodeType;
   content: ProsemirrorNode[];
   attrs?: Record<string, any>;
 };
+
+function isWhiteString(input: string) {
+  for (let i = 0; i < input.length; ++i) {
+    if (!isWhiteSpace(input.charCodeAt(i))) {
+      return false;
+    }
+  }
+  return true;
+}
 
 class ParagraphPlugin extends Plugin {
   constructor(public readonly type: NodeType) {
@@ -119,7 +128,7 @@ class ParagraphPlugin extends Plugin {
     }
 
     if (tail.length) {
-      tr.insert(to, tail);
+      tr.insert(tr.mapping.map(to), tail);
     }
 
     return tr.scrollIntoView();

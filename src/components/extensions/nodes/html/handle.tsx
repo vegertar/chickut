@@ -15,7 +15,12 @@ const HTML_SEQUENCES: [RegExp, RegExp, boolean][] = [
   [new RegExp(`${HTML_OPEN_CLOSE_TAG_RE.source}\\s*$`), /^$/, false],
 ];
 
-const handle: BlockRuleHandle = function (state, silent, startLine, endLine) {
+const handle: BlockRuleHandle = function html(
+  state,
+  silent,
+  startLine,
+  endLine
+) {
   // if it's indented more than 3 spaces, it should be a code block
   if (state.sCount[startLine] - state.blkIndent >= 4) {
     return false;

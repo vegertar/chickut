@@ -8,5 +8,6 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: "Hello world",
+  text: `Hello world
+This is an amazing paragraph`,
 };

@@ -1,0 +1,8 @@
+.extension-view {
+  border: 1px solid rgba(218, 165, 32, 0.2);
+  border-radius: 4px;
+  border-bottom: rgba(0, 0, 0, 0);
+  border-right: rgba(0, 0, 0, 0);
+  margin-top: 1px;
+  margin-left: 1px;
+}

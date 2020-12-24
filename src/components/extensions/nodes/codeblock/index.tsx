@@ -1,12 +1,10 @@
-import { NodeSpec } from "prosemirror-model";
-
-import { useTextExtension } from "../../../editor";
+import { NodeExtension, useTextExtension } from "../../../editor";
 import handle from "./handle";
 import plugins from "./plugins";
 
 import "./style.scss";
 
-const extension = {
+const extension: NodeExtension = {
   plugins,
 
   rule: {
@@ -32,7 +30,12 @@ const extension = {
       { "data-language": node.attrs.language },
       ["code", 0],
     ],
-  } as NodeSpec,
+    toText: (node) =>
+      node.textContent
+        .split("\n")
+        .map((line) => `    ${line}`)
+        .join("\n"),
+  },
 };
 
 export default function CodeBlock(props?: { text?: string }) {
