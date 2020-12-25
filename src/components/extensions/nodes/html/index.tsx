@@ -1,6 +1,7 @@
 import React from "react";
+import { Portal } from "react-portal";
 
-import { useTextExtension, NodeExtension, Extension } from "../../../editor";
+import { useTextExtension, NodeExtension } from "../../../editor";
 
 import handle from "./handle";
 
@@ -23,24 +24,24 @@ const extension: NodeExtension = {
         preserveWhitespace: "full",
       },
     ],
-    toDOM: (node) => ["div", 0],
+    toDOM: () => ["div", 0],
   },
 };
 
 export default function Html(props?: { text?: string }) {
-  const { extensionView } = useTextExtension(extension, props?.text);
-  if (!extensionView) {
+  const { contentView } = useTextExtension(extension, props?.text);
+  if (!contentView) {
     return null;
   }
 
+  const { dom, id, content, getPos } = contentView;
+  console.log(id, getPos());
+
   return (
-    <>
-      {extensionView.map(({ id, dom, node, content }) => (
-        <Extension dom={dom} key={id}>
-          <div dangerouslySetInnerHTML={{ __html: node.textContent }} />
-          {content}
-        </Extension>
-      ))}
-    </>
+    <Portal node={dom} key={id}>
+      <pre>
+        <code>{content}</code>
+      </pre>
+    </Portal>
   );
 }

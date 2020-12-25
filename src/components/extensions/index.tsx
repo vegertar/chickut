@@ -10,6 +10,5 @@ export { default as Html } from "./nodes/html";
 
 // marks
 export { default as Strong } from "./marks/strong";
-export { default as Code } from "./marks/code";
 
 // plugins

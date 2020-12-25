@@ -1,23 +1,22 @@
-import { MarkSpec } from "prosemirror-model";
-
-import { useExtension } from "../../../editor";
+import { MarkExtension, useTextExtension } from "../../../editor";
 
 import "./style.scss";
 
-export default function Strong() {
-  useExtension(Strong);
+const extension: MarkExtension = {
+  mark: {
+    parseDOM: [
+      { tag: "b" },
+      { tag: "strong" },
+      {
+        style: "font-style",
+        getAttrs: (value) => (value === "bold" ? null : false),
+      },
+    ],
+    toDOM: () => ["strong"],
+  },
+};
 
+export default function Strong(props?: { text?: string }) {
+  useTextExtension(extension, props?.text);
   return null;
 }
-
-Strong.mark = {
-  parseDOM: [
-    { tag: "b" },
-    { tag: "strong" },
-    {
-      style: "font-style",
-      getAttrs: (value) => ((value as string) === "bold" ? {} : false),
-    },
-  ],
-  toDOM: () => ["strong"],
-} as MarkSpec;

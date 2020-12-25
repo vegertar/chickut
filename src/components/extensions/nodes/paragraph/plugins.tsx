@@ -1,31 +1,29 @@
 import {
   NodeType,
-  Node as ProsemirrorNode,
+  Node as ContentNode,
   Fragment,
   Slice,
 } from "prosemirror-model";
-import { EditorState, Plugin, PluginKey } from "prosemirror-state";
+import { EditorState, Plugin, PluginKey, Transaction } from "prosemirror-state";
 import { ReplaceAroundStep } from "prosemirror-transform";
-import { EditorView } from "prosemirror-view";
+import { DecorationSet, EditorView } from "prosemirror-view";
 
-import { isWhiteSpace, Schema, Token } from "../../../editor";
+import { Schema, Token } from "../../../editor";
 
 type ParseContext = {
   type: NodeType;
-  content: ProsemirrorNode[];
+  content: ContentNode[];
   attrs?: Record<string, any>;
 };
 
-function isWhiteString(input: string) {
-  for (let i = 0; i < input.length; ++i) {
-    if (!isWhiteSpace(input.charCodeAt(i))) {
-      return false;
-    }
-  }
-  return true;
-}
+type State = {
+  tr: Transaction;
+  from: number;
+  to: number;
+  text: string;
+};
 
-class ParagraphPlugin extends Plugin {
+class ParagraphPlugin extends Plugin<State | null> {
   constructor(public readonly type: NodeType) {
     super({
       key: new PluginKey(type.name),
@@ -43,6 +41,10 @@ class ParagraphPlugin extends Plugin {
         handleTextInput(view, from, to, text) {
           const self = this as ParagraphPlugin;
           return self.handleTextInput(view, from, to, text);
+        },
+        decorations(state) {
+          console.log(state);
+          return DecorationSet.empty;
         },
       },
     });
@@ -154,6 +156,7 @@ class ParagraphPlugin extends Plugin {
                 ? type.createAndFill(token.attrs, content)
                 : type?.create(token.attrs) || content;
             node && stack[stack.length - 1].content.push(node);
+            // TODO: handle marks, i.e. token.children
           }
           break;
         }

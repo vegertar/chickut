@@ -9,20 +9,24 @@ export default function Base(props?: { text?: string }) {
   return null;
 }
 
+class BasePlugin extends Plugin {
+  constructor() {
+    super({
+      key: new PluginKey("base"),
+      props: {
+        handleKeyDown: keydownHandler(baseKeymap),
+      },
+    });
+  }
+}
+
 Base.pack = [
   {
     name: "doc",
     node: {
       content: "block+",
     },
-    plugins: [
-      new Plugin({
-        key: new PluginKey("base"),
-        props: {
-          handleKeyDown: keydownHandler(baseKeymap),
-        },
-      }),
-    ],
+    plugins: [new BasePlugin()],
   },
 
   {

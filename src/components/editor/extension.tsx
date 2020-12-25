@@ -1,5 +1,4 @@
 import React from "react";
-import ReactDOM from "react-dom";
 
 import {
   ExtensionContextProvider,
@@ -8,18 +7,9 @@ import {
   ExtensionView,
 } from "./hooks";
 
-type Props = {
-  dom: HTMLElement;
-  children?: React.ReactNode;
-};
-
-export function Extension({ dom, children }: Props) {
-  return ReactDOM.createPortal(children, dom);
-}
-
 type ExtensionProviderProps = { children: React.ReactNode } & Pick<
   ExtensionState,
-  "extensionViews" | "extensionPacks" | "extensionVersions"
+  "views" | "packs" | "versions"
 > &
   ReturnType<typeof useManager>;
 
@@ -27,48 +17,44 @@ const cachedViews: { [name: string]: ExtensionView } = {};
 
 function provideExtension(
   child: React.ReactNode,
-  {
-    extensionViews,
-    extensionPacks,
-    extensionVersions,
-    ...props
-  }: Omit<ExtensionProviderProps, "children">
+  { views, packs, versions, ...props }: Omit<ExtensionProviderProps, "children">
 ) {
-  let extensionName: string | undefined;
-  let extensionView: ExtensionView | undefined;
-  let extensionVersion: number | undefined;
+  let name: string | undefined;
+  let view: ExtensionView | undefined;
+  let version: number | undefined;
 
   if (React.isValidElement(child) && typeof child.type === "function") {
-    extensionName = child.type.name.toLowerCase();
-    extensionView = extensionViews[extensionName];
-    extensionVersion = extensionVersions[extensionName];
+    name = child.type.name.toLowerCase();
+    view = views[name];
+    version = versions[name];
 
-    const extensionPack = extensionPacks[extensionName];
-    if (extensionPack?.length) {
+    const pack = packs[name];
+    if (pack?.length) {
       let updated = false;
-      for (const name of extensionPack) {
-        const view = extensionViews[name];
-        if (!view?.length) {
+      for (const item of pack) {
+        const itemView = views[item];
+        if (!itemView?.length) {
           updated = true;
-          delete cachedViews[name];
+          delete cachedViews[item];
           continue;
         }
-        if (!extensionView) {
-          extensionView = [];
-        }
-        if (view !== cachedViews[name]) {
-          cachedViews[name] = view;
+        if (itemView !== cachedViews[item]) {
+          cachedViews[item] = itemView;
           updated = true;
         }
-        extensionView.push(...view);
+
+        if (!view) {
+          view = [];
+        }
+        view.push(...itemView);
       }
 
-      if (!extensionView) {
-        delete cachedViews[extensionName];
+      if (!view) {
+        delete cachedViews[name];
       } else if (updated) {
-        cachedViews[extensionName] = extensionView;
+        cachedViews[name] = view;
       } else {
-        extensionView = cachedViews[extensionName];
+        view = cachedViews[name];
       }
     }
   }
@@ -77,9 +63,9 @@ function provideExtension(
     <ExtensionContextProvider
       value={{
         ...props,
-        extensionView,
-        extensionName,
-        extensionVersion,
+        view,
+        name,
+        version,
       }}
     >
       {child}
@@ -97,5 +83,3 @@ export function ExtensionProvider({
     </>
   );
 }
-
-export default Extension;

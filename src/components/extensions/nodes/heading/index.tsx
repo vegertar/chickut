@@ -1,7 +1,9 @@
 import React, { createElement } from "react";
+import { Portal } from "react-portal";
 import range from "lodash.range";
 
-import { Extension, NodeExtension, useTextExtension } from "../../../editor";
+import { NodeExtension, useTextExtension } from "../../../editor";
+
 import handle from "./handle";
 
 import "./style.scss";
@@ -58,8 +60,8 @@ export default function Heading(props?: { text?: string }) {
   const { node, content, dom } = contentView;
 
   return (
-    <Extension dom={dom}>
+    <Portal node={dom}>
       <H level={node?.attrs?.level || 1}>{content}</H>
-    </Extension>
+    </Portal>
   );
 }

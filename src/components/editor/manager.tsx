@@ -1,8 +1,8 @@
 import {
   Schema as ProsemirrorSchema,
-  Node as ProsemirrorNode,
-  NodeSpec as ProsemirrorNodeSpec,
-  MarkSpec as ProsemirrorMarkSpec,
+  Node as ContentNode,
+  NodeSpec,
+  MarkSpec,
   NodeType,
   MarkType,
   Slice,
@@ -23,14 +23,14 @@ type BaseExtension = {
 };
 
 export type NodeExtension = BaseExtension & {
-  node: ExtensionSpec<ProsemirrorNodeSpec> & {
-    toText?: (node: ProsemirrorNode) => string;
+  node: ExtensionSpec<NodeSpec> & {
+    toText?: (node: ContentNode) => string;
   };
   plugins?: Plugin[] | ExtensionPlugins<NodeType>;
 };
 
 export type MarkExtension = BaseExtension & {
-  mark: ExtensionSpec<ProsemirrorMarkSpec>;
+  mark: ExtensionSpec<MarkSpec>;
   plugins?: Plugin[] | ExtensionPlugins<MarkType>;
 };
 
@@ -39,7 +39,10 @@ export type PluginExtension = BaseExtension & {
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;
-export type ExtensionPack<T = Extension> = ({ name: string } & T)[];
+export type ExtensionPack<T extends Extension = Extension> = ({
+  name: string;
+} & T)[];
+
 export type Schema = ProsemirrorSchema & {
   cached: {
     engine: Engine;
@@ -47,19 +50,18 @@ export type Schema = ProsemirrorSchema & {
 };
 
 // the smaller index of tag, the more general extension, the lower priority
-const defaultPrecedence = [
+const defaultNodesPrecedence = [
   "p",
-  "iframe",
-  "div",
+  /^(div|iframe)$/,
   /^h[1-6]$/,
-  /ul|ol|li/,
+  /^(ul|ol|li)$/,
   "hr",
   "blockquote",
   "pre",
 ];
 
 const content = /(\w+)(\+)?/; // TODO: match "paragraph block*"
-const parseDeps = (node?: ProsemirrorNodeSpec) => {
+const parseDeps = (node?: NodeSpec) => {
   const result = (node?.content || "").match(content);
   if (result) {
     const content = result[1];
@@ -101,7 +103,7 @@ export class Manager {
 
   constructor(
     public readonly extensions: Extensions,
-    public readonly precedence = defaultPrecedence
+    public readonly nodesPrecedence = defaultNodesPrecedence
   ) {
     this.init();
     this.detectDAG();
@@ -129,14 +131,12 @@ export class Manager {
   }
 
   private createSchema(topNode = "doc") {
-    const nodes: Record<string, ProsemirrorNodeSpec> = {};
-    const marks: Record<string, ProsemirrorMarkSpec> = {};
+    const nodes: Record<string, NodeSpec> = {};
+    const marks: Record<string, MarkSpec> = {};
 
     this.eachExtension((extension, name) => {
-      const node: ProsemirrorNodeSpec | undefined = (extension as NodeExtension)
-        .node;
-      const mark: ProsemirrorMarkSpec | undefined = (extension as MarkExtension)
-        .mark;
+      const node: NodeSpec | undefined = (extension as NodeExtension).node;
+      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
 
       if (node) {
         nodes[name] = node;
@@ -209,7 +209,7 @@ export class Manager {
   private init = () => {
     for (const name in this.extensions) {
       const extension = this.getExtension(name) as NodeExtension;
-      const node: ProsemirrorNodeSpec | undefined = extension.node;
+      const node: NodeSpec | undefined = extension.node;
       const group = node?.group;
 
       if (group) {
@@ -248,15 +248,15 @@ export class Manager {
   };
 
   private sortGroups = () => {
-    const defaultPriority = this.precedence.length;
+    const defaultPriority = this.nodesPrecedence.length;
     for (const group in this.groups) {
       this.groups[group]?.sort((a, b) => {
         let x = defaultPriority;
         let y = defaultPriority;
         const aTag = this.tags[a];
         const bTag = this.tags[b];
-        for (let i = 0; i < this.precedence.length; ++i) {
-          const item = this.precedence[i];
+        for (let i = 0; i < this.nodesPrecedence.length; ++i) {
+          const item = this.nodesPrecedence[i];
           if (typeof item === "string") {
             if (x === defaultPriority && item === aTag) {
               x = i;
@@ -265,10 +265,10 @@ export class Manager {
               y = i;
             }
           } else {
-            if (x === defaultPriority && aTag?.match(item)) {
+            if (x === defaultPriority && aTag && item.test(aTag)) {
               x = i;
             }
-            if (y === defaultPriority && bTag?.match(item)) {
+            if (y === defaultPriority && bTag && item.test(bTag)) {
               y = i;
             }
           }
