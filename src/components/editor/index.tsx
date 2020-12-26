@@ -13,5 +13,5 @@ export type {
   NodeExtension,
   MarkExtension,
   PluginExtension,
-  Schema,
-} from "./manager";
+  ExtensionSchema,
+} from "./types";

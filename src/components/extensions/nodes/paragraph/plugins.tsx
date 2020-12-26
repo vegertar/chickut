@@ -8,7 +8,7 @@ import { EditorState, Plugin, PluginKey, Transaction } from "prosemirror-state";
 import { ReplaceAroundStep } from "prosemirror-transform";
 import { DecorationSet, EditorView } from "prosemirror-view";
 
-import { Schema, Token } from "../../../editor";
+import { ExtensionSchema, Token } from "../../../editor";
 
 type ParseContext = {
   type: NodeType;
@@ -23,7 +23,7 @@ type State = {
   text: string;
 };
 
-class ParagraphPlugin extends Plugin<State | null> {
+class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
   constructor(public readonly type: NodeType) {
     super({
       key: new PluginKey(type.name),
@@ -51,7 +51,7 @@ class ParagraphPlugin extends Plugin<State | null> {
   }
 
   handleTextInput(
-    view: EditorView<Schema>,
+    view: EditorView<ExtensionSchema>,
     from: number,
     to: number,
     text: string
@@ -80,11 +80,12 @@ class ParagraphPlugin extends Plugin<State | null> {
 
     const tr = this.transform(state, tokens, from - textBefore.length, to);
     tr && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
+
     return !!tr;
   }
 
   transform(
-    state: EditorState<Schema>,
+    state: EditorState<ExtensionSchema>,
     tokens: Token[],
     from: number,
     to: number
@@ -136,7 +137,7 @@ class ParagraphPlugin extends Plugin<State | null> {
     return tr.scrollIntoView();
   }
 
-  parse(schema: Schema, tokens: Token[], context: ParseContext) {
+  parse(schema: ExtensionSchema, tokens: Token[], context: ParseContext) {
     const stack = [context];
 
     for (const token of tokens) {

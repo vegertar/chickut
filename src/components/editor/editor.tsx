@@ -6,9 +6,11 @@ import React, {
 } from "react";
 import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";
+import { AllSelection } from "prosemirror-state";
 import ReactIs from "react-is";
 
-import { useManager, useContentDOM, EditorHandle } from "./hooks";
+import { EditorHandle } from "./types";
+import { useManager } from "./hooks";
 import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
@@ -44,27 +46,12 @@ function flatFragment(children: React.ReactNode) {
   return data;
 }
 
-function normalizeText(text?: string) {
-  return text?.replace(/\r\n?|\n/g, "\u2424");
-}
-
-function useTextContent(editor?: EditorHandle, text?: string) {
-  const domRef = useRef<HTMLElement>();
-  const dom = useContentDOM(editor?.view);
-
+function useDevTools(editor?: EditorHandle) {
   useEffect(() => {
-    domRef.current = dom;
-  }, [dom]);
-
-  useEffect(() => {
-    if (!domRef.current) {
-      return;
+    if (process.env.NODE_ENV !== "production") {
+      editor?.view && applyDevTools(editor.view);
     }
-    const textContent = normalizeText(text);
-    if (textContent !== undefined) {
-      domRef.current.textContent = textContent;
-    }
-  }, [text, editor?.version]);
+  }, [editor]);
 }
 
 export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
@@ -72,17 +59,35 @@ export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
   const divRef = useRef<HTMLDivElement>(null);
   const context = useManager(divRef.current);
   const editor = context.editor;
-  const editorView = editor?.view;
 
-  useTextContent(context.editor, text);
+  useDevTools(editor);
+  useImperativeHandle(ref, () => editor, [editor]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      editorView && applyDevTools(editorView);
-    }
-  }, [editorView]);
+    const view = editor?.view;
 
-  useImperativeHandle(ref, () => editor, [editor]);
+    if (
+      text === undefined ||
+      !view ||
+      view.dom.parentElement !== divRef.current
+    ) {
+      return;
+    }
+
+    type HandleTextInput = NonNullable<typeof view["props"]["handleTextInput"]>;
+
+    const { from, to } = new AllSelection(view.state.doc);
+
+    if (
+      !view.someProp("handleTextInput", (f: HandleTextInput) =>
+        f(view, from, to, text)
+      )
+    ) {
+      view.dispatch(
+        view.state.tr.delete(from, to).insertText(text).scrollIntoView()
+      );
+    }
+  }, [text, editor]);
 
   return (
     <div ref={divRef} className="editor" style={style}>

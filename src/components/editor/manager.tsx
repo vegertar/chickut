@@ -1,10 +1,7 @@
 import {
   Schema as ProsemirrorSchema,
-  Node as ContentNode,
   NodeSpec,
   MarkSpec,
-  NodeType,
-  MarkType,
   Slice,
   ResolvedPos,
 } from "prosemirror-model";
@@ -13,41 +10,13 @@ import { DirectEditorProps } from "prosemirror-view";
 import union from "lodash.union";
 
 import Engine, { BlockRule, InlineRule } from "./engine";
-
-type ExtensionRule = Partial<Pick<BlockRule | InlineRule, "alt" | "handle">>;
-type ExtensionSpec<T> = T;
-type ExtensionPlugins<T> = (type: T) => Plugin[];
-
-type BaseExtension = {
-  rule?: ExtensionRule;
-};
-
-export type NodeExtension = BaseExtension & {
-  node: ExtensionSpec<NodeSpec> & {
-    toText?: (node: ContentNode) => string;
-  };
-  plugins?: Plugin[] | ExtensionPlugins<NodeType>;
-};
-
-export type MarkExtension = BaseExtension & {
-  mark: ExtensionSpec<MarkSpec>;
-  plugins?: Plugin[] | ExtensionPlugins<MarkType>;
-};
-
-export type PluginExtension = BaseExtension & {
-  plugins: Plugin[];
-};
-
-export type Extension = NodeExtension | MarkExtension | PluginExtension;
-export type ExtensionPack<T extends Extension = Extension> = ({
-  name: string;
-} & T)[];
-
-export type Schema = ProsemirrorSchema & {
-  cached: {
-    engine: Engine;
-  };
-};
+import {
+  Extension,
+  ExtensionSchema,
+  NodeExtension,
+  MarkExtension,
+  ExtensionPlugins,
+} from "./types";
 
 // the smaller index of tag, the more general extension, the lower priority
 const defaultNodesPrecedence = [
@@ -112,7 +81,9 @@ export class Manager {
     this.sortDeps();
   }
 
-  createConfig(topNode?: string): DirectEditorProps<Schema> | undefined {
+  createConfig(
+    topNode?: string
+  ): DirectEditorProps<ExtensionSchema> | undefined {
     if (!this.bfsPath.length) {
       return undefined;
     }
@@ -121,7 +92,7 @@ export class Manager {
     const plugins = this.createPlugins(schema);
 
     // TODO: transfer history
-    const state = EditorState.create<Schema>({ schema, plugins });
+    const state = EditorState.create<ExtensionSchema>({ schema, plugins });
 
     return {
       state,
@@ -152,12 +123,16 @@ export class Manager {
       throw new MissingContentError("text");
     }
 
-    const schema = new ProsemirrorSchema({ nodes, marks, topNode }) as Schema;
+    const schema = new ProsemirrorSchema({
+      nodes,
+      marks,
+      topNode,
+    }) as ExtensionSchema;
     schema.cached.engine = new Engine();
     return schema;
   }
 
-  private createPlugins(schema: Schema) {
+  private createPlugins(schema: ExtensionSchema) {
     const allPlugins: Plugin[] = [];
     const engine = schema.cached.engine;
     const keys = union(

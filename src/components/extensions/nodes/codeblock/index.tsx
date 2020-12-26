@@ -30,11 +30,6 @@ const extension: NodeExtension = {
       { "data-language": node.attrs.language },
       ["code", 0],
     ],
-    toText: (node) =>
-      node.textContent
-        .split("\n")
-        .map((line) => `    ${line}`)
-        .join("\n"),
   },
 };
 
