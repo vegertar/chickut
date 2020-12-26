@@ -1,4 +1,4 @@
-import { MarkExtension, useTextExtension } from "../../../editor";
+import { MarkExtension, useExtension } from "../../../editor";
 
 import "./style.scss";
 
@@ -16,7 +16,7 @@ const extension: MarkExtension = {
   },
 };
 
-export default function Strong(props?: { text?: string }) {
-  useTextExtension(extension, props?.text);
+export default function Strong() {
+  useExtension(extension);
   return null;
 }

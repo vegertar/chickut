@@ -5,8 +5,13 @@ import Theme, { themes } from "./theme";
 import Editor from "./editor";
 import { Base, Paragraph } from "./extensions";
 
-export function template<P = {}, U = {}>(Component: React.FC<U>): Story<P & U> {
-  return (args: P & U) => <Component {...args} />;
+type MetaProps = {
+  theme?: string;
+  text?: string;
+};
+
+export function template<P = {}>(Component: React.FC<P>): Story<P & MetaProps> {
+  return (args) => <Component {...args} />;
 }
 
 export const minimal = [Base, Paragraph];
@@ -28,7 +33,7 @@ export function meta<P = {}>(
   kind: "Nodes" | "Marks" | "Plugins",
   extension: React.FC<P>,
   addon = minimal
-) {
+): Meta<MetaProps> {
   const name = extension.name;
 
   return {
@@ -48,7 +53,7 @@ export function meta<P = {}>(
               padding: "0 20px",
             }}
           >
-            <Editor>
+            <Editor text={args.text}>
               <NamedStory />
               {addon.map((Extension) => (
                 <Extension key={Extension.name} />
@@ -72,5 +77,5 @@ export function meta<P = {}>(
     parameters: {
       backgrounds: { default: "light" },
     },
-  } as Meta;
+  };
 }

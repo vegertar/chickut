@@ -8,16 +8,13 @@ import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";
 import ReactIs from "react-is";
 
-import { useManager } from "./hooks";
+import { useManager, useContentDOM, EditorHandle } from "./hooks";
 import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
 
-interface Handle {
-  view?: EditorView | undefined;
-}
-
 interface Props {
+  text?: string;
   style?: Record<string, string | number>;
   children?: React.ReactNode;
 }
@@ -47,28 +44,45 @@ function flatFragment(children: React.ReactNode) {
   return data;
 }
 
-export default forwardRef<Handle, Props>(function Editor(props, ref) {
-  const { style, children } = props || {};
+function normalizeText(text?: string) {
+  return text?.replace(/\r\n?|\n/g, "\u2424");
+}
+
+function useTextContent(editor?: EditorHandle, text?: string) {
+  const domRef = useRef<HTMLElement>();
+  const dom = useContentDOM(editor?.view);
+
+  useEffect(() => {
+    domRef.current = dom;
+  }, [dom]);
+
+  useEffect(() => {
+    if (!domRef.current) {
+      return;
+    }
+    const textContent = normalizeText(text);
+    if (textContent !== undefined) {
+      domRef.current.textContent = textContent;
+    }
+  }, [text, editor?.version]);
+}
+
+export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
+  const { text, style, children } = props || {};
   const divRef = useRef<HTMLDivElement>(null);
   const context = useManager(divRef.current);
-  const { editorView: view } = context;
+  const editor = context.editor;
+  const editorView = editor?.view;
+
+  useTextContent(context.editor, text);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
-      if (typeof window !== "undefined") {
-        (window as any).view = view;
-      }
-      view && applyDevTools(view);
+      editorView && applyDevTools(editorView);
     }
-  }, [view]);
+  }, [editorView]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      view,
-    }),
-    [view]
-  );
+  useImperativeHandle(ref, () => editor, [editor]);
 
   return (
     <div ref={divRef} className="editor" style={style}>

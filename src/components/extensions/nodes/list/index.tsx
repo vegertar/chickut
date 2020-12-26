@@ -1,4 +1,4 @@
-import { useTextExtension, ExtensionPack } from "../../../editor";
+import { useExtension, ExtensionPack } from "../../../editor";
 
 import handle from "./handle";
 import plugins from "./plugins";
@@ -8,8 +8,8 @@ import numbered from "./numbered";
 
 import "./style.scss";
 
-export default function List(props?: { text?: string }) {
-  useTextExtension(List.pack, props?.text);
+export default function List() {
+  useExtension(List.pack);
   return null;
 }
 

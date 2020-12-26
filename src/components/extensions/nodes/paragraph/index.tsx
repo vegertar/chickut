@@ -1,4 +1,4 @@
-import { NodeExtension, useTextExtension } from "../../../editor";
+import { NodeExtension, useExtension } from "../../../editor";
 
 import handle from "./handle";
 import plugins from "./plugins";
@@ -20,7 +20,7 @@ const extension: NodeExtension = {
   },
 };
 
-export default function Paragraph(props?: { text?: string }) {
-  useTextExtension(extension, props?.text);
+export default function Paragraph() {
+  useExtension(extension);
   return null;
 }

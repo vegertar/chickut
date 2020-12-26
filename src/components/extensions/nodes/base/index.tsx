@@ -2,10 +2,10 @@ import { baseKeymap } from "prosemirror-commands";
 import { keydownHandler } from "prosemirror-keymap";
 import { Plugin, PluginKey } from "prosemirror-state";
 
-import { ExtensionPack, useTextExtension } from "../../../editor";
+import { ExtensionPack, useExtension } from "../../../editor";
 
-export default function Base(props?: { text?: string }) {
-  useTextExtension(Base.pack, props?.text);
+export default function Base() {
+  useExtension(Base.pack);
   return null;
 }
 

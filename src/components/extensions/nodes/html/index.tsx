@@ -1,7 +1,7 @@
 import React from "react";
 import { Portal } from "react-portal";
 
-import { useTextExtension, NodeExtension } from "../../../editor";
+import { useExtension, NodeExtension } from "../../../editor";
 
 import handle from "./handle";
 
@@ -28,20 +28,19 @@ const extension: NodeExtension = {
   },
 };
 
-export default function Html(props?: { text?: string }) {
-  const { contentView } = useTextExtension(extension, props?.text);
-  if (!contentView) {
-    return null;
-  }
+export default function Html() {
+  useExtension(extension);
+  return null;
 
-  const { dom, id, content, getPos } = contentView;
-  console.log(id, getPos());
-
-  return (
-    <Portal node={dom} key={id}>
-      <pre>
-        <code>{content}</code>
-      </pre>
-    </Portal>
-  );
+  // return (
+  //   <>
+  //     {view?.map(({ id, dom, content }) => (
+  //       <Portal node={dom} key={id}>
+  //         <pre>
+  //           <code>{content}</code>
+  //         </pre>
+  //       </Portal>
+  //     ))}
+  //   </>
+  // );
 }

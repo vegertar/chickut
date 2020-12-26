@@ -1,32 +1,26 @@
 import React from "react";
 
-import {
-  ExtensionContextProvider,
-  ExtensionState,
-  useManager,
-  ExtensionView,
-} from "./hooks";
+import { ExtensionContextProvider, useManager, ExtensionView } from "./hooks";
 
-type ExtensionProviderProps = { children: React.ReactNode } & Pick<
-  ExtensionState,
-  "views" | "packs" | "versions"
-> &
-  ReturnType<typeof useManager>;
+type ExtensionProviderProps = { children: React.ReactNode } & ReturnType<
+  typeof useManager
+>;
 
 const cachedViews: { [name: string]: ExtensionView } = {};
 
 function provideExtension(
   child: React.ReactNode,
-  { views, packs, versions, ...props }: Omit<ExtensionProviderProps, "children">
+  {
+    extension: { views, packs },
+    ...props
+  }: Omit<ExtensionProviderProps, "children">
 ) {
   let name: string | undefined;
   let view: ExtensionView | undefined;
-  let version: number | undefined;
 
   if (React.isValidElement(child) && typeof child.type === "function") {
     name = child.type.name.toLowerCase();
     view = views[name];
-    version = versions[name];
 
     const pack = packs[name];
     if (pack?.length) {
@@ -65,7 +59,6 @@ function provideExtension(
         ...props,
         view,
         name,
-        version,
       }}
     >
       {child}

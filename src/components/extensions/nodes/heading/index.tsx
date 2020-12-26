@@ -2,7 +2,7 @@ import React, { createElement } from "react";
 import { Portal } from "react-portal";
 import range from "lodash.range";
 
-import { NodeExtension, useTextExtension } from "../../../editor";
+import { NodeExtension, useContentView, useExtension } from "../../../editor";
 
 import handle from "./handle";
 
@@ -51,13 +51,15 @@ function H({
   return <FC {...props}>{children}</FC>;
 }
 
-export default function Heading(props?: { text?: string }) {
-  const { contentView } = useTextExtension(extension, props?.text);
-  if (!contentView) {
+export default function Heading() {
+  const { view, editor } = useExtension(extension);
+  const current = useContentView(view, editor?.view);
+
+  if (!current) {
     return null;
   }
 
-  const { node, content, dom } = contentView;
+  const { node, content, dom } = current;
 
   return (
     <Portal node={dom}>

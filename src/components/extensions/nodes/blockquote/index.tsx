@@ -1,4 +1,4 @@
-import { NodeExtension, useTextExtension } from "../../../editor";
+import { NodeExtension, useExtension } from "../../../editor";
 import handle from "./handle";
 
 import "./style.scss";
@@ -18,7 +18,7 @@ const extension: NodeExtension = {
   },
 };
 
-export default function Blockquote(props?: { text?: string }) {
-  useTextExtension(extension, props?.text);
+export default function Blockquote() {
+  useExtension(extension);
   return null;
 }
