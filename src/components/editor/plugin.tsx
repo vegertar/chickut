@@ -1,6 +1,4 @@
 import React from "react";
-import { Keymap } from "prosemirror-commands";
-import { keydownHandler } from "prosemirror-keymap";
 import {
   MarkType,
   NodeType,
@@ -46,10 +44,7 @@ export class Plugin<T = any> extends ProsemirrorPlugin<T, S> {
 
         handleKeyDown: function (view, event) {
           const self = this as ExtensionPlugin;
-          if (self.handleKeyDown) {
-            return self.handleKeyDown(view, event);
-          }
-          return self.keys ? keydownHandler(self.keys)(view, event) : false;
+          return self.handleKeyDown?.(view, event) || false;
         },
 
         decorations(state) {
@@ -88,19 +83,11 @@ export class Plugin<T = any> extends ProsemirrorPlugin<T, S> {
   handleKeyDown?: (view: EditorView<S>, event: KeyboardEvent) => boolean;
 
   //
-  // Keys
-  //
-
-  keys?: Keymap<S>;
-
-  //
   // Decorations
   //
 
   decorations?: (state: EditorState<S>) => DecorationSet;
 }
-
-type NodeViewDOMs = Pick<NodeView, "dom" | "contentDOM">;
 
 export class ExtensionPlugin<T = any> extends Plugin<T> {
   readonly name = this.type.name;
@@ -119,48 +106,12 @@ export class ExtensionPlugin<T = any> extends Plugin<T> {
           getPos: boolean | (() => number),
           decorations: Decoration[]
         ) => {
-          const doms = this.createNode?.(
+          return this.createNodeView?.(
             node,
             view,
             getPos,
             decorations
-          ) as NodeViewDOMs;
-          if (!doms || (!doms.dom && !doms.contentDOM)) {
-            return (null as any) as NodeView;
-          }
-
-          const {
-            updateNode,
-            selectNode,
-            deselectNode,
-            setNodeSelection,
-            stopNodeEvent,
-            ignoreNodeMutation,
-            destroyNode,
-          } = this;
-
-          return {
-            ...doms,
-
-            update:
-              updateNode &&
-              ((node, decorations) => updateNode(node, decorations, doms)),
-
-            selectNode: selectNode && (() => selectNode(doms)),
-
-            deselectNode: deselectNode && (() => deselectNode(doms)),
-
-            setSelection:
-              setNodeSelection &&
-              ((a, b, c) => setNodeSelection(a, b, c, doms)),
-
-            stopEvent: stopNodeEvent && ((x) => stopNodeEvent(x, doms)),
-
-            ignoreMutation:
-              ignoreNodeMutation && ((x) => ignoreNodeMutation(x, doms)),
-
-            destroy: destroyNode && (() => destroyNode(doms)),
-          };
+          ) as NodeView;
         },
       },
 
@@ -181,93 +132,15 @@ export class ExtensionPlugin<T = any> extends Plugin<T> {
   // Node view
   //
 
-  static createDefaultNode(node: ProsemirrorNode<S>) {
-    const { parseDOM, toDOM } = node.type.spec;
-    if (parseDOM) {
-    }
-
-    const spec = toDOM?.(node);
-    return spec ? DOMSerializer.renderSpec(document, spec) : undefined;
-  }
-
-  static Template: React.FC<{ name: string; children: string }> = ({
-    name,
-    children,
-  }) => (
-    <template className={name} dangerouslySetInnerHTML={{ __html: children }} />
-  );
-
-  static createTemplateNode(node: ProsemirrorNode<S>) {
-    const parseDOM = node.type.spec.parseDOM;
-    if (!parseDOM) {
-      return;
-    }
-
-    const name = node.type.name;
-    const template = document.querySelector(`template.${name}`);
-    if (!template) {
-      return;
-    }
-
-    const content = (template as HTMLTemplateElement).content;
-    if (!content.firstElementChild) {
-      return;
-    }
-
-    for (const { tag, contentElement } of parseDOM) {
-      if (typeof tag !== "string") {
-        continue;
-      }
-
-      const dom = content.querySelector(tag)?.cloneNode(true);
-      if (!dom) {
-        continue;
-      }
-
-      const contentDOM =
-        typeof contentElement === "string"
-          ? (dom as HTMLElement).querySelector(contentElement)
-          : contentElement?.(dom);
-
-      return { dom, contentDOM };
-    }
-  }
-
-  createNode?: (
+  createNodeView?: (
     node: ProsemirrorNode<S>,
     view: EditorView,
     getPos: boolean | (() => number),
     decorations: Decoration[]
-  ) => Pick<NodeView, "dom" | "contentDOM">;
+  ) => NodeView;
 
-  updateNode?: (
-    node: ProsemirrorNode<S>,
-    decorations: Decoration[],
-    doms: NodeViewDOMs
-  ) => boolean;
-
-  selectNode?: (doms: NodeViewDOMs) => void;
-
-  deselectNode?: (doms: NodeViewDOMs) => void;
-
-  setNodeSelection?: (
-    anchor: number,
-    head: number,
-    root: Document,
-    doms: NodeViewDOMs
-  ) => void;
-
-  stopNodeEvent?: (event: Event, doms: NodeViewDOMs) => boolean;
-
-  ignoreNodeMutation?: (
-    p:
-      | MutationRecord
-      | {
-          type: "selection";
-          target: Element;
-        },
-    doms: NodeViewDOMs
-  ) => boolean;
-
-  destroyNode?: (doms: NodeViewDOMs) => void;
+  static createDefaultNode(node: ProsemirrorNode<S>) {
+    const spec = node.type.spec.toDOM?.(node);
+    return spec ? DOMSerializer.renderSpec(document, spec) : undefined;
+  }
 }
