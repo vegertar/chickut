@@ -1389,6 +1389,11 @@
   dependencies:
     "@hapi/hoek" "^8.3.0"
 
+"@hookstate/core@^3.0.2":
+  version "3.0.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@hookstate/core/-/core-3.0.2.tgz#159c8fa85b85c372dc827190a33f1f3dc9ed46fe"
+  integrity sha512-tT4qYJUqxT3/jSTHsK9fwGBccyKt8O6J/vJCvNg7eLjZOWjCUTRYZsPEnuJIgnwacuDJUHaO2yr/fBREFDIxig==
+
 "@icons/material@^0.2.4":
   version "0.2.4"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@icons/material/-/material-0.2.4.tgz#e90c9f71768b3736e76d7dd6783fc6c2afa88bc8"

@@ -1,8 +1,7 @@
 import { baseKeymap } from "prosemirror-commands";
 import { keydownHandler } from "prosemirror-keymap";
-import { Plugin, PluginKey } from "prosemirror-state";
 
-import { ExtensionPack, useExtension } from "../../../editor";
+import { ExtensionPack, Plugin, useExtension } from "../../../editor";
 
 export default function Base() {
   useExtension(Base.pack);
@@ -11,11 +10,8 @@ export default function Base() {
 
 class BasePlugin extends Plugin {
   constructor() {
-    super({
-      key: new PluginKey("base"),
-      props: {
-        handleKeyDown: keydownHandler(baseKeymap),
-      },
+    super("base", {
+      handleKeyDown: keydownHandler(baseKeymap),
     });
   }
 }

@@ -2,8 +2,8 @@ import Editor from "./editor";
 
 export * from "./hooks";
 export * from "./extension";
-export * from "./runtime";
 export * from "./engine";
+export * from "./plugin";
 
 export default Editor;
 

@@ -1,8 +1,11 @@
 import { useExtension, NodeExtension } from "../../../editor";
 
 import handle from "./handle";
+import plugins, { useTemplate } from "./plugins";
 
 const extension: NodeExtension = {
+  plugins,
+
   rule: {
     handle,
     alt: ["paragraph", "reference", "blockquote"],
@@ -18,14 +21,13 @@ const extension: NodeExtension = {
     parseDOM: [
       {
         tag: "div",
+        contentElement: "code",
         preserveWhitespace: "full",
       },
     ],
-    toDOM: () => ["div", 0],
   },
 };
 
 export default function Html() {
-  useExtension(extension);
-  return null;
+  return useTemplate(useExtension(extension));
 }

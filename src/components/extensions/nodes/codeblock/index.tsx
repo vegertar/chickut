@@ -12,6 +12,11 @@ const extension: NodeExtension = {
   },
 
   node: {
+    attrs: {
+      language: {
+        default: "javascript",
+      },
+    },
     content: "text*",
     marks: "",
     group: "block",
@@ -27,7 +32,7 @@ const extension: NodeExtension = {
     ],
     toDOM: (node) => [
       "pre",
-      { "data-language": node.attrs.language },
+      { "data-language": node.attrs.language, class: node.type.name },
       ["code", 0],
     ],
   },

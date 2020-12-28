@@ -1,6 +1,9 @@
 // Text engine pruning from markdown-it
 
+import { Transaction } from "prosemirror-state";
 import merge from "lodash.merge";
+
+import { ExtensionSchema } from "./types";
 
 export class NoParserError extends Error {}
 
@@ -10,6 +13,7 @@ export interface Options {
 }
 
 export interface Env {
+  tr: Transaction<ExtensionSchema>;
   typing?: boolean;
   [key: string]: any;
 }
@@ -923,5 +927,3 @@ export type BlockRule<P = Env> = Rule<BlockHandle<Engine<P>, P>>;
 export type BlockRuleHandle = BlockRule["handle"];
 export type InlineRule<P = Env> = Rule<InlineHandle<Engine<P>, P>>;
 export type InlineRuleHandle = InlineRule["handle"];
-
-export default Engine;

@@ -1,18 +1,18 @@
 import {
   NodeType,
-  Node as ContentNode,
+  Node as ProsemirrorNode,
   Fragment,
   Slice,
 } from "prosemirror-model";
-import { EditorState, Plugin, PluginKey, Transaction } from "prosemirror-state";
+import { EditorState, Transaction } from "prosemirror-state";
 import { ReplaceAroundStep } from "prosemirror-transform";
-import { DecorationSet, EditorView } from "prosemirror-view";
+import { EditorView } from "prosemirror-view";
 
-import { ExtensionSchema, Token } from "../../../editor";
+import { ExtensionPlugin, ExtensionSchema, Token } from "../../../editor";
 
 type ParseContext = {
   type: NodeType;
-  content: ContentNode[];
+  content: ProsemirrorNode[];
   attrs?: Record<string, any>;
 };
 
@@ -23,39 +23,21 @@ type State = {
   text: string;
 };
 
-class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
-  constructor(public readonly type: NodeType) {
-    super({
-      key: new PluginKey(type.name),
-      state: {
-        init() {
-          return null;
-        },
-        apply(tr, prev) {
-          return (
-            tr.getMeta(this) || (tr.selectionSet || tr.docChanged ? null : prev)
-          );
-        },
-      },
-      props: {
-        handleTextInput(view, from, to, text) {
-          const self = this as ParagraphPlugin;
-          return self.handleTextInput(view, from, to, text);
-        },
-        decorations(state) {
-          console.log(state);
-          return DecorationSet.empty;
-        },
-      },
-    });
-  }
+class ParagraphPlugin extends ExtensionPlugin<State | null> {
+  initState = () => {
+    return null;
+  };
 
-  handleTextInput(
+  applyState = (tr: Transaction<ExtensionSchema>, prev: State | null) => {
+    return tr.getMeta(this) || (tr.selectionSet || tr.docChanged ? null : prev);
+  };
+
+  handleTextInput = (
     view: EditorView<ExtensionSchema>,
     from: number,
     to: number,
     text: string
-  ) {
+  ) => {
     if (view.composing) {
       // TODO: what is composition?
       return false;
@@ -68,58 +50,54 @@ class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       return false;
     }
 
-    const textBefore = $from.parent.textBetween(
-      Math.max(0, $from.parentOffset - 500), // backwards maximum 500
-      $from.parentOffset,
-      undefined,
-      "\ufffc"
-    );
+    const tr = state.tr;
+    const textBefore = this.textBefore($from);
 
-    const engine = state.schema.cached.engine;
-    const tokens = engine.parse(textBefore + text, { typing: true });
-
-    const tr = this.transform(state, tokens, from - textBefore.length, to);
-    tr && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
-
-    return !!tr;
-  }
-
-  transform(
-    state: EditorState<ExtensionSchema>,
-    tokens: Token[],
-    from: number,
-    to: number
-  ) {
-    if (tokens.length === 0) {
-      return;
+    if (this.transform(tr, textBefore + text, from - textBefore.length, to)) {
+      view.dispatch(tr.setMeta(this, { tr, from, to, text }));
+      return true;
     }
 
-    const $from = state.doc.resolve(from);
+    return false;
+  };
+
+  transform(
+    tr: Transaction<ExtensionSchema>,
+    text: string,
+    start: number,
+    end: number
+  ) {
+    const tokens = this.engine.parse(text, { tr, typing: true });
+    if (tokens.length === 0) {
+      return false;
+    }
+
+    const $start = tr.doc.resolve(start);
+
     const {
       type,
       content: [head, ...tail],
-    } = this.parse(state.schema, tokens, {
-      type: $from.parent.type,
+    } = this.parse(this.schema, tokens, {
+      type: $start.parent.type,
       content: [],
     });
 
     if (!head) {
-      return;
+      return false;
     }
 
-    const tr = state.tr;
     if (head.type === this.type) {
-      tr.delete(from, to).insertText(head.textContent);
-    } else if (from === $from.start()) {
+      tr.delete(start, end).insertText(head.textContent);
+    } else if (start === $start.start()) {
       if (type !== head.type) {
-        tr.replaceRangeWith(from, to, head);
+        tr.replaceRangeWith(start, end, head);
       } else {
-        tr.delete(from, to).step(
+        tr.delete(start, end).step(
           new ReplaceAroundStep(
-            tr.mapping.map($from.before()),
-            tr.mapping.map($from.after()),
-            tr.mapping.map($from.start()),
-            tr.mapping.map($from.end()),
+            tr.mapping.map($start.before()),
+            tr.mapping.map($start.after()),
+            tr.mapping.map($start.start()),
+            tr.mapping.map($start.end()),
             new Slice(Fragment.from(head), 0, 0),
             1,
             true
@@ -131,10 +109,11 @@ class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     }
 
     if (tail.length) {
-      tr.insert(tr.mapping.map(to), tail);
+      tr.insert(tr.mapping.map(end), tail);
     }
 
-    return tr.scrollIntoView();
+    tr.scrollIntoView();
+    return true;
   }
 
   parse(schema: ExtensionSchema, tokens: Token[], context: ParseContext) {

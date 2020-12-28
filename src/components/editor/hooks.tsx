@@ -10,7 +10,7 @@ import {
 import { EditorView } from "prosemirror-view";
 import produce from "immer";
 
-import Manager, { MissingContentError } from "./manager";
+import { Manager, MissingContentError } from "./manager";
 import {
   Extension,
   ExtensionState,

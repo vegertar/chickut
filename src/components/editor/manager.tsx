@@ -9,7 +9,7 @@ import { EditorState, Plugin } from "prosemirror-state";
 import { DirectEditorProps } from "prosemirror-view";
 import union from "lodash.union";
 
-import Engine, { BlockRule, InlineRule } from "./engine";
+import { Engine, BlockRule, InlineRule } from "./engine";
 import {
   Extension,
   ExtensionSchema,
@@ -357,5 +357,3 @@ export class Manager {
     return n < minimal;
   };
 }
-
-export default Manager;

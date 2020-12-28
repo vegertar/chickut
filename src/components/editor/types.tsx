@@ -8,30 +8,31 @@ import {
 import { Plugin } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 
-import Engine, { BlockRule, InlineRule } from "./engine";
+import { Engine, BlockRule, InlineRule } from "./engine";
 
-export type ExtensionRule = Partial<
-  Pick<BlockRule | InlineRule, "alt" | "handle">
+export type ExtensionRule<T extends BlockRule | InlineRule> = Partial<
+  Pick<T, "alt" | "handle">
 >;
-export type ExtensionSpec<T> = T;
-export type ExtensionPlugins<T> = (type: T) => Plugin[];
+export type ExtensionSpec<T extends NodeSpec | MarkSpec> = T;
+export type ExtensionPlugins<T extends NodeType | MarkType> = (
+  type: T
+) => Plugin[];
 
-type BaseExtension = {
-  rule?: ExtensionRule;
-};
-
-export type NodeExtension = BaseExtension & {
+export type NodeExtension = {
   node: ExtensionSpec<NodeSpec>;
   plugins?: Plugin[] | ExtensionPlugins<NodeType>;
+  rule?: ExtensionRule<BlockRule>;
 };
 
-export type MarkExtension = BaseExtension & {
+export type MarkExtension = {
   mark: ExtensionSpec<MarkSpec>;
   plugins?: Plugin[] | ExtensionPlugins<MarkType>;
+  rule?: ExtensionRule<InlineRule>;
 };
 
-export type PluginExtension = BaseExtension & {
+export type PluginExtension = {
   plugins: Plugin[];
+  rule?: ExtensionRule<BlockRule | InlineRule>;
 };
 
 export type Extension = NodeExtension | MarkExtension | PluginExtension;

@@ -2,5 +2,7 @@
   p {
     position: relative;
     margin: 0;
+    word-wrap: break-word;
+    white-space: break-spaces;
   }
 }
