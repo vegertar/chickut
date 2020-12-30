@@ -3,8 +3,13 @@ import { Node as ProsemirrorNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
 import { createState, useState } from "@hookstate/core";
 
-import { ExtensionPlugin } from "../../../editor";
+import { DiffDOM } from "diff-dom";
+import morphdom from "morphdom";
 
+import { ExtensionPlugin } from "../../../editor";
+import { Snippet } from "./runtime";
+
+const dd = new DiffDOM();
 const scriptState = createState(0);
 
 export class NodeView {
@@ -28,9 +33,20 @@ export class NodeView {
   }
 
   private setView(node: ProsemirrorNode) {
-    const view = this.dom.querySelector(".view")!;
-    view.innerHTML = node.textContent;
-    if (view.querySelector("script")) {
+    const from = this.dom.querySelector(".view")!;
+    const to = from.cloneNode() as HTMLElement;
+    to.innerHTML = node.textContent;
+
+    console.log(dd.diff(from, to));
+
+    // morphdom(from, to, {
+    //   onElUpdated(node) {
+    //     console.log(node);
+    //   },
+    // });
+
+    from.innerHTML = node.textContent;
+    if (from.querySelector("script")) {
       scriptState.set((x) => x + 1);
     }
   }
@@ -40,8 +56,16 @@ function useScript(name?: string) {
   const state = useState(scriptState);
 
   useEffect(() => {
-    const scripts = document.querySelectorAll(`.${name} > .view script`);
-    console.log(scripts);
+    document
+      .querySelectorAll<HTMLScriptElement>(`div.${name}>div.view script`)
+      .forEach((script) => {
+        if (!script.textContent) {
+          return;
+        }
+
+        const { vars, refs } = new Snippet(script.textContent);
+        console.log({ vars, refs });
+      });
   }, [state.value, name]);
 }
 

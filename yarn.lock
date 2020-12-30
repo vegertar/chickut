@@ -5825,6 +5825,11 @@ detect-port@^1.3.0:
     address "^1.0.1"
     debug "^2.6.0"
 
+diff-dom@^4.2.2:
+  version "4.2.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/diff-dom/-/diff-dom-4.2.2.tgz#49a121fe1614675b4f28ed50df9547bb0c3c1d52"
+  integrity sha512-qO0WsnnMF6Wc5MEm0j4LkwvJWs4Mpkj6pyXWMtcjGJPHWDNcnQY8ijYoSrsZuArBmlHLN9Dqr4de/3ZlbjpRVw==
+
 diff-match-patch@^1.0.0:
   version "1.0.5"
   resolved "https://mirrors.huaweicloud.com/repository/npm/diff-match-patch/-/diff-match-patch-1.0.5.tgz#abb584d5f10cd1196dfc55aa03701592ae3f7b37"
@@ -9968,6 +9973,11 @@ mkdirp@^1.0.3, mkdirp@^1.0.4:
   version "1.0.4"
   resolved "https://mirrors.huaweicloud.com/repository/npm/mkdirp/-/mkdirp-1.0.4.tgz#3eb5ed62622756d79a5f0e2a221dfebad75c2f7e"
   integrity sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==
+
+morphdom@^2.6.1:
+  version "2.6.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/morphdom/-/morphdom-2.6.1.tgz#e868e24f989fa3183004b159aed643e628b4306e"
+  integrity sha512-Y8YRbAEP3eKykroIBWrjcfMw7mmwJfjhqdpSvoqinu8Y702nAwikpXcNFDiIkyvfCLxLM9Wu95RZqo4a9jFBaA==
 
 move-concurrently@^1.0.1:
   version "1.0.1"
