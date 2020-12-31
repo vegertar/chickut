@@ -19,6 +19,6 @@ const extension: NodeExtension = {
 };
 
 export default function Blockquote() {
-  useExtension(extension);
+  useExtension(extension, "blockquote");
   return null;
 }

@@ -39,6 +39,6 @@ const extension: NodeExtension = {
 };
 
 export default function CodeBlock() {
-  useExtension(extension);
+  useExtension(extension, "codeblock");
   return null;
 }

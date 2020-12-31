@@ -18,6 +18,6 @@ const extension: NodeExtension = {
 };
 
 export default function HorizontalRule() {
-  useExtension(extension);
+  useExtension(extension, "horizontalrule");
   return null;
 }

@@ -67,6 +67,5 @@ export type EditorHandle = {
 
 export type ExtensionContextProps = {
   editor?: EditorHandle;
-  name?: string;
   dispatch?: React.Dispatch<ExtensionAction>;
 };

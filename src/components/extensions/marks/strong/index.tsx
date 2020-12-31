@@ -17,6 +17,6 @@ const extension: MarkExtension = {
 };
 
 export default function Strong() {
-  useExtension(extension);
+  useExtension(extension, "strong");
   return null;
 }

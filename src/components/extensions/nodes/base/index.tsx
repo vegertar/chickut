@@ -4,7 +4,7 @@ import { keydownHandler } from "prosemirror-keymap";
 import { ExtensionPack, Plugin, useExtension } from "../../../editor";
 
 export default function Base() {
-  useExtension(Base.pack);
+  useExtension(Base.pack, "base");
   return null;
 }
 

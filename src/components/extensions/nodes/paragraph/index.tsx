@@ -21,6 +21,6 @@ const extension: NodeExtension = {
 };
 
 export default function Paragraph() {
-  useExtension(extension);
+  useExtension(extension, "paragraph");
   return null;
 }

@@ -1,6 +1,6 @@
 {
   "name": "chickut",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "dependencies": {
     "@hookstate/core": "^3.0.2",
@@ -76,7 +76,8 @@
     "test:coverage": "react-scripts test -- --coverage",
     "eject": "react-scripts eject",
     "storybook": "start-storybook -p 6006 -s public --no-dll",
-    "build-storybook": "build-storybook -s public --no-dll"
+    "build-storybook": "build-storybook -s public --no-dll",
+    "deploy-storybook": "storybook-to-ghpages"
   },
   "eslintConfig": {
     "extends": [
@@ -104,6 +105,7 @@
     "@storybook/node-logger": "^6.1.11",
     "@storybook/preset-create-react-app": "^3.1.5",
     "@storybook/react": "^6.1.11",
+    "@storybook/storybook-deployer": "^2.8.7",
     "prosemirror-dev-tools": "^3.0.2",
     "react-is": "^17.0.1"
   }

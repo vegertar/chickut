@@ -31,6 +31,6 @@ const extension: NodeExtension = {
 };
 
 export default function Heading() {
-  useExtension(extension);
+  useExtension(extension, "heading");
   return null;
 }

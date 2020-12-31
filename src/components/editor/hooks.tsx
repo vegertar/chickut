@@ -151,8 +151,8 @@ const ExtensionContext = createContext<ExtensionContextProps>({});
 
 export const ExtensionContextProvider = ExtensionContext.Provider;
 
-export function useExtensionContext() {
-  const { dispatch, name, ...context } = useContext(ExtensionContext);
+export function useExtensionContext(name: string) {
+  const { dispatch, ...context } = useContext(ExtensionContext);
   const extensionDispatch = useCallback(
     (events: Partial<ExtensionEvents>) => {
       name && dispatch?.({ ...events, target: name });
@@ -163,8 +163,11 @@ export function useExtensionContext() {
   return { ...context, dispatch: extensionDispatch, name };
 }
 
-export function useExtension(extension: Extension | ExtensionPack) {
-  const context = useExtensionContext();
+export function useExtension(
+  extension: Extension | ExtensionPack,
+  name: string
+) {
+  const context = useExtensionContext(name);
   const dispatch = context.dispatch;
 
   useEffect(

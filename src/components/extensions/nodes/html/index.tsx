@@ -41,5 +41,5 @@ const extension: NodeExtension = {
 };
 
 export default function Html() {
-  return useView(useExtension(extension));
+  return useView(useExtension(extension, "html"));
 }

@@ -1,5 +1,4 @@
 import { parseModule, ESTree } from "meriyah";
-import { formatDiagnostic } from "typescript";
 
 type ESTreeNodeType = ESTree.Node["type"] | ESTree.Expression["type"];
 type Evaluators = Partial<Record<ESTreeNodeType, (x: ESTree.Node) => void>>;

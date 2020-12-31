@@ -9,7 +9,7 @@ import numbered from "./numbered";
 import "./style.scss";
 
 export default function List() {
-  useExtension(List.pack);
+  useExtension(List.pack, "list");
   return null;
 }
 
