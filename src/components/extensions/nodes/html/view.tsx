@@ -1,16 +1,17 @@
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Node as ProsemirrorNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
-import { createState, useState } from "@hookstate/core";
-
+import {
+  createState as createHookState,
+  useState as useHookState,
+} from "@hookstate/core";
 import { DiffDOM } from "diff-dom";
-import morphdom from "morphdom";
 
 import { ExtensionPlugin } from "../../../editor";
-import { Snippet } from "./runtime";
+import Runtime from "./runtime";
 
 const dd = new DiffDOM();
-const scriptState = createState(0);
+const scriptState = createHookState(0);
 
 export class NodeView {
   readonly dom: HTMLElement;
@@ -53,24 +54,33 @@ export class NodeView {
 }
 
 function useScript(name?: string) {
-  const state = useState(scriptState);
+  const state = useHookState(scriptState);
+  const [testingData, setTestingData] = useState<string>();
 
   useEffect(() => {
+    const codes: string[] = [];
     document
       .querySelectorAll<HTMLScriptElement>(`div.${name}>div.view script`)
       .forEach((script) => {
-        if (!script.textContent) {
-          return;
+        if (script.textContent) {
+          codes.push(script.textContent);
         }
-
-        const { vars, refs } = new Snippet(script.textContent);
-        console.log({ vars, refs });
       });
+
+    const runtime = new Runtime(codes, {
+      onReturned: (closure) => {
+        if (closure.result) {
+          setTestingData(closure.result);
+        }
+      },
+    });
+    runtime.evaluate();
+    return () => runtime.dispose();
   }, [state.value, name]);
+
+  return testingData ? <span>{testingData}</span> : null;
 }
 
 export function useView({ view, name }: { view?: EditorView; name?: string }) {
-  useScript(name);
-
-  return null;
+  return useScript(name);
 }

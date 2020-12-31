@@ -1,4 +1,5 @@
 import { parseModule, ESTree } from "meriyah";
+import { formatDiagnostic } from "typescript";
 
 type ESTreeNodeType = ESTree.Node["type"] | ESTree.Expression["type"];
 type Evaluators = Partial<Record<ESTreeNodeType, (x: ESTree.Node) => void>>;
@@ -8,20 +9,31 @@ const frame =
     ? requestAnimationFrame
     : setImmediate;
 
+type Range = [number, number] | null;
+
+type TransformItem = {
+  name: string;
+  kind?: string; // for undefined kind which means a decleration
+  nesting?: number;
+  range?: [number, number] | null;
+};
+
 export class Snippet {
+  private range?: Range;
+  private lastExpression?: Range;
   private nesting = 0;
 
   public readonly refs: {
     name: string;
     nesting?: number; // undefined nesting means this is an forign reference
-    range?: [number, number] | null;
+    range?: Range;
   }[] = [];
 
   public readonly vars: {
     kind: "var" | "let" | "const";
     name: string;
     nesting: number;
-    range?: [number, number] | null;
+    range?: Range;
   }[] = [];
 
   readonly evaluators: Evaluators = {
@@ -83,6 +95,12 @@ export class Snippet {
       this.evaluators[param.type]?.(param);
     },
 
+    AssignmentExpression: (node: ESTree.Node) => {
+      const { left, right } = node as ESTree.AssignmentExpression;
+      this.evaluators[left.type]?.(left);
+      this.evaluators[right.type]?.(right);
+    },
+
     ArrowFunctionExpression: (node: ESTree.Node) => {
       const { params, body } = node as ESTree.ArrowFunctionExpression;
       this.nesting++;
@@ -118,8 +136,11 @@ export class Snippet {
     },
 
     ExpressionStatement: (node: ESTree.Node) => {
-      const { expression } = node as ESTree.ExpressionStatement;
+      const { expression, range } = node as ESTree.ExpressionStatement;
       this.evaluators[expression.type]?.(expression);
+      if (range && this.range && range[1] === this.range[1]) {
+        this.lastExpression = range;
+      }
     },
 
     BlockStatement: (node: ESTree.Node) => {
@@ -152,20 +173,89 @@ export class Snippet {
       lexical: true,
       ranges: true,
     });
+    this.range = program.range;
     program.body.forEach((node) => {
       this.evaluators[node.type]?.(node);
     });
   }
 
+  private transformItem(
+    pieces: string[],
+    items: TransformItem[],
+    itemIndex: number,
+    codeIndex: number,
+    codeUntil = Infinity
+  ) {
+    if (codeIndex > codeUntil) {
+      throw new Error(`Invalid code index: ${codeIndex} > ${codeUntil}`);
+    }
+
+    const item = items[itemIndex];
+    if (!item.range) {
+      throw new Error(`Should enable index-based range feature`);
+    }
+
+    const [itemStart, itemEnd] = item.range;
+
+    if (codeIndex >= itemEnd) {
+      return codeIndex;
+    }
+
+    if (codeUntil <= itemStart) {
+      pieces.push(this.code.slice(codeIndex, codeUntil));
+      return codeUntil;
+    }
+
+    codeIndex = this.transformReturn(pieces, codeIndex, itemStart);
+
+    if (codeIndex < itemStart) {
+      pieces.push(this.code.slice(codeIndex, itemStart));
+      codeIndex = itemStart;
+    }
+
+    if (codeUntil < itemEnd) {
+      return codeIndex;
+    }
+
+    if (!item.kind && item.nesting === 0) {
+      pieces.push(`(__env__.${this.code.slice(itemStart, itemEnd)})`);
+    } else {
+      // the itemEnd might be greater than the next itemStarts
+      for (
+        let i = itemIndex + 1;
+        i < items.length && codeIndex < itemEnd;
+        ++i
+      ) {
+        codeIndex = this.transformItem(pieces, items, i, codeIndex, itemEnd);
+      }
+      pieces.push(this.code.slice(codeIndex, itemEnd));
+      if (item.kind && item.nesting === 0) {
+        pieces.push(`;__env__.${item.name} = ${item.name};`);
+      }
+    }
+
+    if (codeIndex < itemEnd) {
+      codeIndex = itemEnd;
+    }
+
+    return codeIndex;
+  }
+
+  private transformReturn(
+    pieces: string[],
+    last: number,
+    itemStart = Infinity
+  ) {
+    const start = this.lastExpression?.[0];
+    if (start !== undefined && last <= start && start <= itemStart) {
+      pieces.push(this.code.slice(last, start), ";return ");
+      last = start;
+    }
+    return last;
+  }
+
   transform() {
-    // TODO: eslint-disable-next-line no-new-func
-    type Item = {
-      name: string;
-      kind?: string; // for undefined kind which means a decleration
-      nesting?: number;
-      range?: [number, number] | null;
-    };
-    const items: Item[] = [...this.vars, ...this.refs];
+    const items: TransformItem[] = [...this.vars, ...this.refs];
     items.sort((a, b) => {
       if (!a.range || !b.range) {
         throw new Error(`Should enable index-based range feature`);
@@ -175,35 +265,23 @@ export class Snippet {
     });
 
     const pieces: string[] = [];
+
     let last = 0;
-
-    for (const item of items) {
-      if (!item.range) {
-        throw new Error(`Should enable index-based range feature`);
-      }
-
-      if (!item.kind && item.nesting === 0) {
-        pieces.push(this.code.slice(last, item.range[0]));
-        pieces.push(
-          `(__runtime__.${this.code.slice(item.range[0], item.range[1])})`
-        );
-      } else {
-        pieces.push(this.code.slice(last, item.range[1]));
-        if (item.kind && item.nesting === 0) {
-          pieces.push(`;__runtime__.${item.name} = ${item.name};`);
-        }
-      }
-      if (last < item.range[1]) {
-        last = item.range[1];
-      }
+    for (let i = 0; i < items.length; ++i) {
+      last = this.transformItem(pieces, items, i, last);
     }
+
+    last = this.transformReturn(pieces, last);
     pieces.push(this.code.slice(last));
     return pieces.join("");
   }
 }
 
-type Input = Record<string, number[]>;
-type Output = { name: string; from: number[]; to: number[] }[];
+// the records of global variables for each sneppet
+type Records = Record<string, number[]>;
+// the DAG graph
+type Topo = { name: string; from: Set<number>; to: Set<number> }[];
+// track DFS status
 type Visited = Record<string, undefined | 1 | 2>;
 
 export class CycleError extends Error {}
@@ -213,8 +291,8 @@ function dfs(
   source: Snippet[],
   name: string,
   visited: Visited,
-  input: Input,
-  output: Output
+  input: Records,
+  output: Topo
 ) {
   const status = visited[name];
   if (status === 1) {
@@ -228,6 +306,7 @@ function dfs(
 
     for (const { refs } of from.map((i) => source[i])) {
       for (const r of refs) {
+        // discards internal references
         if (r.nesting !== undefined) {
           continue;
         }
@@ -256,7 +335,9 @@ function dfs(
             }
 
             if (j !== undefined) {
-              output[j].to.push(...from);
+              for (const i of from) {
+                output[j].to.add(i);
+              }
             }
             break;
           default:
@@ -266,7 +347,7 @@ function dfs(
     }
 
     visited[name] = 2;
-    output.push({ name, from, to: [] });
+    output.push({ name, from: new Set(from), to: new Set() });
   }
 }
 
@@ -274,6 +355,7 @@ export function toposort(source: Snippet[]) {
   const input = source.reduce((all, item, index) => {
     if (item.vars.length) {
       for (const { name, nesting } of item.vars) {
+        // only use global variables
         if (name && nesting === 0) {
           if (!all[name]) {
             all[name] = [];
@@ -288,9 +370,9 @@ export function toposort(source: Snippet[]) {
       all[""].push(index);
     }
     return all;
-  }, {} as Input);
+  }, {} as Records);
 
-  const output: Output = [];
+  const output: Topo = [];
   const visited: Visited = {};
   for (const name in input) {
     if (!visited[name]) {
@@ -301,22 +383,191 @@ export function toposort(source: Snippet[]) {
   return output;
 }
 
-type Graph = (Output[0] & {
-  oldValue?: any;
-  newValue?: any;
-  ranTimes?: number;
-})[];
+type Closure = {
+  index: number;
+  env: Record<string, any>;
+  params: string[];
+  timestamp: number;
+  result?: any;
+};
+
+type Options = {
+  onReturned?: (closure: Closure) => void;
+  onDisposed?: (closure: Closure) => void;
+};
 
 export default class Runtime {
+  public readonly options: Options;
   public readonly snippets: Snippet[];
-  public readonly graph: Graph;
+  public readonly topo: Topo;
+  public readonly closures: Closure[];
+  public readonly functions: Function[];
+  public readonly graph: Map<string, ((values: any[]) => any)[]>;
 
-  constructor(codes: string[]) {
+  private disposed = false;
+
+  constructor(codes: string[], options?: Options) {
+    this.options = { ...options };
     this.snippets = codes.map((code) => new Snippet(code));
-    this.graph = toposort(this.snippets);
+    this.topo = toposort(this.snippets);
+
+    this.closures = [];
+    this.functions = this.snippets.map((snippet, i) => {
+      const env: Record<string, any> = {};
+      const params: string[] = [];
+      this.topo.forEach(({ name, from, to }) => {
+        if (from.has(i)) {
+          env[name] = undefined;
+        }
+        if (to.has(i)) {
+          params.push(name);
+        }
+      });
+
+      this.closures.push({
+        index: i,
+        env: this.proxy(env, i),
+        params,
+        timestamp: 0,
+      });
+      // eslint-disable-next-line no-new-func
+      return new Function("__env__", ...params, snippet.transform());
+    });
+
+    this.graph = this.createGraph();
   }
 
-  run() {
-    console.log(this.graph);
+  private createGraph() {
+    const graph: Map<string, ((values: any[]) => any)[]> = new Map();
+    this.topo.forEach(({ name, to }, i) => {
+      if (to.size === 0) {
+        return;
+      }
+
+      const handlers: ((values: any[]) => any)[] = [];
+      for (const target of to) {
+        const fn = this.functions[target];
+        const closure = this.closures[target];
+        const { env, params } = closure;
+        const others = new Set<number>();
+        for (let j = 0; j < this.topo.length; ++j) {
+          if (j !== i && this.topo[j].to.has(target)) {
+            let ts = -1;
+            let other: number | undefined;
+            for (const index of this.topo[j].from) {
+              const obj = this.closures[index];
+              if (obj.timestamp > ts) {
+                other = index;
+                ts = obj.timestamp;
+              }
+            }
+            if (other !== undefined) {
+              others.add(other);
+            }
+          }
+        }
+
+        const args = new Map<string, Closure>();
+        if (others.size) {
+          for (let i = 0; i < params.length; ++i) {
+            const param = params[i];
+            for (const j of others) {
+              const other = this.closures[j];
+              if (Object.getOwnPropertyDescriptor(other.env, param)) {
+                args.set(param, other);
+                break;
+              }
+            }
+          }
+        }
+
+        handlers.push((values: any[]) => {
+          if (args.size) {
+            for (let i = 0; i < params.length; ++i) {
+              const param = params[i];
+              const paramClosure = args.get(param);
+              if (paramClosure) {
+                values[i] = paramClosure.env[param];
+              }
+            }
+          }
+
+          this.cleanup(closure);
+          closure.result = fn(env, ...values);
+          this.options.onReturned?.(closure);
+        });
+      }
+
+      if (handlers.length) {
+        graph.set(name, handlers);
+      }
+    });
+
+    return graph;
+  }
+
+  private cleanup(closure: Closure) {
+    if (typeof closure.result === "function") {
+      closure.result();
+      closure.result = undefined;
+      this.options.onDisposed?.(closure);
+    }
+  }
+
+  private proxy(env: Record<string, any>, index: number) {
+    return new Proxy(env, {
+      set: (target, key, value, receiver) => {
+        if (value === target[key as string]) {
+          return false;
+        }
+
+        const ret = Reflect.set(target, key, value, receiver);
+        if (ret) {
+          this.closures[index].timestamp = new Date().getTime();
+          if (!this.disposed) {
+            const handlers = this.graph.get(key as string);
+            handlers?.forEach((fn) => frame(() => fn(Object.values(target))));
+          }
+        }
+
+        return ret;
+      },
+    });
+  }
+
+  evaluate() {
+    if (this.disposed) {
+      return false;
+    }
+
+    const done = new Set<number>();
+    this.topo.forEach(({ from, to }) => {
+      for (const i of from) {
+        if (!done.has(i)) {
+          done.add(i);
+          const fn = this.functions[i];
+          const closure = this.closures[i];
+          frame(() => {
+            closure.result = fn(closure.env);
+            this.options.onReturned?.(closure);
+          });
+        }
+      }
+      // will be automatically ran by functions within from
+      for (const i of to) {
+        done.add(i);
+      }
+    });
+
+    return true;
+  }
+
+  dispose() {
+    this.disposed = true;
+    for (let i = this.topo.length - 1; i >= 0; --i) {
+      for (const j of this.topo[i].from) {
+        this.cleanup(this.closures[j]);
+      }
+    }
   }
 }
