@@ -1,8 +1,8 @@
-@use "../../../theme" as *;
+@use "../../../theme";
 
 .editor {
   blockquote {
-    border-left: 3px solid theme-var(quote);
+    border-left: 3px solid theme.var-of(quote);
     margin: 0;
     padding-left: 10px;
     font-style: italic;

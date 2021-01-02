@@ -3,7 +3,7 @@ import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 
 import Theme, { themes } from "./theme";
 import Editor from "./editor";
-import { Base, Paragraph } from "./extensions";
+import { Base } from "./extensions";
 
 type MetaProps = {
   theme?: string;
@@ -14,7 +14,7 @@ export function template<P = {}>(Component: React.FC<P>): Story<P & MetaProps> {
   return (args) => <Component {...args} />;
 }
 
-export const minimal = [Base, Paragraph];
+export const minimal = [Base];
 
 export function withThemedEditor<P>(Extension: React.FC<P>, addon = minimal) {
   return (props: P) => (

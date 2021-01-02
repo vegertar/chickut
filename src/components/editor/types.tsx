@@ -8,11 +8,13 @@ import {
 import { Plugin } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 
-import { Engine, BlockRule, InlineRule } from "./engine";
+import { Engine, BlockRule, InlineRule, PostInlineRuleHandle } from "./engine";
 
 export type ExtensionRule<T extends BlockRule | InlineRule> = Partial<
   Pick<T, "alt" | "handle">
->;
+> & {
+  postHandle?: PostInlineRuleHandle;
+};
 export type ExtensionSpec<T extends NodeSpec | MarkSpec> = T;
 export type ExtensionPlugins<T extends NodeType | MarkType> = (
   type: T

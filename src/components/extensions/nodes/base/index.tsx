@@ -1,19 +1,13 @@
-import { baseKeymap } from "prosemirror-commands";
-import { keydownHandler } from "prosemirror-keymap";
+import { ExtensionPack, NodeExtension, useExtension } from "../../../editor";
 
-import { ExtensionPack, Plugin, useExtension } from "../../../editor";
+import { paragraphHandle, textPostHandle } from "./rules";
+import { BasePlugin, ParagraphPlugin } from "./plugins";
+
+import "./style.scss";
 
 export default function Base() {
   useExtension(Base.pack, "base");
   return null;
-}
-
-class BasePlugin extends Plugin {
-  constructor() {
-    super("base", {
-      handleKeyDown: keydownHandler(baseKeymap),
-    });
-  }
 }
 
 Base.pack = [
@@ -22,13 +16,18 @@ Base.pack = [
     node: {
       content: "block+",
     },
-    plugins: [new BasePlugin()],
+    plugins: (type) => [new BasePlugin(type.name)],
   },
 
   {
     name: "text",
     node: {
       group: "inline",
+    },
+    rule: {
+      // Since text node are placed between all non-leaf nodes and all marks, by DAG topo,
+      // so this rule are properly placed behind all inline rules, as 'text_collapse' did in Markdown-it
+      postHandle: textPostHandle,
     },
   },
 
@@ -44,12 +43,16 @@ Base.pack = [
   },
 
   {
-    name: "default-block",
+    name: "paragraph",
     node: {
       content: "inline*",
       group: "block",
-      parseDOM: [{ tag: "default-block" }],
-      toDOM: () => ["default-block", 0],
+      parseDOM: [{ tag: "p" }],
+      toDOM: () => ["p", 0],
     },
+    rule: {
+      handle: paragraphHandle,
+    },
+    plugins: (type) => [new ParagraphPlugin(type)],
   },
-] as ExtensionPack;
+] as ExtensionPack<NodeExtension>;

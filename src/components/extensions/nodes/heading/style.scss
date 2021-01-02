@@ -1,4 +1,4 @@
-@use "../../../theme" as *;
+@use "../../../theme";
 
 .editor {
   h1,
@@ -12,13 +12,13 @@
     cursor: default;
 
     &:before {
-      @include read-only {
+      @include theme.read-only {
         display: none;
       }
       display: block;
       position: absolute;
-      font-family: theme-var(fontFamilyMono);
-      color: theme-var(textSecondary);
+      font-family: theme.var-of(fontFamilyMono);
+      color: theme.var-of(textSecondary);
       font-size: 13px;
       left: -24px;
     }

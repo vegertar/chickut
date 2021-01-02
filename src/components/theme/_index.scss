@@ -17,7 +17,7 @@ $default-theme-map: meta.module-variables("light");
   }
 }
 
-@function theme-var($key) {
+@function var-of($key) {
   @if not map.has-key($default-theme-map, #{$key}) {
     @error "key '#{$key}' is not in the default theme<#{$default-theme}>";
   }

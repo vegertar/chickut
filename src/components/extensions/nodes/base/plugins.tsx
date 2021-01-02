@@ -4,11 +4,18 @@ import {
   Fragment,
   Slice,
 } from "prosemirror-model";
-import { EditorState, Transaction } from "prosemirror-state";
+import { Transaction } from "prosemirror-state";
 import { ReplaceAroundStep } from "prosemirror-transform";
 import { EditorView } from "prosemirror-view";
+import { baseKeymap } from "prosemirror-commands";
+import { keydownHandler } from "prosemirror-keymap";
 
-import { ExtensionPlugin, ExtensionSchema, Token } from "../../../editor";
+import {
+  ExtensionPlugin,
+  ExtensionSchema,
+  Token,
+  Plugin,
+} from "../../../editor";
 
 type ParseContext = {
   type: NodeType;
@@ -23,7 +30,7 @@ type State = {
   text: string;
 };
 
-class ParagraphPlugin extends ExtensionPlugin<State | null> {
+export class ParagraphPlugin extends ExtensionPlugin<State | null> {
   initState = () => {
     return null;
   };
@@ -137,6 +144,7 @@ class ParagraphPlugin extends ExtensionPlugin<State | null> {
                 : type?.create(token.attrs) || content;
             node && stack[stack.length - 1].content.push(node);
             // TODO: handle marks, i.e. token.children
+            console.log(token);
           }
           break;
         }
@@ -154,6 +162,10 @@ class ParagraphPlugin extends ExtensionPlugin<State | null> {
   }
 }
 
-export default function plugins(type: NodeType) {
-  return [new ParagraphPlugin(type)];
+export class BasePlugin extends Plugin {
+  constructor(name: string) {
+    super(name, {
+      handleKeyDown: keydownHandler(baseKeymap),
+    });
+  }
 }

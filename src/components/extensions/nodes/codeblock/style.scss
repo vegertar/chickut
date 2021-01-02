@@ -1,4 +1,4 @@
-@use "../../../theme" as *;
+@use "../../../theme";
 
 .editor {
   pre {
@@ -7,12 +7,12 @@
     padding: 0.75em 1em;
     line-height: 1.4em;
     position: relative;
-    background: theme-var(codeBackground);
+    background: theme.var-of(codeBackground);
     border-radius: 4px;
-    border: 1px solid theme-var(codeBorder);
+    border: 1px solid theme.var-of(codeBorder);
 
     -webkit-font-smoothing: initial;
-    font-family: theme-var(fontFamilyMono);
+    font-family: theme.var-of(fontFamilyMono);
     font-size: 13px;
     direction: ltr;
     text-align: left;
@@ -26,7 +26,7 @@
     -moz-hyphens: none;
     -ms-hyphens: none;
     hyphens: none;
-    color: theme-var(code);
+    color: theme.var-of(code);
     margin: 0;
 
     code {
@@ -35,7 +35,7 @@
       padding: 0;
       border: 0;
       padding: 3px 4px;
-      font-family: theme-var(fontFamilyMono);
+      font-family: theme.var-of(fontFamilyMono);
       font-size: 85%;
     }
   }

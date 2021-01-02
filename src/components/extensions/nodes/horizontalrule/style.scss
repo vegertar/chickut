@@ -1,9 +1,9 @@
-@use "../../../theme" as *;
+@use "../../../theme";
 
 .editor {
   hr {
     height: 0;
     border: 0;
-    border-top: 1px solid theme-var(horizontalRule);
+    border-top: 1px solid theme.var-of(horizontalRule);
   }
 }

@@ -1,3 +1,5 @@
+import React from "react";
+
 import { useExtension, NodeExtension } from "../../../editor";
 
 import handle from "./handle";

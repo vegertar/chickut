@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Node as ProsemirrorNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
-import {
-  createState as createHookState,
-  useState as useHookState,
-} from "@hookstate/core";
 import { DiffDOM } from "diff-dom";
 
 import { ExtensionPlugin } from "../../../editor";
 import Runtime from "./runtime";
 
 const dd = new DiffDOM();
-const scriptState = createHookState(0);
+
+var updateVersion: (() => void) | undefined;
 
 export class NodeView {
   readonly dom: HTMLElement;
@@ -48,14 +45,19 @@ export class NodeView {
 
     from.innerHTML = node.textContent;
     if (from.querySelector("script")) {
-      scriptState.set((x) => x + 1);
+      updateVersion?.();
     }
   }
 }
 
 function useScript(name?: string) {
-  const state = useHookState(scriptState);
+  const [version, setVersion] = useState(0);
   const [testingData, setTestingData] = useState<string>();
+
+  useEffect(() => {
+    updateVersion = () => setVersion((x) => x + 1);
+    return () => (updateVersion = undefined);
+  }, []);
 
   useEffect(() => {
     const codes: string[] = [];
@@ -76,7 +78,7 @@ function useScript(name?: string) {
     });
     runtime.evaluate();
     return () => runtime.dispose();
-  }, [state.value, name]);
+  }, [version, name]);
 
   return testingData ? <span>{testingData}</span> : null;
 }

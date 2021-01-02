@@ -1,4 +1,4 @@
-@use "../theme" as *;
+@use "../theme";
 
 .editor {
   display: flex;
@@ -7,10 +7,10 @@
   align-items: flex-start;
   justify-content: center;
 
-  color: theme-var(text);
-  background: theme-var(background);
-  font-family: theme-var(fontFamily);
-  font-weight: theme-var(fontWeight);
+  color: theme.var-of(text);
+  background: theme.var-of(background);
+  font-family: theme.var-of(fontFamily);
+  font-weight: theme.var-of(fontWeight);
   font-size: 1em;
   line-height: 1.7em;
   width: 100%;

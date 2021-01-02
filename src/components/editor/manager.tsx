@@ -4,10 +4,12 @@ import {
   MarkSpec,
   Slice,
   ResolvedPos,
+  ParseRule,
+  MarkType,
+  NodeType,
 } from "prosemirror-model";
 import { EditorState, Plugin } from "prosemirror-state";
 import { DirectEditorProps } from "prosemirror-view";
-import union from "lodash.union";
 
 import { Engine, BlockRule, InlineRule } from "./engine";
 import {
@@ -19,7 +21,7 @@ import {
 } from "./types";
 
 // the smaller index of tag, the more general extension, the lower priority
-const defaultNodesPrecedence = [
+const defaultTagPrecedence = [
   "p",
   /^(div|iframe)$/,
   /^h[1-6]$/,
@@ -27,6 +29,7 @@ const defaultNodesPrecedence = [
   "hr",
   "blockquote",
   "pre",
+  /^(em|strong)$/,
 ];
 
 const content = /(\w+)(\+)?/; // TODO: match "paragraph block*"
@@ -69,16 +72,20 @@ export class Manager {
   readonly nonDag: string[] = [];
   readonly dfsPath: string[] = [];
   readonly bfsPath: string[] = [];
+  readonly nodes: string[] = [];
+  readonly marks: string[] = [];
+  readonly plugins: string[] = [];
 
   constructor(
     public readonly extensions: Extensions,
-    public readonly nodesPrecedence = defaultNodesPrecedence
+    public readonly tagPrecedence = defaultTagPrecedence
   ) {
     this.init();
     this.detectDAG();
     this.sortGroups();
     this.detectInfinity();
     this.sortDeps();
+    this.sortExtensions();
   }
 
   createConfig(
@@ -102,26 +109,27 @@ export class Manager {
   }
 
   private createSchema(topNode = "doc") {
-    const nodes: Record<string, NodeSpec> = {};
-    const marks: Record<string, MarkSpec> = {};
-
-    this.eachExtension((extension, name) => {
-      const node: NodeSpec | undefined = (extension as NodeExtension).node;
-      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
-
-      if (node) {
-        nodes[name] = node;
-      } else if (mark) {
-        marks[name] = mark;
-      }
-    });
-
-    if (!nodes[topNode]) {
+    if (topNode !== this.nodes[0]) {
       throw new MissingContentError(topNode);
     }
-    if (!nodes.text) {
+
+    if (this.nodes.indexOf("text") < 0) {
       throw new MissingContentError("text");
     }
+
+    const nodes: Record<string, NodeSpec> = Object.fromEntries(
+      this.nodes.map((name) => [
+        name,
+        (this.getExtension(name) as NodeExtension).node,
+      ])
+    );
+
+    const marks: Record<string, MarkSpec> = Object.fromEntries(
+      this.marks.map((name) => [
+        name,
+        (this.getExtension(name) as MarkExtension).mark,
+      ])
+    );
 
     const schema = new ProsemirrorSchema({
       nodes,
@@ -129,26 +137,28 @@ export class Manager {
       topNode,
     }) as ExtensionSchema;
     schema.cached.engine = new Engine();
+
     return schema;
   }
 
   private createPlugins(schema: ExtensionSchema) {
     const allPlugins: Plugin[] = [];
     const engine = schema.cached.engine;
-    const keys = union(
-      [...Object.keys(schema.nodes), ...Object.keys(schema.marks)],
-      Object.keys(this.extensions)
-    );
+
+    // plugin keys from low priority to high
+    const keys = [...this.nodes, ...this.marks, ...this.plugins];
 
     for (let i = 0; i < keys.length; ++i) {
-      // adding by reverse order, i.e. from special to general
+      // since Prosemirror use plugins via first-come-first-served,
+      // so we adding by reverse order, i.e. from special to general
       const key = keys[keys.length - i - 1];
-
-      const type = schema.nodes[key] || schema.marks[key];
+      const nodeType = schema.nodes[key];
+      const markType = schema.marks[key];
       const { plugins = [], rule = {} } = this.getExtension(key) || {};
 
       let thisPlugins: Plugin[] = [];
       if (typeof plugins === "function") {
+        const type = nodeType || markType;
         thisPlugins = (plugins as ExtensionPlugins<typeof type>)(type);
       } else {
         thisPlugins = plugins;
@@ -156,37 +166,33 @@ export class Manager {
 
       allPlugins.push(...thisPlugins);
 
-      const { handle, alt } = rule;
+      const { handle, alt, postHandle } = rule;
       if (handle) {
-        // TODO: support mark type
         const rule = { name: key, handle, alt };
-        if (type.isBlock) {
+        if (nodeType) {
           engine.block.ruler.add(rule as BlockRule);
-        } else if (type.isInline) {
+        } else if (markType) {
           engine.inline.ruler.add(rule as InlineRule);
         }
+      }
+      if (postHandle) {
+        engine.postInline.ruler.add({ name: key, handle: postHandle });
       }
     }
 
     return allPlugins;
   }
 
-  eachExtension = (fn: (extension: Extension, name: string) => void) => {
-    for (const name of this.bfsPath) {
-      const extension = this.getExtension(name);
-      extension && fn(extension, name);
-    }
-  };
-
   private getExtension = (name: string): Extension | undefined =>
     this.extensions[name];
 
-  private init = () => {
+  private init() {
     for (const name in this.extensions) {
-      const extension = this.getExtension(name) as NodeExtension;
-      const node: NodeSpec | undefined = extension.node;
-      const group = node?.group;
+      const extension = this.getExtension(name);
+      const node: NodeSpec | undefined = (extension as NodeExtension).node;
+      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
 
+      const group = node?.group;
       if (group) {
         if (!this.groups[group]) {
           this.groups[group] = [];
@@ -199,18 +205,14 @@ export class Manager {
       }
       this.deps[name]!.push(...parseDeps(node));
 
-      if (node?.parseDOM) {
-        for (const { tag } of node.parseDOM) {
-          if (tag) {
-            this.tags[name] = tag;
-            break;
-          }
-        }
+      const tag = this.getTag(node || mark);
+      if (tag) {
+        this.tags[name] = tag;
       }
     }
-  };
+  }
 
-  private detectDAG = () => {
+  private detectDAG() {
     const dfsVisited: Visited = {};
     this.dfsPath.splice(0);
     this.nonDag.splice(0);
@@ -220,49 +222,95 @@ export class Manager {
         this.dfs(name, dfsVisited);
       }
     }
-  };
+  }
 
-  private sortGroups = () => {
-    const defaultPriority = this.nodesPrecedence.length;
+  private sortGroups() {
     for (const group in this.groups) {
-      this.groups[group]?.sort((a, b) => {
-        let x = defaultPriority;
-        let y = defaultPriority;
-        const aTag = this.tags[a];
-        const bTag = this.tags[b];
-        for (let i = 0; i < this.nodesPrecedence.length; ++i) {
-          const item = this.nodesPrecedence[i];
-          if (typeof item === "string") {
-            if (x === defaultPriority && item === aTag) {
-              x = i;
-            }
-            if (y === defaultPriority && item === bTag) {
-              y = i;
-            }
-          } else {
-            if (x === defaultPriority && aTag && item.test(aTag)) {
-              x = i;
-            }
-            if (y === defaultPriority && bTag && item.test(bTag)) {
-              y = i;
-            }
-          }
-        }
-
-        return x - y;
-      });
+      this.groups[group]?.sort(this.tagSorter);
     }
+  }
+
+  private sortExtensions() {
+    for (const name of this.bfsPath) {
+      const extension = this.getExtension(name);
+      if (!extension) {
+        continue;
+      }
+
+      const node: NodeSpec | undefined = (extension as NodeExtension).node;
+      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
+
+      if (node) {
+        this.nodes.push(name);
+      } else if (mark) {
+        this.marks.push(name);
+      } else {
+        this.plugins.push(name);
+      }
+    }
+
+    // the nodes had been sorted by dfs/bfs
+
+    this.marks.sort((a, b) => {
+      const aTag = this.getTag((this.getExtension(a) as MarkExtension).mark);
+      const bTag = this.getTag((this.getExtension(b) as MarkExtension).mark);
+      return this.tagSorter(aTag, bTag);
+    });
+
+    // TODO: sort plugins
+  }
+
+  private getTag(props?: { parseDOM?: ParseRule[] | null }) {
+    const rules = props?.parseDOM;
+
+    if (rules) {
+      for (const { tag } of rules) {
+        if (tag) {
+          return tag;
+        }
+      }
+    }
+
+    return "";
+  }
+
+  private tagSorter = (a: string, b: string) => {
+    const defaultPriority = this.tagPrecedence.length;
+    let x = defaultPriority;
+    let y = defaultPriority;
+    const aTag = this.tags[a];
+    const bTag = this.tags[b];
+    for (let i = 0; i < this.tagPrecedence.length; ++i) {
+      const item = this.tagPrecedence[i];
+      if (typeof item === "string") {
+        if (x === defaultPriority && item === aTag) {
+          x = i;
+        }
+        if (y === defaultPriority && item === bTag) {
+          y = i;
+        }
+      } else {
+        if (x === defaultPriority && aTag && item.test(aTag)) {
+          x = i;
+        }
+        if (y === defaultPriority && bTag && item.test(bTag)) {
+          y = i;
+        }
+      }
+    }
+
+    return x - y;
   };
 
-  private detectInfinity = () => {
+  private detectInfinity() {
     for (const name of this.nonDag) {
       if (this.dfsNonDag(name)) {
         throw new Error(`infinite dependency detected: ${name}`);
       }
     }
-  };
+  }
 
-  private sortDeps = () => {
+  private sortDeps() {
     const bfsVisited: Visited = {};
     for (let i = this.dfsPath.length - 1; i >= 0; --i) {
       const name = this.dfsPath[i];
@@ -270,9 +318,9 @@ export class Manager {
         this.bfs(name, bfsVisited);
       }
     }
-  };
+  }
 
-  private bfs = (root: string, visited: Visited) => {
+  private bfs(root: string, visited: Visited) {
     let index = -1;
     const queue = [] as string[];
 
@@ -296,9 +344,9 @@ export class Manager {
         }
       }
     } while (queue.length > index);
-  };
+  }
 
-  private dfs = (name: string, visited: Visited) => {
+  private dfs(name: string, visited: Visited) {
     const status = visited[name];
     if (status === 1) {
       this.nonDag.push(name);
@@ -324,9 +372,9 @@ export class Manager {
       visited[name] = 2;
       this.dfsPath.push(name);
     }
-  };
+  }
 
-  private dfsNonDag = (name: string, visited: Visited = {}, minimal = 0) => {
+  private dfsNonDag(name: string, visited: Visited = {}, minimal = 0) {
     let n = 0;
 
     if (!visited[name]) {
@@ -355,5 +403,5 @@ export class Manager {
     }
 
     return n < minimal;
-  };
+  }
 }
