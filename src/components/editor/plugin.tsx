@@ -1,4 +1,3 @@
-import React from "react";
 import {
   MarkType,
   NodeType,
@@ -117,15 +116,6 @@ export class ExtensionPlugin<T = any> extends Plugin<T> {
 
       ...props,
     });
-  }
-
-  textBefore($from: ResolvedPos<S>, max = 500) {
-    return $from.parent.textBetween(
-      Math.max(0, $from.parentOffset - max),
-      $from.parentOffset,
-      undefined,
-      "\ufffc"
-    );
   }
 
   //

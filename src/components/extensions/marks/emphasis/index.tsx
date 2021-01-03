@@ -11,14 +11,14 @@ const extension: MarkExtension = {
   },
 
   mark: {
-    attrs: {
-      isStrong: {
-        default: false,
-      },
-    },
-
-    parseDOM: [{ tag: "em" }, { tag: "strong" }],
-    toDOM: (mark) => [mark.attrs.isStrong ? "strong" : "em"],
+    attrs: { isStrong: { default: false } },
+    excludes: "", // allow multiple emphasis marks coexist
+    parseDOM: [
+      { tag: "em" },
+      { tag: "strong", getAttrs: () => ({ isStrong: true }) },
+    ],
+    toDOM: ({ attrs }) => [attrs.isStrong ? "strong" : "em"],
+    toText: ({ attrs }, s) => (attrs.isStrong ? `**${s}**` : `*${s}*`),
   },
 };
 

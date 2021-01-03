@@ -2,11 +2,7 @@ import {
   Schema as ProsemirrorSchema,
   NodeSpec,
   MarkSpec,
-  Slice,
-  ResolvedPos,
   ParseRule,
-  MarkType,
-  NodeType,
 } from "prosemirror-model";
 import { EditorState, Plugin } from "prosemirror-state";
 import { DirectEditorProps } from "prosemirror-view";
@@ -55,16 +51,6 @@ export class MissingContentError extends Error {
   }
 }
 
-function clipboardTextParser(
-  schema: ProsemirrorSchema,
-  text: string,
-  $context: ResolvedPos<ProsemirrorSchema>,
-  plain: boolean
-) {
-  console.log(text, $context, plain);
-  return Slice.empty;
-}
-
 export class Manager {
   readonly deps: Record<string, Dependency[] | undefined> = {};
   readonly groups: Record<string, string[] | undefined> = {};
@@ -88,9 +74,7 @@ export class Manager {
     this.sortExtensions();
   }
 
-  createConfig(
-    topNode?: string
-  ): DirectEditorProps<ExtensionSchema> | undefined {
+  createConfig(topNode?: string) {
     if (!this.bfsPath.length) {
       return undefined;
     }
@@ -98,14 +82,9 @@ export class Manager {
     const schema = this.createSchema(topNode);
     const plugins = this.createPlugins(schema);
 
-    // TODO: transfer history
-    const state = EditorState.create<ExtensionSchema>({ schema, plugins });
-
     return {
-      state,
-      clipboardTextParser: (text, $context, plain) =>
-        clipboardTextParser(schema, text, $context, plain),
-    };
+      state: EditorState.create<ExtensionSchema>({ schema, plugins }),
+    } as DirectEditorProps<ExtensionSchema>;
   }
 
   private createSchema(topNode = "doc") {

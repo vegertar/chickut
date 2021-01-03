@@ -7,7 +7,7 @@ import {
   useReducer,
   useRef,
 } from "react";
-import { EditorView } from "prosemirror-view";
+import { DirectEditorProps, EditorView } from "prosemirror-view";
 import produce from "immer";
 
 import { Manager, MissingContentError } from "./manager";
@@ -15,7 +15,6 @@ import {
   Extension,
   ExtensionState,
   ExtensionAction,
-  ExtensionEvents,
   ExtensionContextProps,
   ExtensionPack,
   ExtensionSchema,
@@ -70,7 +69,7 @@ function reducer(state: ExtensionState, action: ExtensionAction) {
 }
 
 export function useManager(element: HTMLDivElement | null) {
-  const [editor, setEditor] = useState<EditorHandle>({ version: 0 });
+  const [editor, setEditor] = useState<EditorHandle>({ version: [0, 0] });
   const viewRef = useRef<EditorView<ExtensionSchema>>();
   const view = editor.view;
 
@@ -94,9 +93,9 @@ export function useManager(element: HTMLDivElement | null) {
         return;
       }
 
-      let config: ReturnType<Manager["createConfig"]>;
+      let props: DirectEditorProps<ExtensionSchema> | undefined;
       try {
-        config = new Manager(extensions).createConfig();
+        props = new Manager(extensions).createConfig();
       } catch (e) {
         if (e instanceof MissingContentError) {
           // TODO: set error boundry
@@ -106,16 +105,15 @@ export function useManager(element: HTMLDivElement | null) {
         throw e;
       }
 
-      if (!config) {
+      if (!props) {
         return;
       }
 
-      const props = config;
       if (viewRef.current?.dom.parentElement === element) {
         viewRef.current.update(props);
         setEditor((editor) =>
           produce(editor, (draft) => {
-            draft.version += 0.000001; // minor change
+            draft.version[1] += 1; // minor change
           })
         );
       } else {
@@ -135,7 +133,7 @@ export function useManager(element: HTMLDivElement | null) {
         viewRef.current = view;
         setEditor((editor) =>
           produce(editor, (draft: EditorHandle) => {
-            draft.version += 1; // major change
+            draft.version[0] += 1; // major change
             draft.view = view;
           })
         );
@@ -154,8 +152,8 @@ export const ExtensionContextProvider = ExtensionContext.Provider;
 export function useExtensionContext(name: string) {
   const { dispatch, ...context } = useContext(ExtensionContext);
   const extensionDispatch = useCallback(
-    (events: Partial<ExtensionEvents>) => {
-      name && dispatch?.({ ...events, target: name });
+    (action: Partial<ExtensionAction>) => {
+      dispatch?.({ target: name, ...action });
     },
     [name, dispatch]
   );
@@ -179,31 +177,4 @@ export function useExtension(
   );
 
   return context;
-}
-
-export function useContentDOM(editorView?: EditorView) {
-  if (!editorView) {
-    return;
-  }
-
-  let node: Node;
-
-  try {
-    // binding an event handler is not light, so handling directly without useEffect
-    const pos = editorView.state.selection.$anchor.start();
-    ({ node } = editorView.domAtPos(pos));
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Invalid position")) {
-      return;
-    }
-
-    throw e;
-  }
-
-  if (
-    node instanceof HTMLElement &&
-    node.classList.contains("extension-content")
-  ) {
-    return node;
-  }
 }

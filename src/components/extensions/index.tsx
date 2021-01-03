@@ -1,6 +1,5 @@
 // nodes
 export { default as Base } from "./nodes/base";
-// export { default as Paragraph } from "./nodes/paragraph";
 export { default as Heading } from "./nodes/heading";
 export { default as HorizontalRule } from "./nodes/horizontalrule";
 export { default as BlockQuote } from "./nodes/blockquote";

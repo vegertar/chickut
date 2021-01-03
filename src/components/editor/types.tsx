@@ -1,5 +1,7 @@
 import {
   Schema as ProsemirrorSchema,
+  Node as ProsemirrorNode,
+  Mark,
   NodeSpec,
   MarkSpec,
   NodeType,
@@ -15,19 +17,27 @@ export type ExtensionRule<T extends BlockRule | InlineRule> = Partial<
 > & {
   postHandle?: PostInlineRuleHandle;
 };
-export type ExtensionSpec<T extends NodeSpec | MarkSpec> = T;
+
+export type ExtensionNodeSpec = NodeSpec & {
+  toText?(node: ProsemirrorNode): string;
+};
+
+export type ExtensionMarkSpec = MarkSpec & {
+  toText?(mark: Mark, content: string): string;
+};
+
 export type ExtensionPlugins<T extends NodeType | MarkType> = (
   type: T
 ) => Plugin[];
 
 export type NodeExtension = {
-  node: ExtensionSpec<NodeSpec>;
+  node: ExtensionNodeSpec;
   plugins?: Plugin[] | ExtensionPlugins<NodeType>;
   rule?: ExtensionRule<BlockRule>;
 };
 
 export type MarkExtension = {
-  mark: ExtensionSpec<MarkSpec>;
+  mark: ExtensionMarkSpec;
   plugins?: Plugin[] | ExtensionPlugins<MarkType>;
   rule?: ExtensionRule<InlineRule>;
 };
@@ -64,7 +74,7 @@ export interface ExtensionState {
 
 export type EditorHandle = {
   view?: EditorView<ExtensionSchema>;
-  version: number;
+  version: [number, number];
 };
 
 export type ExtensionContextProps = {

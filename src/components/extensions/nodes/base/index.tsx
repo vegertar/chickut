@@ -26,7 +26,7 @@ Base.pack = [
     },
     rule: {
       // Since text node are placed between all non-leaf nodes and all marks, by DAG topo,
-      // so this rule are properly placed behind all inline rules, as 'text_collapse' did in Markdown-it
+      // so this rule is properly placed after all inline rules, as 'text_collapse' did in Markdown-it
       postHandle: textPostHandle,
     },
   },
