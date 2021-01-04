@@ -1,9 +1,9 @@
 import React from "react";
 import { Story, StoryContext, Meta } from "@storybook/react/types-6-0";
 
-import Theme, { themes } from "./theme";
-import Editor from "./editor";
-import { Base } from "./extensions";
+import Theme, { themes } from "../theme";
+import Editor from "../editor";
+import { Base } from ".";
 
 type MetaProps = {
   theme?: string;
@@ -37,7 +37,7 @@ export function meta<P = {}>(
   const name = extension.name;
 
   return {
-    title: `extensions/${kind}/${name}`,
+    title: `Components/Extensions/${kind}/${name}`,
     component: extension,
     decorators: [
       (Story: Story, { args }: StoryContext) => {
@@ -55,8 +55,8 @@ export function meta<P = {}>(
           >
             <Editor text={args.text}>
               <NamedStory />
-              {addon.map((Extension) => (
-                <Extension key={Extension.name} />
+              {addon.map((Extension, i) => (
+                <Extension key={i} />
               ))}
             </Editor>
           </Theme>

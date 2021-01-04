@@ -1,5 +1,5 @@
 import Extension from "./index";
-import { meta, template } from "../../../index.stories";
+import { meta, template } from "../../index.stories";
 
 export default meta("Nodes", Extension);
 

@@ -1,5 +1,6 @@
 import React, {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -46,48 +47,77 @@ function flatFragment(children: React.ReactNode) {
   return data;
 }
 
-function useDevTools(editor?: EditorHandle) {
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      editor?.view && applyDevTools(editor.view);
-    }
-  }, [editor]);
-}
-
 export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
   const { text, style, children } = props || {};
   const divRef = useRef<HTMLDivElement>(null);
   const context = useManager(divRef.current);
   const editor = context.editor;
+  const view = editor?.view;
+  const isValid = useCallback(
+    ({ dom }: { dom: Element }) => dom.parentElement === divRef.current,
+    []
+  );
 
-  useDevTools(editor);
-  useImperativeHandle(ref, () => editor, [editor]);
+  useImperativeHandle(
+    ref,
+    () => {
+      if (editor.view && !isValid(editor.view)) {
+        return { version: editor.version };
+      }
+      return editor;
+    },
+    [editor, isValid]
+  );
 
   useEffect(() => {
-    const view = editor?.view;
-
-    if (
-      text === undefined ||
-      !view ||
-      view.dom.parentElement !== divRef.current
-    ) {
+    if (!view || !isValid(view)) {
       return;
     }
 
-    type HandleTextInput = NonNullable<typeof view["props"]["handleTextInput"]>;
+    if (process.env.NODE_ENV !== "production") {
+      applyDevTools(view);
+
+      view.setProps({
+        dispatchTransaction(tr) {
+          console.log(
+            "Document went from",
+            `<${tr.before.content.size}>${tr.before.content
+              .toString()
+              .slice(0, 100)}...`,
+            "to",
+            `<${tr.doc.content.size}>${tr.doc.content
+              .toString()
+              .slice(0, 100)}...`
+          );
+          const newState = this.state.apply(tr);
+          this.updateState(newState);
+        },
+      });
+    }
+  }, [view, isValid]);
+
+  useEffect(() => {
+    const view = editor?.view;
+    if (text === undefined || !view || !isValid(view)) {
+      return;
+    }
 
     const { from, to } = new AllSelection(view.state.doc);
 
-    if (
-      !view.someProp("handleTextInput", (f: HandleTextInput) =>
-        f(view, from, to, text)
-      )
-    ) {
+    // TODO: use clipboard relative functions to write text
+    type HandleTextInput = NonNullable<typeof view["props"]["handleTextInput"]>;
+    const handled = view.someProp("handleTextInput", (f: HandleTextInput) =>
+      f(view, from, to, text)
+    );
+
+    if (!handled) {
       view.dispatch(
         view.state.tr.delete(from, to).insertText(text).scrollIntoView()
       );
     }
-  }, [text, editor]);
+
+    view.focus();
+  }, [text, editor, isValid]);
 
   return (
     <div ref={divRef} className="editor" style={style}>

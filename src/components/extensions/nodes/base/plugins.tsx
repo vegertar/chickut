@@ -93,15 +93,22 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       tr,
       from - textWithoutMarkup.length,
       to,
-      textWithMarkup + text
+      textWithMarkup + text,
+      true
     );
 
     ok && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
     return ok;
   };
 
-  transform(tr: Transaction, start: number, end: number, text: string) {
-    const tokens = this.engine.parse(text, { tr, typing: true });
+  private transform(
+    tr: Transaction,
+    start: number,
+    end: number,
+    text: string,
+    typing?: boolean
+  ) {
+    const tokens = this.engine.parse(text, { tr, typing });
     if (tokens.length === 0) {
       return false;
     }
@@ -146,7 +153,7 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
     return true;
   }
 
-  parse(tokens: Token[], context: ParseContext) {
+  private parse(tokens: Token[], context: ParseContext) {
     const stack = [context];
 
     for (const token of tokens) {
@@ -187,10 +194,9 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
     return context;
   }
 
-  parseInline(tokens: Token[], nodes: ProsemirrorNode[]) {
-    const stack: Mark[][] = [Mark.none];
+  private parseInline(tokens: Token[], nodes: ProsemirrorNode[]) {
+    const stack = [Mark.none];
 
-    console.log(tokens);
     for (const token of tokens) {
       switch (token.nesting) {
         case 1: {

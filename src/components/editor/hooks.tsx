@@ -117,19 +117,7 @@ export function useManager(element: HTMLDivElement | null) {
           })
         );
       } else {
-        const view = new EditorView<ExtensionSchema>(element, {
-          ...props,
-          dispatchTransaction(tr) {
-            console.log(
-              "Document went from",
-              tr.before.content.toString(),
-              "to",
-              tr.doc.content.toString()
-            );
-            const newState = this.state.apply(tr);
-            this.updateState(newState);
-          },
-        });
+        const view = new EditorView<ExtensionSchema>(element, props);
         viewRef.current = view;
         setEditor((editor) =>
           produce(editor, (draft: EditorHandle) => {

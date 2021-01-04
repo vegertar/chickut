@@ -3,7 +3,7 @@ import {
   NodeType,
   Node as ProsemirrorNode,
   DOMSerializer,
-  ResolvedPos,
+  Slice,
 } from "prosemirror-model";
 import {
   PluginKey,
@@ -39,6 +39,11 @@ export class Plugin<T = any> extends ProsemirrorPlugin<T, S> {
         handleTextInput(view, from, to, text) {
           const self = this as ExtensionPlugin;
           return !!self.handleTextInput?.(view, from, to, text);
+        },
+
+        handlePaste(view, event, slice) {
+          const self = this as ExtensionPlugin;
+          return !!self.handlePaste?.(view, event, slice);
         },
 
         handleKeyDown: function (view, event) {
@@ -77,6 +82,12 @@ export class Plugin<T = any> extends ProsemirrorPlugin<T, S> {
     from: number,
     to: number,
     text: string
+  ) => boolean;
+
+  handlePaste?: (
+    view: EditorView<S>,
+    event: ClipboardEvent,
+    slice: Slice<S>
   ) => boolean;
 
   handleKeyDown?: (view: EditorView<S>, event: KeyboardEvent) => boolean;

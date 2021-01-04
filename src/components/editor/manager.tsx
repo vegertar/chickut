@@ -6,6 +6,7 @@ import {
 } from "prosemirror-model";
 import { EditorState, Plugin } from "prosemirror-state";
 import { DirectEditorProps } from "prosemirror-view";
+import flattenDepth from "lodash.flattendepth";
 
 import { Engine, BlockRule, InlineRule } from "./engine";
 import {
@@ -28,22 +29,34 @@ const defaultTagPrecedence = [
   /^(em|strong)$/,
 ];
 
-const content = /(\w+)(\+)?/; // TODO: match "paragraph block*"
+const token = /(\w+)(\+|\*|\{(\d+)(,(\d+))?\})?/;
 const parseDeps = (node?: NodeSpec) => {
-  const result = (node?.content || "").match(content);
-  if (result) {
-    const content = result[1];
-    const required = !!result[2];
-    return [{ content, minimal: required ? 1 : 0 }];
-  }
-  return [];
+  const result: { content: string; minimal: number }[] = [];
+  node?.content?.split(" ").forEach((item) => {
+    if (!item) {
+      return;
+    }
+    const matched = item.match(token);
+    if (!matched) {
+      return;
+    }
+    const [, content, marker, left] = matched;
+    const minimal =
+      marker === undefined || marker === "+"
+        ? 1
+        : marker === "*"
+        ? 0
+        : parseInt(left);
+    result.push({ content, minimal });
+  });
+  return result;
 };
 
 type Extensions = Record<string, Extension>;
 type Dependency = { content: string; minimal?: number };
 
-type DfsStatus = undefined | 1 | 2;
-type Visited = Record<string, DfsStatus>;
+type DfsVisited = Record<string, undefined | 1 | 2>;
+type BfsVisited = Record<string, boolean>;
 
 export class MissingContentError extends Error {
   constructor(public readonly content: string) {
@@ -68,7 +81,6 @@ export class Manager {
   ) {
     this.init();
     this.detectDAG();
-    this.sortGroups();
     this.detectInfinity();
     this.sortDeps();
     this.sortExtensions();
@@ -192,20 +204,11 @@ export class Manager {
   }
 
   private detectDAG() {
-    const dfsVisited: Visited = {};
-    this.dfsPath.splice(0);
-    this.nonDag.splice(0);
-
+    const dfsVisited: DfsVisited = {};
     for (const name in this.extensions) {
       if (!dfsVisited[name]) {
         this.dfs(name, dfsVisited);
       }
-    }
-  }
-
-  private sortGroups() {
-    for (const group in this.groups) {
-      this.groups[group]?.sort(this.tagSorter);
     }
   }
 
@@ -257,8 +260,10 @@ export class Manager {
     const defaultPriority = this.tagPrecedence.length;
     let x = defaultPriority;
     let y = defaultPriority;
+
     const aTag = this.tags[a];
     const bTag = this.tags[b];
+
     for (let i = 0; i < this.tagPrecedence.length; ++i) {
       const item = this.tagPrecedence[i];
       if (typeof item === "string") {
@@ -283,14 +288,14 @@ export class Manager {
 
   private detectInfinity() {
     for (const name of this.nonDag) {
-      if (this.dfsNonDag(name)) {
+      if (this.notSatisfied(name)) {
         throw new Error(`infinite dependency detected: ${name}`);
       }
     }
   }
 
   private sortDeps() {
-    const bfsVisited: Visited = {};
+    const bfsVisited: BfsVisited = {};
     for (let i = this.dfsPath.length - 1; i >= 0; --i) {
       const name = this.dfsPath[i];
       if (!bfsVisited[name]) {
@@ -299,15 +304,15 @@ export class Manager {
     }
   }
 
-  private bfs(root: string, visited: Visited) {
-    let index = -1;
-    const queue = [] as string[];
+  private bfs(root: string, visited: BfsVisited) {
+    const queue = [root];
+    const depths = [1];
+    let index = 0;
 
     do {
-      const name = queue[index++] || root;
+      const name = queue[index++];
       if (!visited[name]) {
-        visited[name] = 1;
-        this.bfsPath.push(name);
+        visited[name] = true;
 
         const grouped = this.groups[name];
         const deps = this.deps[name];
@@ -316,6 +321,7 @@ export class Manager {
           for (const item of grouped) {
             queue.push(item);
           }
+          depths.push(queue.length);
         } else if (deps) {
           for (const dep of deps) {
             queue.push(dep.content);
@@ -323,9 +329,23 @@ export class Manager {
         }
       }
     } while (queue.length > index);
+
+    if (depths[depths.length - 1] < queue.length) {
+      depths.push(queue.length);
+    }
+
+    const layers: string[][] = [];
+    for (let i = 0; i < depths.length; ++i) {
+      layers.push(queue.slice(i ? depths[i - 1] : 0, depths[i]));
+    }
+
+    layers.forEach((layer) => layer.sort(this.tagSorter));
+    for (const name of new Set(flattenDepth(layers))) {
+      this.bfsPath.push(name);
+    }
   }
 
-  private dfs(name: string, visited: Visited) {
+  private dfs(name: string, visited: DfsVisited) {
     const status = visited[name];
     if (status === 1) {
       this.nonDag.push(name);
@@ -353,7 +373,8 @@ export class Manager {
     }
   }
 
-  private dfsNonDag(name: string, visited: Visited = {}, minimal = 0) {
+  // detect if the content of given name does not satisfy the minimal requirement
+  private notSatisfied(name: string, visited: DfsVisited = {}, minimal = 0) {
     let n = 0;
 
     if (!visited[name]) {
@@ -362,7 +383,7 @@ export class Manager {
 
       if (grouped) {
         for (const item of grouped) {
-          if (!this.dfsNonDag(item, visited)) {
+          if (!this.notSatisfied(item, visited)) {
             ++n;
           } else {
             --n;
@@ -370,7 +391,7 @@ export class Manager {
         }
       } else {
         for (const dep of this.deps[name]!) {
-          if (!this.dfsNonDag(dep.content, visited, dep.minimal)) {
+          if (!this.notSatisfied(dep.content, visited, dep.minimal)) {
             ++n;
           } else {
             --n;

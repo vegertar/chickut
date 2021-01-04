@@ -1389,11 +1389,6 @@
   dependencies:
     "@hapi/hoek" "^8.3.0"
 
-"@hookstate/core@^3.0.2":
-  version "3.0.2"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/@hookstate/core/-/core-3.0.2.tgz#159c8fa85b85c372dc827190a33f1f3dc9ed46fe"
-  integrity sha512-tT4qYJUqxT3/jSTHsK9fwGBccyKt8O6J/vJCvNg7eLjZOWjCUTRYZsPEnuJIgnwacuDJUHaO2yr/fBREFDIxig==
-
 "@icons/material@^0.2.4":
   version "0.2.4"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@icons/material/-/material-0.2.4.tgz#e90c9f71768b3736e76d7dd6783fc6c2afa88bc8"
@@ -1414,13 +1409,6 @@
   version "0.1.2"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@istanbuljs/schema/-/schema-0.1.2.tgz#26520bf09abe4a5644cd5414e37125a8954241dd"
   integrity sha512-tsAQNx32a8CoFhjhijUIhI4kccIAgmGhy8LZMZgGfmXcpMbPRUqn5LWmgRttILi6yeGmBJd2xsPkFMs0PzgPCw==
-
-"@jcubic/lips@^0.20.1":
-  version "0.20.1"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/@jcubic/lips/-/lips-0.20.1.tgz#7fa25a041f2be3f43f1d45bac9fbb600925f331f"
-  integrity sha512-0U/UHyAB7+g1YFwP1lSKpUJAdUrvDGLC7Fu9i2Kdxugu9cav9yj6A+ijdRMZrgsK+FyFb4VkT9hJV3UftmlHUw==
-  dependencies:
-    bn.js "^4.11.8"
 
 "@jest/console@^26.6.2":
   version "26.6.2"
@@ -2641,6 +2629,13 @@
   version "4.6.6"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/lodash.findlastindex/-/lodash.findlastindex-4.6.6.tgz#60c2a796c0c8828934a777ede07de3dd5db55cfa"
   integrity sha512-UD9ru/tc7pFmybsJcSznqa0dmvWnQ/Zejj/fozEIWXfgvExQPl7s5ouJ2Yw3xIsj4U6Sbq2ApEeN/7ZL9CrGcg==
+  dependencies:
+    "@types/lodash" "*"
+
+"@types/lodash.flattendepth@^4.7.6":
+  version "4.7.6"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/lodash.flattendepth/-/lodash.flattendepth-4.7.6.tgz#e51d3912d21c1f05f82f3df3d893b408b4f9dafc"
+  integrity sha512-CbIW/eH/tlziD/5RtZ13BJk13wkHOUFkcY+/saMyApIBZVcYdC1457XZ29E1MshXNbkGlFHV2sgB0NETI54+3Q==
   dependencies:
     "@types/lodash" "*"
 
@@ -4266,7 +4261,7 @@ bluebird@^3.3.5, bluebird@^3.5.5:
   resolved "https://mirrors.huaweicloud.com/repository/npm/bluebird/-/bluebird-3.7.2.tgz#9f229c15be272454ffa973ace0dbee79a1b0c36f"
   integrity sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==
 
-bn.js@^4.0.0, bn.js@^4.1.0, bn.js@^4.11.8, bn.js@^4.4.0:
+bn.js@^4.0.0, bn.js@^4.1.0, bn.js@^4.4.0:
   version "4.11.9"
   resolved "https://mirrors.huaweicloud.com/repository/npm/bn.js/-/bn.js-4.11.9.tgz#26d556829458f9d1e81fc48952493d0ba3507828"
   integrity sha512-E6QoYqCKZfgatHTdHzs1RRKP7ip4vvm+EyRUeE2RF0NblwVvb0p6jSVeNTOFxPn26QXN2o6SMfNxKp6kU8zQaw==
@@ -9511,6 +9506,11 @@ lodash.findlastindex@^4.6.0:
   version "4.6.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/lodash.findlastindex/-/lodash.findlastindex-4.6.0.tgz#b8375ac0f02e9b926375cdf8dc3ea814abf9c6ac"
   integrity sha1-uDdawPAum5Jjdc343D6oFKv5xqw=
+
+lodash.flattendepth@^4.7.0:
+  version "4.7.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/lodash.flattendepth/-/lodash.flattendepth-4.7.0.tgz#b4d2d14fc7d9c53deb96642eb616fff22a60932f"
+  integrity sha1-tNLRT8fZxT3rlmQuthb/8ipgky8=
 
 lodash.flow@^3.3.0:
   version "3.5.0"
