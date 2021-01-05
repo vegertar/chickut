@@ -104,6 +104,19 @@ export function expandTab(n: number) {
   return 4 - (n % 4);
 }
 
+export function trimSplit(s: string) {
+  let i = 0;
+  while (i < s.length && isWhiteSpace(s.charCodeAt(i))) {
+    ++i;
+  }
+  let j = s.length;
+  while (j > i && isWhiteSpace(s.charCodeAt(j - 1))) {
+    --j;
+  }
+
+  return [s.slice(0, i), s.slice(i, j), s.slice(j)];
+}
+
 const NEWLINES_RE = /\r\n?|\n|\u2424/g;
 const NULL_RE = /\0/g;
 

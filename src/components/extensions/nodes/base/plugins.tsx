@@ -17,6 +17,7 @@ import {
   Token,
   Plugin,
   ExtensionMarkSpec,
+  trimSplit,
 } from "../../../editor";
 
 type ParseContext = {
@@ -32,24 +33,42 @@ type State = {
   text: string;
 };
 
-function textBefore($from: ResolvedPos, max = 500) {
+function textToText(node: ProsemirrorNode, start: number, end: number) {
   let textWithoutMarkup = "";
   let textWithMarkup = "";
 
-  const end = $from.parentOffset;
-  const start = Math.max(0, end - max);
+  const text = node.text?.slice(start, end);
+  if (text) {
+    textWithoutMarkup += text;
+    textWithMarkup += node.marks.reduce((s, mark) => {
+      const toText = (mark.type.spec as ExtensionMarkSpec).toText;
+      if (!toText) {
+        return s;
+      }
+      const [left, x, right] = trimSplit(s);
+      return `${left}${toText(mark, x)}${right}`;
+    }, text);
+  }
 
-  $from.parent.nodesBetween(
+  return [textWithoutMarkup, textWithMarkup];
+}
+
+function nodeToText(node: ProsemirrorNode, start = 0, end = node.content.size) {
+  if (node.isText && node.text) {
+    return textToText(node, start, end || node.text.length);
+  }
+
+  let textWithoutMarkup = "";
+  let textWithMarkup = "";
+
+  node.nodesBetween(
     start,
     end,
     (node, pos) => {
       if (node.isText && node.text) {
-        const text = node.text.slice(Math.max(start, pos) - pos, end - pos);
-        textWithoutMarkup += text;
-        textWithMarkup += node.marks.reduce((s, mark) => {
-          const toText = (mark.type.spec as ExtensionMarkSpec).toText;
-          return toText ? toText(mark, s) : s;
-        }, text);
+        const [a, b] = textToText(node, Math.max(start, pos) - pos, end - pos);
+        textWithoutMarkup += a;
+        textWithMarkup += b;
       } else if (node.isLeaf) {
         textWithoutMarkup += "\ufffc";
       }
@@ -58,6 +77,24 @@ function textBefore($from: ResolvedPos, max = 500) {
   );
 
   return [textWithoutMarkup, textWithMarkup];
+}
+
+function sliceToText(slice: Slice) {
+  if (slice === Slice.empty) {
+    return "";
+  }
+
+  const content: string[] = [];
+  slice.content.forEach((node) => {
+    content.push(nodeToText(node)[1]);
+  });
+  return content.join("\n");
+}
+
+function textBefore($from: ResolvedPos, max = 500) {
+  const end = $from.parentOffset;
+  const start = Math.max(0, end - max);
+  return nodeToText($from.parent, start, end);
 }
 
 export class ParagraphPlugin extends ExtensionPlugin<State | null> {
@@ -80,6 +117,35 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       return false;
     }
 
+    return this.text(view, from, to, text, true);
+  };
+
+  handlePaste = (view: EditorView, event: ClipboardEvent, slice: Slice) => {
+    const { clipboardData } = event;
+    const html = clipboardData?.getData("text/html");
+    if (html) {
+      console.log("TODO: paste html", html);
+      return false;
+    }
+
+    const text = clipboardData?.getData("text/plain") || sliceToText(slice);
+    if (!text) {
+      return false;
+    }
+
+    const { from, to } = view.state.selection;
+    const ok = this.text(view, from, to, text);
+    ok && event.preventDefault();
+    return ok;
+  };
+
+  private text(
+    view: EditorView,
+    from: number,
+    to: number,
+    text: string,
+    typing = false
+  ) {
     const state = view.state;
     const $from = state.doc.resolve(from);
     const spec = $from.parent.type.spec;
@@ -94,12 +160,12 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       from - textWithoutMarkup.length,
       to,
       textWithMarkup + text,
-      true
+      typing
     );
 
-    ok && view.dispatch(tr.setMeta(this, { tr, from, to, text }));
+    ok && view.dispatch(tr.setMeta(this, { tr, from, to, text, typing }));
     return ok;
-  };
+  }
 
   private transform(
     tr: Transaction,

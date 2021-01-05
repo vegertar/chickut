@@ -10,11 +10,12 @@ import { EditorView } from "prosemirror-view";
 import { AllSelection } from "prosemirror-state";
 import ReactIs from "react-is";
 
-import { EditorHandle } from "./types";
+import { EditorHandle, ExtensionSchema } from "./types";
 import { useManager } from "./hooks";
 import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
+import { Fragment, Slice } from "prosemirror-model";
 
 interface Props {
   text?: string;
@@ -103,17 +104,18 @@ export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
     }
 
     const { from, to } = new AllSelection(view.state.doc);
+    view.dispatch(view.state.tr.delete(from, to));
 
-    // TODO: use clipboard relative functions to write text
-    type HandleTextInput = NonNullable<typeof view["props"]["handleTextInput"]>;
-    const handled = view.someProp("handleTextInput", (f: HandleTextInput) =>
-      f(view, from, to, text)
+    const fragment = Fragment.from(view.state.schema.text(text));
+    const slice = new Slice(fragment, 0, 0) as Slice<ExtensionSchema>;
+
+    type HandlePaste = NonNullable<typeof view["props"]["handlePaste"]>;
+    const handled = view.someProp("handlePaste", (f: HandlePaste) =>
+      f(view, new ClipboardEvent("paste"), slice)
     );
 
     if (!handled) {
-      view.dispatch(
-        view.state.tr.delete(from, to).insertText(text).scrollIntoView()
-      );
+      view.dispatch(view.state.tr.insertText(text).scrollIntoView());
     }
 
     view.focus();

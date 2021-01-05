@@ -7,5 +7,7 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: `haha, ***hello** world*, ooo*o**o ****o**** **x* y*`,
+  text: `haha, ***hello** world*, ooo*o**o ****o**** **x* y*
+
+haha, ***hello**** world*, ooo*o**o **o** *x y*`,
 };

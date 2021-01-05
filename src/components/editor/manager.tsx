@@ -29,7 +29,7 @@ const defaultTagPrecedence = [
   /^(em|strong)$/,
 ];
 
-const token = /(\w+)(\+|\*|\{(\d+)(,(\d+))?\})?/;
+const token = /(\w+)(\+|\*|\{(\d+)(,(\d+)?)?\})?/;
 const parseDeps = (node?: NodeSpec) => {
   const result: { content: string; minimal: number }[] = [];
   node?.content?.split(" ").forEach((item) => {
