@@ -100,6 +100,51 @@ export function isMdAsciiPunct(ch: number) {
   return MD_ASCII_PUNCT_SET.has(ch);
 }
 
+export function isValidEntityCode(c: number) {
+  /*eslint no-bitwise:0*/
+  // broken sequence
+  if (c >= 0xd800 && c <= 0xdfff) {
+    return false;
+  }
+  // never used
+  if (c >= 0xfdd0 && c <= 0xfdef) {
+    return false;
+  }
+  if ((c & 0xffff) === 0xffff || (c & 0xffff) === 0xfffe) {
+    return false;
+  }
+  // control codes
+  if (c >= 0x00 && c <= 0x08) {
+    return false;
+  }
+  if (c === 0x0b) {
+    return false;
+  }
+  if (c >= 0x0e && c <= 0x1f) {
+    return false;
+  }
+  if (c >= 0x7f && c <= 0x9f) {
+    return false;
+  }
+  // out of range
+  if (c > 0x10ffff) {
+    return false;
+  }
+  return true;
+}
+
+export function fromCodePoint(c: number) {
+  /*eslint no-bitwise:0*/
+  if (c > 0xffff) {
+    c -= 0x10000;
+    var surrogate1 = 0xd800 + (c >> 10),
+      surrogate2 = 0xdc00 + (c & 0x3ff);
+
+    return String.fromCharCode(surrogate1, surrogate2);
+  }
+  return String.fromCharCode(c);
+}
+
 export function expandTab(n: number) {
   return 4 - (n % 4);
 }
@@ -117,7 +162,7 @@ export function trimSplit(s: string) {
   return [s.slice(0, i), s.slice(i, j), s.slice(j)];
 }
 
-const NEWLINES_RE = /\r\n?|\n|\u2424/g;
+const NEWLINES_RE = /\r\n?|\n/g;
 const NULL_RE = /\0/g;
 
 // 1: opening, 0: self closing, -1: clsoing
@@ -1162,10 +1207,10 @@ export class Engine<P extends Record<string, any> = Env> {
 }
 
 export type CoreRule<P = Env> = Rule<CoreHandle<Engine<P>, P>>;
-export type CoreRuleHandle = CoreRule["handle"];
+export type CoreRuleHandle<P = Env> = CoreRule<P>["handle"];
 export type BlockRule<P = Env> = Rule<BlockHandle<Engine<P>, P>>;
-export type BlockRuleHandle = BlockRule["handle"];
+export type BlockRuleHandle<P = Env> = BlockRule<P>["handle"];
 export type InlineRule<P = Env> = Rule<InlineHandle<Engine<P>, P>>;
-export type InlineRuleHandle = InlineRule["handle"];
+export type InlineRuleHandle<P = Env> = InlineRule<P>["handle"];
 export type PostInlineRule<P = Env> = Rule<PostInlineHandle<Engine<P>, P>>;
-export type PostInlineRuleHandle = PostInlineRule["handle"];
+export type PostInlineRuleHandle<P = Env> = PostInlineRule<P>["handle"];

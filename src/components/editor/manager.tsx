@@ -20,8 +20,9 @@ import {
 // the smaller index of tag, the more general extension, the lower priority
 const defaultTagPrecedence = [
   "p",
-  /^(div|iframe)$/,
+  "div",
   /^h[1-6]$/,
+  "reference",
   /^(ul|ol|li)$/,
   "hr",
   "blockquote",

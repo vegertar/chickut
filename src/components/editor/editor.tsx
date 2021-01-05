@@ -7,7 +7,8 @@ import React, {
 } from "react";
 import ReactDOM from "react-dom";
 import { EditorView } from "prosemirror-view";
-import { AllSelection } from "prosemirror-state";
+import { AllSelection, Selection } from "prosemirror-state";
+import { Fragment, Slice } from "prosemirror-model";
 import ReactIs from "react-is";
 
 import { EditorHandle, ExtensionSchema } from "./types";
@@ -15,7 +16,6 @@ import { useManager } from "./hooks";
 import { ExtensionProvider } from "./extension";
 
 import "./style.scss";
-import { Fragment, Slice } from "prosemirror-model";
 
 interface Props {
   text?: string;
@@ -46,6 +46,16 @@ function flatFragment(children: React.ReactNode) {
     }
   });
   return data;
+}
+
+function applyText(view: EditorView, text: string) {
+  const fragment = Fragment.from(view.state.schema.text(text));
+  const slice = new Slice(fragment, 0, 0) as Slice<ExtensionSchema>;
+
+  type HandlePaste = NonNullable<typeof view["props"]["handlePaste"]>;
+  return view.someProp("handlePaste", (f: HandlePaste) =>
+    f(view, new ClipboardEvent("paste"), slice)
+  );
 }
 
 export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
@@ -103,21 +113,11 @@ export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
       return;
     }
 
-    const { from, to } = new AllSelection(view.state.doc);
-    view.dispatch(view.state.tr.delete(from, to));
-
-    const fragment = Fragment.from(view.state.schema.text(text));
-    const slice = new Slice(fragment, 0, 0) as Slice<ExtensionSchema>;
-
-    type HandlePaste = NonNullable<typeof view["props"]["handlePaste"]>;
-    const handled = view.someProp("handlePaste", (f: HandlePaste) =>
-      f(view, new ClipboardEvent("paste"), slice)
-    );
-
-    if (!handled) {
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    if (!applyText(view, text)) {
       view.dispatch(view.state.tr.insertText(text).scrollIntoView());
     }
-
+    view.dispatch(view.state.tr.setSelection(Selection.atEnd(view.state.doc)));
     view.focus();
   }, [text, editor, isValid]);
 

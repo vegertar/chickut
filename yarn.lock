@@ -2693,6 +2693,11 @@
   dependencies:
     "@types/unist" "*"
 
+"@types/mdurl@^1.0.2":
+  version "1.0.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/mdurl/-/mdurl-1.0.2.tgz#e2ce9d83a613bacf284c7be7d491945e39e1f8e9"
+  integrity sha512-eC4U9MlIcu2q0KQmXszyn5Akca/0jrQmwDRgpAMJai7qBWq4amIQhZyNau4VYGtCeALvW1/NtjzJJ567aZxfKA==
+
 "@types/micromatch@^4.0.1":
   version "4.0.1"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/micromatch/-/micromatch-4.0.1.tgz#9381449dd659fc3823fd2a4190ceacc985083bc7"
@@ -2852,6 +2857,11 @@
     "@types/prosemirror-model" "*"
     "@types/prosemirror-state" "*"
     "@types/prosemirror-transform" "*"
+
+"@types/punycode@^2.1.0":
+  version "2.1.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/punycode/-/punycode-2.1.0.tgz#89e4f3d09b3f92e87a80505af19be7e0c31d4e83"
+  integrity sha512-PG5aLpW6PJOeV2fHRslP4IOMWn+G+Uq8CfnyJ+PDS8ndCbU+soO+fB3NKCKo0p/Jh2Y4aPaiQZsrOXFdzpcA6g==
 
 "@types/q@^1.5.1":
   version "1.5.4"
@@ -6202,7 +6212,7 @@ entities@^1.1.1, entities@^1.1.2:
   resolved "https://mirrors.huaweicloud.com/repository/npm/entities/-/entities-1.1.2.tgz#bdfa735299664dfafd34529ed4f8522a275fea56"
   integrity sha512-f2LZMYl1Fzu7YSBKg+RoROelpOaNrcGmE9AZubeDfrCEia483oW4MI4VyFd5VNHIgQ/7qm1I0wUHK1eJnn2y2w==
 
-entities@^2.0.0:
+entities@^2.0.0, entities@^2.1.0:
   version "2.1.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/entities/-/entities-2.1.0.tgz#992d3129cf7df6870b96c57858c249a120f8b8b5"
   integrity sha512-hCx1oky9PFrJ611mf0ifBLBRW8lUUVRlFolb5gWRfIELabBlbp9xZvrqZLZAs+NxFnbfQoeGd8wDkygjg7U85w==
@@ -9761,7 +9771,7 @@ mdn-data@2.0.4:
   resolved "https://mirrors.huaweicloud.com/repository/npm/mdn-data/-/mdn-data-2.0.4.tgz#699b3c38ac6f1d728091a64650b65d388502fd5b"
   integrity sha512-iV3XNKw06j5Q7mi6h+9vbx23Tv7JkjEVgKHW4pimwyDGWm0OIQntJJ+u1C6mg6mK1EaTv42XQ7w76yuzH7M2cA==
 
-mdurl@^1.0.0:
+mdurl@^1.0.0, mdurl@^1.0.1:
   version "1.0.1"
   resolved "https://mirrors.huaweicloud.com/repository/npm/mdurl/-/mdurl-1.0.1.tgz#fe85b2ec75a59037f2adfec100fd6c601761152e"
   integrity sha1-/oWy7HWlkDfyrf7BAP1sYBdhFS4=

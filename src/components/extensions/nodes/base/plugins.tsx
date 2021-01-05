@@ -124,8 +124,7 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
     const { clipboardData } = event;
     const html = clipboardData?.getData("text/html");
     if (html) {
-      console.log("TODO: paste html", html);
-      return false;
+      console.warn("TODO: paste html", html);
     }
 
     const text = clipboardData?.getData("text/plain") || sliceToText(slice);
@@ -163,7 +162,10 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       typing
     );
 
-    ok && view.dispatch(tr.setMeta(this, { tr, from, to, text, typing }));
+    ok &&
+      view.dispatch(
+        tr.setMeta(this, { tr, from, to, text, typing }).scrollIntoView()
+      );
     return ok;
   }
 
@@ -215,7 +217,6 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       tr.insert(tr.mapping.map(end), tail);
     }
 
-    tr.scrollIntoView();
     return true;
   }
 
