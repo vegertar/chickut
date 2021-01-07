@@ -5,12 +5,7 @@ import { BasePlugin, ParagraphPlugin } from "./plugins";
 
 import "./style.scss";
 
-export default function Base() {
-  useExtension(Base.pack, "base");
-  return null;
-}
-
-Base.pack = [
+const pack: ExtensionPack<NodeExtension> = [
   {
     name: "doc",
     node: {
@@ -32,12 +27,12 @@ Base.pack = [
   },
 
   {
-    name: "br",
+    name: "newline",
     node: {
       inline: true,
       group: "inline",
       selectable: false,
-      parseDOM: [{ tag: "br", priority: -1 }],
+      parseDOM: [{ tag: "br" }],
       toDOM: () => ["br"],
     },
   },
@@ -55,4 +50,9 @@ Base.pack = [
     },
     plugins: (type) => [new ParagraphPlugin(type)],
   },
-] as ExtensionPack<NodeExtension>;
+];
+
+export default function Base() {
+  useExtension(pack, "base");
+  return null;
+}

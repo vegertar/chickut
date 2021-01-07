@@ -1,28 +1,14 @@
-import { useExtension, ExtensionPack } from "../../../editor";
+import { useExtension, ExtensionPack, NodeExtension } from "../../../editor";
 
-import handle from "./handle";
-import plugins from "./plugins";
-import item from "./item";
 import bulleted from "./bulleted";
 import numbered from "./numbered";
+import item from "./item";
 
 import "./style.scss";
 
+const pack: ExtensionPack<NodeExtension> = [bulleted, numbered, item];
+
 export default function List() {
-  useExtension(List.pack, "list");
+  useExtension(pack, "list");
   return null;
 }
-
-List.pack = [
-  bulleted,
-  numbered,
-
-  {
-    ...item,
-    plugins,
-    rule: {
-      handle,
-      alt: ["paragraph", "reference", "blockquote"],
-    },
-  },
-] as ExtensionPack;

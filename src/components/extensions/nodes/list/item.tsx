@@ -1,6 +1,8 @@
-import { ExtensionPack } from "../../../editor";
+import { ExtensionPack, NodeExtension } from "../../../editor";
 
-const item: ExtensionPack[0] = {
+import { ListItemPlugin } from "./plugins";
+
+const item: ExtensionPack<NodeExtension>[0] = {
   name: "listitem",
   node: {
     content: "paragraph block*",
@@ -9,6 +11,7 @@ const item: ExtensionPack[0] = {
     parseDOM: [{ tag: "li" }],
     toDOM: () => ["li", 0],
   },
+  plugins: (type) => [new ListItemPlugin(type)],
 };
 
 export default item;

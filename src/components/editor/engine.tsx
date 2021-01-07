@@ -169,8 +169,6 @@ const NULL_RE = /\0/g;
 type Nesting = 1 | 0 | -1;
 
 export class Token {
-  // Token attributes, e.g. html attributes, heading level, fence info, etc.
-  attrs?: Record<string, any>;
   // Source map info. Format: `[ line_begin, line_end ]`
   map?: [number, number];
   // nesting level, the same as `state.level`
@@ -192,7 +190,9 @@ export class Token {
     //   "text": the leaf inline token without marks.
     public name: string,
     // In case of root inline token or leaf text token, nesting is 0
-    public nesting: Nesting
+    public nesting: Nesting,
+    // Token attributes, e.g. html attributes, heading level, fence info, etc.
+    public attrs?: Record<string, any>
   ) {}
 }
 
@@ -244,12 +244,7 @@ export class Ruler<H extends Function> {
   private cache?: Cache<H>;
 
   constructor(...rules: Rule<H>[]) {
-    this.add(...rules);
-  }
-
-  // Find rule index by name
-  private find(name: string) {
-    return this.rules.findIndex((item) => item.name === name);
+    rules.forEach((rule) => this.add(rule));
   }
 
   // Build rules lookup cache
@@ -287,6 +282,11 @@ export class Ruler<H extends Function> {
     return this;
   }
 
+  // Find rule index by name
+  find(name: string) {
+    return this.rules.findIndex((item) => item.name === name);
+  }
+
   // Insert a new rule at the specific index.
   insert(rule: Rule<H>, index?: number) {
     if (index === undefined || index >= this.rules.length) {
@@ -298,12 +298,10 @@ export class Ruler<H extends Function> {
     return this;
   }
 
-  // Add new rules to the end of chain.
-  add(...rules: Rule<H>[]) {
-    if (rules.length) {
-      this.rules.push(...rules);
-      this.cache = undefined;
-    }
+  // Add a new rule to the end of chain.
+  add(rule: Rule<H>) {
+    this.rules.push(rule);
+    this.cache = undefined;
     return this;
   }
 
@@ -319,15 +317,13 @@ export class Ruler<H extends Function> {
     return this;
   }
 
-  // Remove existed rules by given names.
-  remove(...names: string[]) {
-    for (const name of names) {
-      const idx = this.find(name);
-      if (idx !== -1) {
-        this.rules.splice(idx, 1);
-      }
+  // Remove existed rule by given name.
+  remove(name: string) {
+    const idx = this.find(name);
+    if (idx !== -1) {
+      this.rules.splice(idx, 1);
+      this.cache = undefined;
     }
-    this.cache = undefined;
     return this;
   }
 
@@ -455,8 +451,14 @@ export class BlockState<T = {}, P = {}> extends State<T, P> {
   }
 
   // Push new token to "stream".
-  push(name: string, nesting: Nesting) {
-    const token = new Token(name, nesting);
+  push(name: string, nesting: Nesting): Token;
+  push(
+    name: string,
+    nesting: Nesting,
+    attrs: Record<string, any>
+  ): Token & { attrs: Record<string, any> };
+  push(name: string, nesting: Nesting, attrs?: Record<string, any>) {
+    const token = new Token(name, nesting, attrs);
 
     // closing tag
     if (nesting < 0) {
@@ -742,12 +744,18 @@ export class InlineState<T = {}, P = {}> extends State<T, P> {
   }
 
   // Push new token to "stream". If pending text exists - flush it as text token
-  push(name: string, nesting: Nesting) {
+  push(name: string, nesting: Nesting): Token;
+  push(
+    name: string,
+    nesting: Nesting,
+    attrs: Record<string, any>
+  ): Token & { attrs: Record<string, any> };
+  push(name: string, nesting: Nesting, attrs?: Record<string, any>) {
     if (this.pending) {
       this.pushPending();
     }
 
-    const token = new Token(name, nesting);
+    const token = new Token(name, nesting, attrs);
     let tokenMeta = undefined;
 
     if (nesting < 0) {
@@ -1180,26 +1188,46 @@ export class Engine<P extends Record<string, any> = Env> {
   }
 
   reset() {
-    this.core.ruler
-      .clear()
-      .add(...(this.options.coreRules || defaultCoreRules));
+    this.core.ruler.clear();
+    this.block.ruler.clear();
+    this.inline.ruler.clear();
+    this.postInline.ruler.clear();
 
-    this.block.ruler
-      .clear()
-      .add(...(this.options.blockRules || defaultBlockRules));
+    (this.options.coreRules || defaultCoreRules).forEach(
+      (item: CoreRule<P>) => {
+        this.core.ruler.add(item);
+      }
+    );
 
-    this.inline.ruler
-      .clear()
-      .add(...(this.options.inlineRules || defaultInlineRules));
+    (this.options.blockRules || defaultBlockRules).forEach(
+      (item: BlockRule<P>) => {
+        this.block.ruler.add(item);
+      }
+    );
 
-    this.postInline.ruler
-      .clear()
-      .add(...(this.options.postInlineRules || defaultPostInlineRules));
+    (this.options.inlineRules || defaultInlineRules).forEach(
+      (item: InlineRule<P>) => {
+        this.inline.ruler.add(item);
+      }
+    );
+
+    (this.options.postInlineRules || defaultPostInlineRules).forEach(
+      (item: PostInlineRule<P>) => {
+        this.postInline.ruler.add(item);
+      }
+    );
 
     return this;
   }
 
   parse(src: string, env = {} as P): Token[] {
+    console.log(
+      "~~~~~~~~~~~",
+      this.core,
+      this.block,
+      this.inline,
+      this.postInline
+    );
     const props = { engine: this, src, env, tokens: [] };
     this.core.parse(props);
     return props.tokens;

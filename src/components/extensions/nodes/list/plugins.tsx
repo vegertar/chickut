@@ -6,9 +6,10 @@ import {
   splitListItem,
 } from "prosemirror-schema-list";
 
-import { ExtensionPlugin } from "../../../editor";
+import { BlockRule, ExtensionPlugin, ExtensionSchema } from "../../../editor";
 
-class ListPlugin extends ExtensionPlugin {
+import handle from "./handle";
+export class ListItemPlugin extends ExtensionPlugin {
   constructor(type: NodeType) {
     super(type, {
       handleKeyDown: keydownHandler({
@@ -20,6 +21,16 @@ class ListPlugin extends ExtensionPlugin {
   }
 }
 
-export default function plugins(type: NodeType) {
-  return [new ListPlugin(type)];
+const rule: BlockRule = {
+  name: "list",
+  alt: ["paragraph", "reference", "blockquote"],
+  handle,
+};
+
+export default function plugins(type: NodeType<ExtensionSchema>) {
+  const engine = type.schema.cached.engine;
+  if (engine.block.ruler.find(rule.name) === -1) {
+    engine.block.ruler.add(rule);
+  }
+  return [];
 }

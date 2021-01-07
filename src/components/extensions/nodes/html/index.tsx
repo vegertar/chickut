@@ -39,6 +39,7 @@ const extension: NodeExtension = {
       ["pre", ["code", { spellCheck: "false" }, 0]],
       ["div", { class: "view", contentEditable: "false" }],
     ],
+    toText: ({ text }) => text || "",
   },
 };
 

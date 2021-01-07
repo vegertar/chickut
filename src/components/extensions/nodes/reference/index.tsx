@@ -1,4 +1,5 @@
 import React from "react";
+
 import { NodeExtension, useExtension } from "../../../editor";
 
 import handle from "./handle";
@@ -13,15 +14,9 @@ const extension: NodeExtension = {
 
   node: {
     attrs: {
-      label: {
-        default: "",
-      },
-      title: {
-        default: "",
-      },
-      href: {
-        default: "",
-      },
+      label: { default: "" },
+      title: { default: "" },
+      href: { default: "" },
     },
     group: "block",
     parseDOM: [{ tag }],
@@ -32,5 +27,10 @@ const extension: NodeExtension = {
 
 export default function Reference() {
   useExtension(extension, tag);
-  return <span>TODO: Reference Content Editing</span>;
+  return (
+    <span>
+      TODO: Reference Content Editing, which might be a global navigation
+      similar view{" "}
+    </span>
+  );
 }

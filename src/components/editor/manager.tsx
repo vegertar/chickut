@@ -17,27 +17,27 @@ import {
   ExtensionPlugins,
 } from "./types";
 
-// the smaller index of tag, the more general extension, the lower priority
+const tagMatcher = /^(\w+)/;
+
+// the smaller index, the lower priority, the more general extension
 const defaultTagPrecedence = [
   "p",
   "div",
-  /^h[1-6]$/,
-  "reference",
+  "h1",
   /^(ul|ol|li)$/,
   "hr",
   "blockquote",
   "pre",
-  /^(em|strong)$/,
 ];
 
-const token = /(\w+)(\+|\*|\{(\d+)(,(\d+)?)?\})?/;
-const parseDeps = (node?: NodeSpec) => {
+const contentMatcher = /(\w+)(\+|\*|\{(\d+)(,(\d+)?)?\})?/;
+const parseDeps = (spec?: { content?: string | null }) => {
   const result: { content: string; minimal: number }[] = [];
-  node?.content?.split(" ").forEach((item) => {
+  spec?.content?.split(" ").forEach((item) => {
     if (!item) {
       return;
     }
-    const matched = item.match(token);
+    const matched = item.match(contentMatcher);
     if (!matched) {
       return;
     }
@@ -144,9 +144,14 @@ export class Manager {
       // since Prosemirror use plugins via first-come-first-served,
       // so we adding by reverse order, i.e. from special to general
       const key = keys[keys.length - i - 1];
+      const extension = this.getExtension(key);
+      if (!extension) {
+        continue;
+      }
+
+      const { plugins = [], rule } = extension;
       const nodeType = schema.nodes[key];
       const markType = schema.marks[key];
-      const { plugins = [], rule = {} } = this.getExtension(key) || {};
 
       let thisPlugins: Plugin[] = [];
       if (typeof plugins === "function") {
@@ -158,11 +163,24 @@ export class Manager {
 
       allPlugins.push(...thisPlugins);
 
+      if (!rule) {
+        continue;
+      }
+
       const { handle, alt, postHandle } = rule;
       if (handle) {
         const rule = { name: key, handle, alt };
         if (nodeType) {
-          engine.block.ruler.add(rule as BlockRule);
+          const group = nodeType.spec.group as NodeExtension["node"]["group"];
+          if (group === "block") {
+            engine.block.ruler.add(rule as BlockRule);
+          } else if (group === "inline") {
+            engine.inline.ruler.add(rule as InlineRule);
+          } else {
+            throw new Error(
+              `cannot determine rule type for unknown group: ${group}`
+            );
+          }
         } else if (markType) {
           engine.inline.ruler.add(rule as InlineRule);
         }
@@ -184,18 +202,20 @@ export class Manager {
       const node: NodeSpec | undefined = (extension as NodeExtension).node;
       const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
 
-      const group = node?.group;
-      if (group) {
-        if (!this.groups[group]) {
-          this.groups[group] = [];
+      if (node) {
+        const group = node.group;
+        if (group) {
+          if (!this.groups[group]) {
+            this.groups[group] = [];
+          }
+          this.groups[group]!.push(name);
         }
-        this.groups[group]!.push(name);
-      }
 
-      if (!this.deps[name]) {
-        this.deps[name] = [];
+        if (!this.deps[name]) {
+          this.deps[name] = [];
+        }
+        this.deps[name]!.push(...parseDeps(node));
       }
-      this.deps[name]!.push(...parseDeps(node));
 
       const tag = this.getTag(node || mark);
       if (tag) {
@@ -248,8 +268,9 @@ export class Manager {
 
     if (rules) {
       for (const { tag } of rules) {
-        if (tag) {
-          return tag;
+        const matched = tag && tag.match(tagMatcher);
+        if (matched) {
+          return matched[1];
         }
       }
     }
@@ -344,6 +365,8 @@ export class Manager {
     for (const name of new Set(flattenDepth(layers))) {
       this.bfsPath.push(name);
     }
+
+    console.log(root, layers);
   }
 
   private dfs(name: string, visited: DfsVisited) {

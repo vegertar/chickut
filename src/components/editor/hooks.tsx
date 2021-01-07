@@ -30,12 +30,12 @@ function reducer(state: ExtensionState, action: ExtensionAction) {
     const data = action.load;
     return produce(state, (draft) => {
       if (Array.isArray(data)) {
-        if (state.packs[target] !== undefined) {
+        if (draft.packs[target] !== undefined) {
           throw new Error(`extension pack ${target} is existed`);
         }
         const pack: string[] = [];
         for (const { name, ...extension } of data) {
-          if (state.extensions[name] !== undefined) {
+          if (draft.extensions[name] !== undefined) {
             throw new Error(`extension ${name} is existed`);
           }
           draft.extensions[name] = extension;
@@ -43,7 +43,7 @@ function reducer(state: ExtensionState, action: ExtensionAction) {
         }
         draft.packs[target] = pack;
       } else {
-        if (state.extensions[target] !== undefined) {
+        if (draft.extensions[target] !== undefined) {
           throw new Error(`extension ${target} is existed`);
         }
         draft.extensions[target] = data;

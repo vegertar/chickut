@@ -1,4 +1,8 @@
-import { BlockRuleHandle, PostInlineRuleHandle } from "../../../editor";
+import {
+  BlockRuleHandle,
+  InlineRuleHandle,
+  PostInlineRuleHandle,
+} from "../../../editor";
 
 export const paragraphHandle: BlockRuleHandle = function paragraph(
   state,

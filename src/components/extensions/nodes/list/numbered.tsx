@@ -1,8 +1,9 @@
-import { ExtensionPack } from "../../../editor";
+import { ExtensionPack, NodeExtension } from "../../../editor";
 
 import item from "./item";
+import plugins from "./plugins";
 
-const numbered: ExtensionPack[0] = {
+const numbered: ExtensionPack<NodeExtension>[0] = {
   name: "numberedlist",
   node: {
     attrs: {
@@ -25,6 +26,7 @@ const numbered: ExtensionPack[0] = {
         ? ["ol", 0]
         : ["ol", { start: node.attrs.start }, 0],
   },
+  plugins,
 };
 
 export default numbered;

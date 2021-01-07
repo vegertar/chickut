@@ -27,6 +27,8 @@ const extension: NodeExtension = {
       attrs: { level },
     })),
     toDOM: (node) => [`h${node.attrs.level}`, 0],
+    toText: ({ attrs, text }) =>
+      `${"#".repeat(attrs.level || 1)} ${text || ""}`,
   },
 };
 

@@ -1,8 +1,9 @@
-import { ExtensionPack } from "../../../editor";
+import { ExtensionPack, NodeExtension } from "../../../editor";
 
 import item from "./item";
+import plugins from "./plugins";
 
-const bulleted: ExtensionPack[0] = {
+const bulleted: ExtensionPack<NodeExtension>[0] = {
   name: "bulletedlist",
   node: {
     content: `${item.name}+`,
@@ -10,6 +11,7 @@ const bulleted: ExtensionPack[0] = {
     parseDOM: [{ tag: "ul" }],
     toDOM: () => ["ul", 0],
   },
+  plugins,
 };
 
 export default bulleted;

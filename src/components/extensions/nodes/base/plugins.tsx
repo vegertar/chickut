@@ -33,7 +33,7 @@ type State = {
   text: string;
 };
 
-function textToText(node: ProsemirrorNode, start: number, end: number) {
+function toText(node: ProsemirrorNode, start: number, end: number) {
   let textWithoutMarkup = "";
   let textWithMarkup = "";
 
@@ -55,7 +55,7 @@ function textToText(node: ProsemirrorNode, start: number, end: number) {
 
 function nodeToText(node: ProsemirrorNode, start = 0, end = node.content.size) {
   if (node.isText && node.text) {
-    return textToText(node, start, end || node.text.length);
+    return toText(node, start, end || node.text.length);
   }
 
   let textWithoutMarkup = "";
@@ -66,7 +66,7 @@ function nodeToText(node: ProsemirrorNode, start = 0, end = node.content.size) {
     end,
     (node, pos) => {
       if (node.isText && node.text) {
-        const [a, b] = textToText(node, Math.max(start, pos) - pos, end - pos);
+        const [a, b] = toText(node, Math.max(start, pos) - pos, end - pos);
         textWithoutMarkup += a;
         textWithMarkup += b;
       } else if (node.isLeaf) {

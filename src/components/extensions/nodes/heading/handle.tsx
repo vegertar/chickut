@@ -47,18 +47,16 @@ const handle: BlockRuleHandle = function heading(state, silent, startLine) {
 
   state.line = startLine + 1;
 
-  const openToken = state.push(this.name, 1);
+  const openToken = state.push(this.name, 1, { level });
   openToken.markup = "#".repeat(level);
   openToken.map = [startLine, state.line];
-  openToken.attrs = { level };
 
   const inlineToken = state.push("", 0);
   inlineToken.content = state.src.slice(pos, max).trim();
   inlineToken.map = [startLine, state.line];
   inlineToken.children = [];
 
-  const closeToken = state.push(this.name, -1);
-  closeToken.markup = openToken.markup;
+  state.push(this.name, -1);
 
   return true;
 };

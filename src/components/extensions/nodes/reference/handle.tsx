@@ -223,7 +223,7 @@ const handle: BlockRuleHandle<ReferenceEnv> = function reference(
   state.line = startLine + lines + 1;
 
   // make tokens to create element within Prosemirror
-  state.push(this.name, 1).attrs = { label, title, href };
+  state.push(this.name, 1, { label, title, href });
   state.push(this.name, -1);
   return true;
 };
