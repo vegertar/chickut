@@ -1,4 +1,4 @@
-import { MarkExtension, useExtension } from "../../../editor";
+import { getAttrs, MarkExtension, useExtension } from "../../../editor";
 
 import handle from "./handle";
 
@@ -16,17 +16,7 @@ const extension: MarkExtension = {
     parseDOM: [
       {
         tag: "a[href]",
-        getAttrs: (node) => {
-          const dom = node as HTMLAnchorElement;
-          const attrs: { href: string; title?: string } = {
-            href: dom.getAttribute("href")!,
-          };
-          const title = dom.getAttribute("title");
-          if (title) {
-            attrs.title = title;
-          }
-          return attrs;
-        },
+        getAttrs: (node) => getAttrs(node as Element),
       },
     ],
     toDOM: ({ attrs }) => ["a", attrs],

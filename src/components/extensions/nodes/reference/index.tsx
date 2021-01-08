@@ -4,9 +4,7 @@ import { NodeExtension, useExtension } from "../../../editor";
 
 import handle from "./handle";
 
-// use custom tag to take up a specific precedence defined in Manager
-const tag = "reference";
-
+const name = "reference";
 const extension: NodeExtension = {
   rule: {
     handle,
@@ -19,14 +17,14 @@ const extension: NodeExtension = {
       href: { default: "" },
     },
     group: "block",
-    parseDOM: [{ tag }],
-    toDOM: ({ attrs }) => [tag, attrs],
+    parseDOM: [{ tag: `div.${name}` }],
+    toDOM: ({ attrs }) => ["div", { ...attrs, class: name }],
     toText: ({ attrs }) => `[${attrs.label}]: ${attrs.href} ${attrs.title}`,
   },
 };
 
 export default function Reference() {
-  useExtension(extension, tag);
+  useExtension(extension, name);
   return (
     <span>
       TODO: Reference Content Editing, which might be a global navigation

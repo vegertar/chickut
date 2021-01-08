@@ -6,6 +6,7 @@ import handle from "./handle";
 import plugins from "./plugins";
 import { useView } from "./view";
 
+const name = "html";
 const extension: NodeExtension = {
   plugins,
 
@@ -23,26 +24,20 @@ const extension: NodeExtension = {
     draggable: false,
     parseDOM: [
       {
-        tag: "div",
+        tag: `div.${name}`,
         contentElement: ">pre>code",
         preserveWhitespace: "full",
-        getAttrs: (node) => {
-          if (!(node as HTMLElement).querySelector(">div.view")) {
-            return false;
-          }
-        },
       },
     ],
-    toDOM: (node) => [
+    toDOM: () => [
       "div",
-      { class: node.type.name },
+      { class: name },
       ["pre", ["code", { spellCheck: "false" }, 0]],
       ["div", { class: "view", contentEditable: "false" }],
     ],
-    toText: ({ text }) => text || "",
   },
 };
 
 export default function Html() {
-  return useView(useExtension(extension, "html"));
+  return useView(useExtension(extension, name));
 }

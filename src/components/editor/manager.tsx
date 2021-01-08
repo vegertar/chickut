@@ -153,6 +153,30 @@ export class Manager {
       const nodeType = schema.nodes[key];
       const markType = schema.marks[key];
 
+      if (rule) {
+        const { handle, alt, postHandle } = rule;
+        if (handle) {
+          const rule = { name: key, handle, alt };
+          if (nodeType) {
+            const group = nodeType.spec.group as NodeExtension["node"]["group"];
+            if (group === "block") {
+              engine.block.ruler.append(rule as BlockRule);
+            } else if (group === "inline") {
+              engine.inline.ruler.append(rule as InlineRule);
+            } else {
+              throw new Error(
+                `cannot determine rule type for unknown group: ${group}`
+              );
+            }
+          } else if (markType) {
+            engine.inline.ruler.append(rule as InlineRule);
+          }
+        }
+        if (postHandle) {
+          engine.postInline.ruler.append({ name: key, handle: postHandle });
+        }
+      }
+
       let thisPlugins: Plugin[] = [];
       if (typeof plugins === "function") {
         const type = nodeType || markType;
@@ -162,32 +186,6 @@ export class Manager {
       }
 
       allPlugins.push(...thisPlugins);
-
-      if (!rule) {
-        continue;
-      }
-
-      const { handle, alt, postHandle } = rule;
-      if (handle) {
-        const rule = { name: key, handle, alt };
-        if (nodeType) {
-          const group = nodeType.spec.group as NodeExtension["node"]["group"];
-          if (group === "block") {
-            engine.block.ruler.add(rule as BlockRule);
-          } else if (group === "inline") {
-            engine.inline.ruler.add(rule as InlineRule);
-          } else {
-            throw new Error(
-              `cannot determine rule type for unknown group: ${group}`
-            );
-          }
-        } else if (markType) {
-          engine.inline.ruler.add(rule as InlineRule);
-        }
-      }
-      if (postHandle) {
-        engine.postInline.ruler.add({ name: key, handle: postHandle });
-      }
     }
 
     return allPlugins;
@@ -198,22 +196,23 @@ export class Manager {
 
   private init() {
     for (const name in this.extensions) {
+      if (!this.deps[name]) {
+        this.deps[name] = [];
+      }
+
       const extension = this.getExtension(name);
       const node: NodeSpec | undefined = (extension as NodeExtension).node;
       const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
 
-      if (node) {
-        const group = node.group;
-        if (group) {
-          if (!this.groups[group]) {
-            this.groups[group] = [];
-          }
-          this.groups[group]!.push(name);
+      const group = node?.group || mark?.group;
+      if (group) {
+        if (!this.groups[group]) {
+          this.groups[group] = [];
         }
+        this.groups[group]!.push(name);
+      }
 
-        if (!this.deps[name]) {
-          this.deps[name] = [];
-        }
+      if (node) {
         this.deps[name]!.push(...parseDeps(node));
       }
 

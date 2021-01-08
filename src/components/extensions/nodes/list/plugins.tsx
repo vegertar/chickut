@@ -9,6 +9,8 @@ import {
 import { BlockRule, ExtensionPlugin, ExtensionSchema } from "../../../editor";
 
 import handle from "./handle";
+import names from "./names";
+
 export class ListItemPlugin extends ExtensionPlugin {
   constructor(type: NodeType) {
     super(type, {
@@ -22,7 +24,7 @@ export class ListItemPlugin extends ExtensionPlugin {
 }
 
 const rule: BlockRule = {
-  name: "list",
+  name: names.list,
   alt: ["paragraph", "reference", "blockquote"],
   handle,
 };
@@ -30,7 +32,7 @@ const rule: BlockRule = {
 export default function plugins(type: NodeType<ExtensionSchema>) {
   const engine = type.schema.cached.engine;
   if (engine.block.ruler.find(rule.name) === -1) {
-    engine.block.ruler.add(rule);
+    engine.block.ruler.append(rule);
   }
   return [];
 }

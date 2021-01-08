@@ -1,4 +1,4 @@
-import { trimSplit } from "./engine";
+import { trimSplit } from "./utils";
 
 describe("trimSplit", () => {
   it("white sentence", () => {

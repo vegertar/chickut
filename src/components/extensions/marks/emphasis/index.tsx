@@ -11,7 +11,6 @@ const extension: MarkExtension = {
   },
 
   mark: {
-    // group: "inline",
     attrs: { isStrong: { default: false } },
     excludes: "", // allow multiple emphasis marks coexist
     parseDOM: [

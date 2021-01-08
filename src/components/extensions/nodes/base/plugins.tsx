@@ -18,7 +18,9 @@ import {
   Plugin,
   ExtensionMarkSpec,
   trimSplit,
+  ExtensionSchema,
 } from "../../../editor";
+import { balancePairs, setup, text, textCollapse } from "./rules";
 
 type ParseContext = {
   type: NodeType;
@@ -275,7 +277,13 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
         case 0:
           if (token.content) {
             const marks = stack[stack.length - 1];
-            nodes.push(this.schema.text(token.content, marks));
+            if (token.name === "text") {
+              nodes.push(this.schema.text(token.content, marks));
+            } else {
+              // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
+              const type = this.schema.nodes[token.name];
+              nodes.push(type.createChecked(token.attrs, undefined, marks));
+            }
           }
           break;
 
@@ -294,4 +302,20 @@ export class BasePlugin extends Plugin {
       handleKeyDown: keydownHandler(baseKeymap),
     });
   }
+}
+
+export default function plugins(type: NodeType<ExtensionSchema>) {
+  if (type !== type.schema.topNodeType) {
+    throw new Error(`Should be top node, got ${type.name}`);
+  }
+
+  // only top node is promised to load at last, so we are ordering rules in here
+  const engine = type.schema.cached.engine;
+
+  engine.core.ruler.insert({ name: "setup", handle: setup }, 0);
+  engine.inline.ruler.insert({ name: "text", handle: text }, 0);
+  engine.postInline.ruler.insert({ name: "balance", handle: balancePairs }, 0);
+  engine.postInline.ruler.append({ name: "collapse", handle: textCollapse });
+
+  return [new BasePlugin(type.name)];
 }

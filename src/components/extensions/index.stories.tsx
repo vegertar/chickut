@@ -14,7 +14,7 @@ export function template<P = {}>(Component: React.FC<P>): Story<P & MetaProps> {
   return (args) => <Component {...args} />;
 }
 
-export const minimal = [Base];
+export const minimal: React.FC<any>[] = [Base];
 
 export function withThemedEditor<P>(Extension: React.FC<P>, addon = minimal) {
   return (props: P) => (

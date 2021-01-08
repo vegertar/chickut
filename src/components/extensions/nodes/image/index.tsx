@@ -1,4 +1,4 @@
-import { NodeExtension, useExtension } from "../../../editor";
+import { getAttrs, NodeExtension, useExtension } from "../../../editor";
 
 import handle from "./handle";
 
@@ -13,26 +13,10 @@ const extension: NodeExtension = {
       alt: { default: "" },
       title: { default: null },
     },
+    inline: true,
     group: "inline",
     parseDOM: [
-      {
-        tag: "img[src]",
-        getAttrs: (node) => {
-          const dom = node as HTMLImageElement;
-          const attrs: { src: string; alt?: string; title?: string } = {
-            src: dom.getAttribute("src")!,
-          };
-          const alt = dom.getAttribute("alt");
-          if (alt) {
-            attrs.alt = alt;
-          }
-          const title = dom.getAttribute("title");
-          if (title) {
-            attrs.title = title;
-          }
-          return attrs;
-        },
-      },
+      { tag: "img[src]", getAttrs: (node) => getAttrs(node as Element) },
     ],
     toDOM: ({ attrs }) => ["img", attrs],
     toText: ({ attrs }) =>

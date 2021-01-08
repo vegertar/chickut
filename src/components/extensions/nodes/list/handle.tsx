@@ -1,8 +1,5 @@
 import { BlockRuleHandle, BlockState, Env, isSpace } from "../../../editor";
-
-import item from "./item";
-import bulleted from "./bulleted";
-import numbered from "./numbered";
+import names from "./names";
 
 // Search `[-+*][\n ]`, returns next pos after marker on success
 // or -1 on fail.
@@ -191,7 +188,7 @@ const handle: BlockRuleHandle = function list(
   // Start list
   const listTokIdx = state.tokens.length;
 
-  const openToken = state.push(isOrdered ? numbered.name : bulleted.name, 1);
+  const openToken = state.push(isOrdered ? names.numbered : names.bulleted, 1);
   if (isOrdered && markerValue !== 1) {
     openToken.attrs = { start: markerValue };
   }
@@ -256,7 +253,7 @@ const handle: BlockRuleHandle = function list(
     const indent = initial + indentAfterMarker;
 
     // Run subparser & write tokens
-    const openToken = state.push(item.name, 1);
+    const openToken = state.push(names.item, 1);
     openToken.markup = String.fromCharCode(markerCharCode);
     openToken.map = [startLine, 0];
 
@@ -306,7 +303,7 @@ const handle: BlockRuleHandle = function list(
     state.sCount[startLine] = oldSCount;
     state.tight = oldTight;
 
-    const closeToken = state.push(item.name, -1);
+    const closeToken = state.push(names.item, -1);
     closeToken.markup = String.fromCharCode(markerCharCode);
 
     nextLine = startLine = state.line;
@@ -360,7 +357,10 @@ const handle: BlockRuleHandle = function list(
   }
 
   // Finalize list
-  const closeToken = state.push(isOrdered ? numbered.name : bulleted.name, -1);
+  const closeToken = state.push(
+    isOrdered ? names.numbered : names.bulleted,
+    -1
+  );
   closeToken.markup = String.fromCharCode(markerCharCode);
 
   listLines[1] = nextLine;
