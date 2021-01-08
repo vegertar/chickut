@@ -15,6 +15,11 @@ import {
   NodeExtension,
   MarkExtension,
   ExtensionPlugins,
+  NodeType,
+  MarkType,
+  AfterPluginExtension,
+  PluginExtension,
+  RuledExtension,
 } from "./types";
 
 const tagMatcher = /^(\w+)/;
@@ -67,7 +72,9 @@ export class MissingContentError extends Error {
 
 export class Manager {
   readonly deps: Record<string, Dependency[] | undefined> = {};
+  // node groups
   readonly groups: Record<string, string[] | undefined> = {};
+  // node tags
   readonly tags: Record<string, string | undefined> = {};
   readonly nonDag: string[] = [];
   readonly dfsPath: string[] = [];
@@ -75,6 +82,8 @@ export class Manager {
   readonly nodes: string[] = [];
   readonly marks: string[] = [];
   readonly plugins: string[] = [];
+  readonly afterNodes: Record<string, string[] | undefined> = {};
+  readonly afterMarks: Record<string, string[] | undefined> = {};
 
   constructor(
     public readonly extensions: Extensions,
@@ -84,7 +93,7 @@ export class Manager {
     this.detectDAG();
     this.detectInfinity();
     this.sortDeps();
-    this.sortExtensions();
+    this.orderExtensions();
   }
 
   createConfig(topNode?: string) {
@@ -112,14 +121,14 @@ export class Manager {
     const nodes: Record<string, NodeSpec> = Object.fromEntries(
       this.nodes.map((name) => [
         name,
-        (this.getExtension(name) as NodeExtension).node,
+        (this.extensions[name] as NodeExtension).node,
       ])
     );
 
     const marks: Record<string, MarkSpec> = Object.fromEntries(
       this.marks.map((name) => [
         name,
-        (this.getExtension(name) as MarkExtension).mark,
+        (this.extensions[name] as MarkExtension).mark,
       ])
     );
 
@@ -134,7 +143,7 @@ export class Manager {
   }
 
   private createPlugins(schema: ExtensionSchema) {
-    const allPlugins: Plugin[] = [];
+    const all: Plugin[] = [];
     const engine = schema.cached.engine;
 
     // plugin keys from low priority to high
@@ -144,79 +153,116 @@ export class Manager {
       // since Prosemirror use plugins via first-come-first-served,
       // so we adding by reverse order, i.e. from special to general
       const key = keys[keys.length - i - 1];
-      const extension = this.getExtension(key);
-      if (!extension) {
-        continue;
+      const extension = this.extensions[key];
+      const nodeType = schema.nodes[key] as NodeType | undefined;
+      const markType = schema.marks[key] as MarkType | undefined;
+
+      this.fromRuledExtension(
+        extension as RuledExtension,
+        key,
+        engine,
+        nodeType,
+        markType
+      );
+
+      const plugins = extension.plugins;
+      if (Array.isArray(plugins)) {
+        all.push(...plugins);
+      } else if (plugins) {
+        const type = nodeType || markType || schema;
+        const fn = plugins as ExtensionPlugins<typeof extension, typeof type>;
+        all.push(...fn.call({ ...extension, name: key }, type));
       }
 
-      const { plugins = [], rule } = extension;
-      const nodeType = schema.nodes[key];
-      const markType = schema.marks[key];
-
-      if (rule) {
-        const { handle, alt, postHandle } = rule;
-        if (handle) {
-          const rule = { name: key, handle, alt };
-          if (nodeType) {
-            const group = nodeType.spec.group as NodeExtension["node"]["group"];
-            if (group === "block") {
-              engine.block.ruler.append(rule as BlockRule);
-            } else if (group === "inline") {
-              engine.inline.ruler.append(rule as InlineRule);
-            } else {
-              throw new Error(
-                `cannot determine rule type for unknown group: ${group}`
-              );
-            }
-          } else if (markType) {
-            engine.inline.ruler.append(rule as InlineRule);
-          }
-        }
-        if (postHandle) {
-          engine.postInline.ruler.append({ name: key, handle: postHandle });
-        }
-      }
-
-      let thisPlugins: Plugin[] = [];
-      if (typeof plugins === "function") {
-        const type = nodeType || markType;
-        thisPlugins = (plugins as ExtensionPlugins<typeof type>)(type);
-      } else {
-        thisPlugins = plugins;
-      }
-
-      allPlugins.push(...thisPlugins);
+      this.fromAfterExtension(all, key, nodeType, markType);
     }
 
-    return allPlugins;
+    return all;
   }
 
-  private getExtension = (name: string): Extension | undefined =>
-    this.extensions[name];
+  private fromRuledExtension(
+    { rule }: RuledExtension,
+    name: string,
+    engine: Engine,
+    nodeType?: NodeType,
+    markType?: MarkType
+  ) {
+    if (rule) {
+      const { handle, alt, postHandle } = rule;
+      if (handle) {
+        const rule = { name, handle, alt };
+        if (nodeType) {
+          const group = nodeType.spec.group as NodeExtension["node"]["group"];
+          if (group === "block") {
+            engine.block.ruler.append(rule as BlockRule);
+          } else if (group === "inline") {
+            engine.inline.ruler.append(rule as InlineRule);
+          } else {
+            throw new Error(
+              `cannot determine rule type for unknown group: ${group}`
+            );
+          }
+        } else if (markType) {
+          engine.inline.ruler.append(rule as InlineRule);
+        }
+      }
+      if (postHandle) {
+        engine.postInline.ruler.append({ name, handle: postHandle });
+      }
+    }
+  }
+
+  private fromAfterExtension(
+    all: Plugin[],
+    key: string,
+    nodeType?: NodeType,
+    markType?: MarkType
+  ) {
+    if (nodeType) {
+      this.afterNodes[key]?.forEach((name) => {
+        const afterExtension = this.extensions[name] as AfterPluginExtension<
+          "node"
+        >;
+        const plugins = afterExtension.plugins;
+        all.push(
+          ...(Array.isArray(plugins)
+            ? plugins
+            : plugins.call({ ...afterExtension, name }, nodeType))
+        );
+      });
+    } else if (markType) {
+      this.afterMarks[key]?.forEach((name) => {
+        const afterExtension = this.extensions[name] as AfterPluginExtension<
+          "mark"
+        >;
+        const plugins = afterExtension.plugins;
+        all.push(
+          ...(Array.isArray(plugins)
+            ? plugins
+            : plugins.call({ ...afterExtension, name }, markType))
+        );
+      });
+    }
+  }
 
   private init() {
     for (const name in this.extensions) {
-      if (!this.deps[name]) {
-        this.deps[name] = [];
-      }
-
-      const extension = this.getExtension(name);
+      const extension = this.extensions[name];
       const node: NodeSpec | undefined = (extension as NodeExtension).node;
-      const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
+      const deps: Dependency[] = (this.deps[name] = []);
 
-      const group = node?.group || mark?.group;
-      if (group) {
-        if (!this.groups[group]) {
-          this.groups[group] = [];
-        }
-        this.groups[group]!.push(name);
+      if (!node) {
+        continue;
       }
 
-      if (node) {
-        this.deps[name]!.push(...parseDeps(node));
+      deps.push(...parseDeps(node));
+
+      if (node.group) {
+        const group = node.group;
+        (this.groups[group] = this.groups[group] || []).push(name);
       }
 
-      const tag = this.getTag(node || mark);
+      const tag = this.getTag(node);
       if (tag) {
         this.tags[name] = tag;
       }
@@ -232,34 +278,44 @@ export class Manager {
     }
   }
 
-  private sortExtensions() {
+  private orderExtensions() {
+    // nodes order is determined by DAG and tag precedence
+    // marks order is determined by insertion order
+    // plugins order is determined by either associated node/mark (with after property) or insertion order
     for (const name of this.bfsPath) {
-      const extension = this.getExtension(name);
+      const extension = this.extensions[name];
       if (!extension) {
+        // some group names are not valid extensions
         continue;
       }
 
       const node: NodeSpec | undefined = (extension as NodeExtension).node;
       const mark: MarkSpec | undefined = (extension as MarkExtension).mark;
+      const plugin = extension as PluginExtension | undefined;
 
       if (node) {
         this.nodes.push(name);
       } else if (mark) {
         this.marks.push(name);
-      } else {
-        this.plugins.push(name);
+      } else if (plugin) {
+        const { type, after } = plugin;
+        if (type && after) {
+          const plugins =
+            type === "node"
+              ? this.afterNodes
+              : type === "mark"
+              ? this.afterMarks
+              : null;
+          if (plugins) {
+            (plugins[after] = plugins[after] || []).push(name);
+          } else {
+            console.warn("discarded plugin", name);
+          }
+        } else {
+          this.plugins.push(name);
+        }
       }
     }
-
-    // the nodes had been sorted by dfs/bfs
-
-    this.marks.sort((a, b) => {
-      const aTag = this.getTag((this.getExtension(a) as MarkExtension).mark);
-      const bTag = this.getTag((this.getExtension(b) as MarkExtension).mark);
-      return this.tagSorter(aTag, bTag);
-    });
-
-    // TODO: sort plugins
   }
 
   private getTag(props?: { parseDOM?: ParseRule[] | null }) {
@@ -323,6 +379,7 @@ export class Manager {
         this.bfs(name, bfsVisited);
       }
     }
+    console.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", this.dfsPath, this.bfsPath);
   }
 
   private bfs(root: string, visited: BfsVisited) {

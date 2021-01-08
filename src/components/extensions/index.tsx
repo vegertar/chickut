@@ -14,3 +14,4 @@ export { default as Emphasis } from "./marks/emphasis";
 export { default as Link } from "./marks/link";
 
 // plugins
+export { default as Lheading } from "./plugins/lheading";
