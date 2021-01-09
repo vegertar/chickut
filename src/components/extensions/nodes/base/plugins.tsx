@@ -236,18 +236,10 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
 
         case 0: {
           const current = stack[stack.length - 1];
-          if (!token.name && token.children?.length) {
-            this.parseInline(token.children, current.content);
-          } else if (token.name || token.content) {
-            const content = token.content
-              ? this.schema.text(token.content)
-              : null;
-            const type = token.name ? this.schema.nodes[token.name] : null;
-            const node =
-              type && content
-                ? type.createAndFill(token.attrs, content)
-                : type?.create(token.attrs) || content;
-            node && current.content.push(node);
+          if (token.name === "") {
+            token.children && this.parseInline(token.children, current.content);
+          } else {
+            current.content.push(this.createNode(token));
           }
           break;
         }
@@ -277,12 +269,11 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
 
         case 0:
           const marks = stack[stack.length - 1];
-          if (token.name === "text" && token.content) {
-            nodes.push(this.schema.text(token.content, marks));
-          } else if (token.name !== "text") {
+          if (token.name === "text") {
+            token.content && nodes.push(this.schema.text(token.content, marks));
+          } else {
             // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
-            const type = this.schema.nodes[token.name];
-            nodes.push(type.createChecked(token.attrs, undefined, marks));
+            nodes.push(this.createNode(token, marks));
           }
           break;
 
@@ -292,6 +283,24 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
         }
       }
     }
+  }
+
+  private createNode(token: Token, marks?: Mark[]): ProsemirrorNode {
+    const { name, attrs, content } = token;
+    const nodeType = this.schema.nodes[name];
+    if (nodeType) {
+      return nodeType.createChecked(
+        attrs,
+        content ? this.schema.text(content) : undefined,
+        marks
+      );
+    }
+
+    const markType = this.schema.marks[name].create(attrs);
+    return this.schema.text(
+      token.content || "",
+      marks && markType.addToSet(marks)
+    );
   }
 }
 

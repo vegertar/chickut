@@ -276,8 +276,7 @@ const handle: BlockRuleHandle = function blockquote(
 
   state.engine.block.tokenize(state, startLine, nextLine);
 
-  const closeToken = state.push(this.name, -1);
-  closeToken.markup = ">";
+  state.push(this.name, -1);
 
   state.lineMax = oldLineMax;
   state.parent = oldParent;

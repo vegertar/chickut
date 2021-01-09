@@ -303,8 +303,8 @@ const handle: BlockRuleHandle = function list(
     state.sCount[startLine] = oldSCount;
     state.tight = oldTight;
 
-    const closeToken = state.push(names.item, -1);
-    closeToken.markup = String.fromCharCode(markerCharCode);
+    // close token
+    state.push(names.item, -1);
 
     nextLine = startLine = state.line;
     itemLines[1] = nextLine;

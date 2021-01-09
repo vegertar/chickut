@@ -73,14 +73,12 @@ function postProcess(
     const closeToken = state.tokens[endDelim.token];
     closeToken.name = name;
     closeToken.nesting = -1;
-    closeToken.markup = "~~";
-    closeToken.content = "";
+    closeToken.markup = undefined;
+    closeToken.content = undefined;
 
-    if (
-      state.tokens[endDelim.token - 1].name === "text" &&
-      state.tokens[endDelim.token - 1].content === "~"
-    ) {
-      loneMarkers.push(endDelim.token - 1);
+    const i = endDelim.token - 1;
+    if (state.tokens[i].name === "text" && state.tokens[i].content === "~") {
+      loneMarkers.push(i);
     }
   }
 

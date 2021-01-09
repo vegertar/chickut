@@ -43,14 +43,12 @@ const handle: InlineRuleHandle = function backticks(state, silent) {
     if (closerLength === openerLength) {
       // Found matching closer length.
       if (!silent) {
-        // in our nesting semantics, the <code> mark is not self-closed,
-        // so we spliting it into 3 tokens instead of the one <code_inline> within original markdown-it
-        state.push(this.name, 1).markup = marker;
-        state.push("text", 0).content = state.src
+        const token = state.push(this.name, 0);
+        token.markup = marker;
+        token.content = state.src
           .slice(pos, matchStart)
           .replace(/\n/g, " ")
           .replace(/^ (.+) $/, "$1");
-        state.push(this.name, -1);
       }
       state.pos = matchEnd;
       return true;

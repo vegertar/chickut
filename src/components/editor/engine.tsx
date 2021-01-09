@@ -49,7 +49,12 @@ export class Token {
     //   "": the root of inline token, which contains actual inline children with name, e.g. "text", "link", etc.
     //   "text": the final leaf token without marks and children.
     public name: string,
-    // In case of root inline token, leaf text, and self-closed whatever tag, the nesting is 0
+    // In case of
+    //   root inline token,
+    //   leaf text,
+    //   and whatever self-closed tags (e.g. <br>, <hr>),
+    //   leaf blocks never have marks (e.g. code, fence, HTML),
+    // the nesting is 0
     public nesting: Nesting,
     // Token attributes, e.g. html attributes, heading level, fence info, etc.
     public attrs?: Record<string, any>

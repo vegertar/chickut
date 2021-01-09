@@ -149,10 +149,8 @@ const handle: InlineRuleHandle<ReferenceEnv> = function image(state, silent) {
       env: state.env,
     });
 
-    const token = state.push(this.name, 0, { src: href, alt: "" });
+    const token = state.push(this.name, 0, { src: href, alt: content });
     token.children = tokens;
-    token.content = content;
-
     if (title) {
       token.attrs.title = title;
     }

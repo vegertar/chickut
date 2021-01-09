@@ -13,6 +13,9 @@ const extension: PurePluginExtension = {
     });
 
     const newline = schema.nodes.newline;
+    const newlineName =
+      newline && newline.isInline && newline.isLeaf ? newline.name : null;
+
     const handle: InlineRuleHandle = function escape(state, silent) {
       let pos = state.pos;
       const max = state.posMax;
@@ -35,8 +38,8 @@ const extension: PurePluginExtension = {
         }
 
         if (ch === 0x0a) {
-          if (!silent && newline) {
-            state.push(newline.name, 0);
+          if (!silent && newlineName) {
+            state.push(newlineName, 0);
           }
 
           pos++;
