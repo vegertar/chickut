@@ -1,7 +1,7 @@
 import { BlockRuleHandle } from "../../../editor";
 
 // Code block (4 spaces padded)
-const handle: BlockRuleHandle = function codeblock(
+const handle: BlockRuleHandle = function code(
   state,
   silent,
   startLine,

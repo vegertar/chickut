@@ -33,7 +33,7 @@ export class Token {
   map?: [number, number];
   // nesting level, the same as `state.level`
   level?: number;
-  // An array of child nodes, only available for block/inline token
+  // An array of child nodes
   children?: Token[];
   // Text content of this tag.
   content?: string;
@@ -47,9 +47,9 @@ export class Token {
   constructor(
     // There are two preserved name:
     //   "": the root of inline token, which contains actual inline children with name, e.g. "text", "link", etc.
-    //   "text": the leaf inline token without marks.
+    //   "text": the final leaf token without marks and children.
     public name: string,
-    // In case of root inline token or leaf text token, nesting is 0
+    // In case of root inline token, leaf text, and self-closed whatever tag, the nesting is 0
     public nesting: Nesting,
     // Token attributes, e.g. html attributes, heading level, fence info, etc.
     public attrs?: Record<string, any>

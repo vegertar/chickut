@@ -38,44 +38,53 @@ export type ExtensionPlugins<
   T extends NodeType | MarkType | ExtensionSchema
 > = (this: ThisT & { name: string }, type: T) => Plugin[];
 
-export type RuledNodeSpec<T extends "block" | "inline"> = NodeSpec & {
+export type RuleNodeSpec<T extends "block" | "inline"> = NodeSpec & {
   group: T;
   toText?: (node: ProsemirrorNode) => string;
 };
 
-export type RuledNodeExtension<T extends "block" | "inline"> = {
-  node: RuledNodeSpec<
+export type RuleMarkSpec = MarkSpec & {
+  toText?(mark: Mark, content: string): string;
+};
+
+type RuleNodeGroups = "block" | "inline";
+
+export type RuleNodeExtension<T extends RuleNodeGroups> = {
+  node: RuleNodeSpec<
     T extends "block" ? "block" : T extends "inline" ? "inline" : never
   >;
   rule: ExtensionRule<
     T extends "block" ? BlockRule : T extends "inline" ? InlineRule : never
   >;
-  plugins?: Plugin[] | ExtensionPlugins<RuledNodeExtension<T>, NodeType>;
+  plugins?: Plugin[] | ExtensionPlugins<RuleNodeExtension<T>, NodeType>;
 };
 
-export type NonRuledNodeExtension = {
+export type RuleMarkExtension = {
+  mark: RuleMarkSpec;
+  rule: ExtensionRule<InlineRule>;
+  plugins?: Plugin[] | ExtensionPlugins<RuleMarkExtension, MarkType>;
+};
+
+export type NonRuleNodeExtension = {
   node: NodeSpec;
-  plugins?: Plugin[] | ExtensionPlugins<NonRuledNodeExtension, NodeType>;
+  plugins?: Plugin[] | ExtensionPlugins<NonRuleNodeExtension, NodeType>;
+};
+
+export type NonRuleMarkExtension = {
+  mark: MarkSpec;
+  plugins?: Plugin[] | ExtensionPlugins<NonRuleMarkExtension, MarkType>;
 };
 
 export type NodeExtension =
-  | NonRuledNodeExtension
-  | RuledNodeExtension<"block">
-  | RuledNodeExtension<"inline">;
+  | NonRuleNodeExtension
+  | RuleNodeExtension<"block">
+  | RuleNodeExtension<"inline">;
 
-export type ExtensionMarkSpec = MarkSpec & {
-  toText?(mark: Mark, content: string): string;
-};
+export type MarkExtension = NonRuleMarkExtension | RuleMarkExtension;
 
-export type MarkExtension = {
-  mark: ExtensionMarkSpec;
-  rule?: ExtensionRule<InlineRule>;
-  plugins?: Plugin[] | ExtensionPlugins<MarkExtension, MarkType>;
-};
-
-export type RuledExtension =
-  | Pick<RuledNodeExtension<"block" | "inline">, "rule">
-  | Pick<MarkExtension, "rule">;
+export type RuleExtension =
+  | Pick<RuleNodeExtension<RuleNodeGroups>, "rule">
+  | Pick<RuleMarkExtension, "rule">;
 
 export type AfterPluginExtension<T extends "node" | "mark"> = {
   type: T;

@@ -16,9 +16,9 @@ import {
   ExtensionPlugin,
   Token,
   Plugin,
-  ExtensionMarkSpec,
   trimSplit,
   ExtensionSchema,
+  RuleMarkSpec,
 } from "../../../editor";
 import { balancePairs, setup, text, textCollapse } from "./rules";
 
@@ -43,7 +43,7 @@ function toText(node: ProsemirrorNode, start: number, end: number) {
   if (text) {
     textWithoutMarkup += text;
     textWithMarkup += node.marks.reduce((s, mark) => {
-      const toText = (mark.type.spec as ExtensionMarkSpec).toText;
+      const toText = (mark.type.spec as RuleMarkSpec).toText;
       if (!toText) {
         return s;
       }

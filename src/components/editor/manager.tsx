@@ -19,7 +19,7 @@ import {
   MarkType,
   AfterPluginExtension,
   PluginExtension,
-  RuledExtension,
+  RuleExtension,
 } from "./types";
 
 const tagMatcher = /^(\w+)/;
@@ -146,21 +146,21 @@ export class Manager {
     const all: Plugin[] = [];
     const engine = schema.cached.engine;
 
-    // plugin keys from low priority to high
-    const keys = [...this.nodes, ...this.marks, ...this.plugins];
+    // plugin names from low priority to high
+    const names = [...this.nodes, ...this.marks, ...this.plugins];
 
-    for (let i = 0; i < keys.length; ++i) {
+    for (let i = 0; i < names.length; ++i) {
       // since Prosemirror use plugins via first-come-first-served,
       // so we adding by reverse order, i.e. from special to general
-      const key = keys[keys.length - i - 1];
-      const extension = this.extensions[key];
-      const nodeType = schema.nodes[key] as NodeType | undefined;
-      const markType = schema.marks[key] as MarkType | undefined;
+      const name = names[names.length - i - 1];
+      const extension = this.extensions[name];
+      const nodeType = schema.nodes[name] as NodeType | undefined;
+      const markType = schema.marks[name] as MarkType | undefined;
 
-      this.fromRuledExtension(
-        extension as RuledExtension,
-        key,
+      this.fromRule(
         engine,
+        extension as RuleExtension,
+        name,
         nodeType,
         markType
       );
@@ -171,19 +171,19 @@ export class Manager {
       } else if (plugins) {
         const type = nodeType || markType || schema;
         const fn = plugins as ExtensionPlugins<typeof extension, typeof type>;
-        all.push(...fn.call({ ...extension, name: key }, type));
+        all.push(...fn.call({ ...extension, name }, type));
       }
 
-      this.fromAfterExtension(all, key, nodeType, markType);
+      this.fromAfter(all, name, nodeType, markType);
     }
 
     return all;
   }
 
-  private fromRuledExtension(
-    { rule }: RuledExtension,
-    name: string,
+  private fromRule(
     engine: Engine,
+    { rule }: RuleExtension,
+    name: string,
     nodeType?: NodeType,
     markType?: MarkType
   ) {
@@ -212,14 +212,14 @@ export class Manager {
     }
   }
 
-  private fromAfterExtension(
+  private fromAfter(
     all: Plugin[],
-    key: string,
+    after: string,
     nodeType?: NodeType,
     markType?: MarkType
   ) {
     if (nodeType) {
-      this.afterNodes[key]?.forEach((name) => {
+      this.afterNodes[after]?.forEach((name) => {
         const afterExtension = this.extensions[name] as AfterPluginExtension<
           "node"
         >;
@@ -231,7 +231,7 @@ export class Manager {
         );
       });
     } else if (markType) {
-      this.afterMarks[key]?.forEach((name) => {
+      this.afterMarks[after]?.forEach((name) => {
         const afterExtension = this.extensions[name] as AfterPluginExtension<
           "mark"
         >;

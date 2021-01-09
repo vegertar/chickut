@@ -13,9 +13,7 @@ const extension: NodeExtension = {
 
   node: {
     attrs: {
-      language: {
-        default: "javascript",
-      },
+      info: { default: "" },
     },
     content: "text*",
     marks: "",
@@ -32,13 +30,14 @@ const extension: NodeExtension = {
     ],
     toDOM: (node) => [
       "pre",
-      { "data-language": node.attrs.language, class: node.type.name },
+      // TODO: handle fence info
+      { "data-info": node.attrs.info, class: node.type.name },
       ["code", 0],
     ],
   },
 };
 
-export default function CodeBlock() {
-  useExtension(extension, "codeblock");
+export default function Code() {
+  useExtension(extension, "code");
   return null;
 }
