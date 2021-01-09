@@ -303,7 +303,7 @@ export class BasePlugin extends Plugin {
   }
 }
 
-export default function plugins(type: NodeType<ExtensionSchema>) {
+export function docPlugins(type: NodeType<ExtensionSchema>) {
   if (type !== type.schema.topNodeType) {
     throw new Error(`Should be top node, got ${type.name}`);
   }
@@ -317,4 +317,8 @@ export default function plugins(type: NodeType<ExtensionSchema>) {
   engine.postInline.ruler.append({ name: "collapse", handle: textCollapse });
 
   return [new BasePlugin(type.name)];
+}
+
+export function paragraphPlugins(type: NodeType<ExtensionSchema>) {
+  return [new ParagraphPlugin(type)];
 }

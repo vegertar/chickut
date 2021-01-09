@@ -103,8 +103,8 @@ export type AfterPluginExtension<T extends "node" | "mark"> = {
       >;
 };
 
-export type PurePluginExtension = {
-  plugins: Plugin[] | ExtensionPlugins<PurePluginExtension, ExtensionSchema>;
+export type PurePluginExtension<T extends Record<string, any> = {}> = T & {
+  plugins: Plugin[] | ExtensionPlugins<PurePluginExtension<T>, ExtensionSchema>;
   [key: string]: any;
 };
 

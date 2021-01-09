@@ -1,7 +1,7 @@
 import { ExtensionPack, NodeExtension, useExtension } from "../../../editor";
 
 import { paragraph } from "./rules";
-import plugins, { ParagraphPlugin } from "./plugins";
+import { docPlugins, paragraphPlugins } from "./plugins";
 
 import "./style.scss";
 
@@ -9,7 +9,7 @@ const pack: ExtensionPack<NodeExtension> = [
   {
     name: "doc",
     node: { content: "block+" },
-    plugins,
+    plugins: docPlugins,
   },
 
   {
@@ -26,7 +26,7 @@ const pack: ExtensionPack<NodeExtension> = [
       toDOM: () => ["p", 0],
     },
     rule: { handle: paragraph },
-    plugins: (type) => [new ParagraphPlugin(type)],
+    plugins: paragraphPlugins,
   },
 ];
 
