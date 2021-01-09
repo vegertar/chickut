@@ -18,17 +18,6 @@ const pack: ExtensionPack<NodeExtension> = [
   },
 
   {
-    name: "newline",
-    node: {
-      inline: true,
-      group: "inline",
-      selectable: false,
-      parseDOM: [{ tag: "br" }],
-      toDOM: () => ["br"],
-    },
-  },
-
-  {
     name: "paragraph",
     node: {
       content: "inline*",
@@ -36,9 +25,7 @@ const pack: ExtensionPack<NodeExtension> = [
       parseDOM: [{ tag: "p" }],
       toDOM: () => ["p", 0],
     },
-    rule: {
-      handle: paragraph,
-    },
+    rule: { handle: paragraph },
     plugins: (type) => [new ParagraphPlugin(type)],
   },
 ];

@@ -223,6 +223,7 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
   }
 
   private parse(tokens: Token[], context: ParseContext) {
+    console.log(tokens);
     const stack = [context];
 
     for (const token of tokens) {
@@ -275,15 +276,13 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
         }
 
         case 0:
-          if (token.content) {
-            const marks = stack[stack.length - 1];
-            if (token.name === "text") {
-              nodes.push(this.schema.text(token.content, marks));
-            } else {
-              // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
-              const type = this.schema.nodes[token.name];
-              nodes.push(type.createChecked(token.attrs, undefined, marks));
-            }
+          const marks = stack[stack.length - 1];
+          if (token.name === "text" && token.content) {
+            nodes.push(this.schema.text(token.content, marks));
+          } else if (token.name !== "text") {
+            // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
+            const type = this.schema.nodes[token.name];
+            nodes.push(type.createChecked(token.attrs, undefined, marks));
           }
           break;
 
@@ -309,7 +308,7 @@ export default function plugins(type: NodeType<ExtensionSchema>) {
     throw new Error(`Should be top node, got ${type.name}`);
   }
 
-  // only top node is promised to load at last, so we are ordering rules in here
+  // only top node is promised to be loaded at last, so we are ordering rules in here
   const engine = type.schema.cached.engine;
 
   engine.core.ruler.insert({ name: "setup", handle: setup }, 0);

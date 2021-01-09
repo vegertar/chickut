@@ -50,12 +50,16 @@ export type RuleMarkSpec = MarkSpec & {
 type RuleNodeGroups = "block" | "inline";
 
 export type RuleNodeExtension<T extends RuleNodeGroups> = {
-  node: RuleNodeSpec<
-    T extends "block" ? "block" : T extends "inline" ? "inline" : never
-  >;
-  rule: ExtensionRule<
-    T extends "block" ? BlockRule : T extends "inline" ? InlineRule : never
-  >;
+  node: T extends "block"
+    ? RuleNodeSpec<"block">
+    : T extends "inline"
+    ? RuleNodeSpec<"inline">
+    : never;
+  rule: T extends "block"
+    ? ExtensionRule<BlockRule>
+    : T extends "inline"
+    ? ExtensionRule<InlineRule>
+    : never;
   plugins?: Plugin[] | ExtensionPlugins<RuleNodeExtension<T>, NodeType>;
 };
 
@@ -67,18 +71,20 @@ export type RuleMarkExtension = {
 
 export type NonRuleNodeExtension = {
   node: NodeSpec;
+  rule?: null;
   plugins?: Plugin[] | ExtensionPlugins<NonRuleNodeExtension, NodeType>;
 };
 
 export type NonRuleMarkExtension = {
   mark: MarkSpec;
+  rule?: null;
   plugins?: Plugin[] | ExtensionPlugins<NonRuleMarkExtension, MarkType>;
 };
 
 export type NodeExtension =
-  | NonRuleNodeExtension
   | RuleNodeExtension<"block">
-  | RuleNodeExtension<"inline">;
+  | RuleNodeExtension<"inline">
+  | NonRuleNodeExtension;
 
 export type MarkExtension = NonRuleMarkExtension | RuleMarkExtension;
 

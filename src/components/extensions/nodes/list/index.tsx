@@ -1,8 +1,8 @@
 import {
   useExtension,
   ExtensionPack,
-  NodeExtension,
   getAttrs,
+  NonRuleNodeExtension,
 } from "../../../editor";
 
 import names from "./names";
@@ -10,7 +10,7 @@ import plugins, { ListItemPlugin } from "./plugins";
 
 import "./style.scss";
 
-const pack: ExtensionPack<NodeExtension> = [
+const pack: ExtensionPack<NonRuleNodeExtension> = [
   {
     name: names.bulleted,
     node: {
