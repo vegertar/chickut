@@ -1,4 +1,9 @@
-import { useExtension, ExtensionPack, NodeExtension } from "../../../editor";
+import {
+  useExtension,
+  ExtensionPack,
+  NodeExtension,
+  getAttrs,
+} from "../../../editor";
 
 import names from "./names";
 import plugins, { ListItemPlugin } from "./plugins";
@@ -20,25 +25,11 @@ const pack: ExtensionPack<NodeExtension> = [
   {
     name: names.numbered,
     node: {
-      attrs: {
-        start: {
-          default: 1,
-        },
-      },
+      attrs: { start: { default: 1 } },
       content: `${names.item}+`,
       group: "block",
-      parseDOM: [
-        {
-          tag: "ol",
-          getAttrs: (dom) => ({
-            start: parseInt((dom as HTMLElement).getAttribute("start") || "1"),
-          }),
-        },
-      ],
-      toDOM: (node) =>
-        node.attrs.order === 1
-          ? ["ol", 0]
-          : ["ol", { start: node.attrs.start }, 0],
+      parseDOM: [{ tag: "ol", getAttrs: (node) => getAttrs(node as Element) }],
+      toDOM: ({ attrs }) => (attrs.start === 1 ? ["ol", 0] : ["ol", attrs, 0]),
     },
     plugins,
   },
