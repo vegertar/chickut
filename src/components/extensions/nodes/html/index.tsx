@@ -18,7 +18,7 @@ const extension: NodeExtension = {
   node: {
     content: "text*",
     marks: "",
-    group: "block",
+    group: "block", // TODO: html inline
     code: true,
     defining: true,
     draggable: false,

@@ -21,16 +21,23 @@ const handle: InlineRuleHandle = function newline(state, silent) {
   // Pending string is stored in concat mode, indexed lookups will cause
   // convertion to flat mode.
   if (!silent) {
+    let softbreak = false;
     if (pmax >= 0 && state.pending.charCodeAt(pmax) === 0x20) {
       if (pmax >= 1 && state.pending.charCodeAt(pmax - 1) === 0x20) {
         state.pending = state.pending.replace(SPACES_RE, "");
-        state.push(this.name, 0); // hardbreak
+        state.push(this.name, 0).markup = "hardbreak";
       } else {
         state.pending = state.pending.slice(0, -1);
-        state.push("text", 0).content = "\n"; // softbreak
+        softbreak = true;
       }
     } else {
-      state.push("text", 0).content = "\n"; // softbreak
+      softbreak = true;
+    }
+
+    if (softbreak) {
+      const token = state.push("text", 0);
+      token.content = "\n";
+      token.markup = "softbreak";
     }
   }
 

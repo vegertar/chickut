@@ -14333,6 +14333,11 @@ typescript@^4.0.3:
   resolved "https://mirrors.huaweicloud.com/repository/npm/typescript/-/typescript-4.0.5.tgz#ae9dddfd1069f1cb5beb3ef3b2170dd7c1332389"
   integrity sha512-ywmr/VrTVCmNTJ6iV2LwIrfG1P+lv6luD8sUJs+2eI9NLGigaN+nUQc13iHqisq7bra9lnmUSYqbJvegraBOPQ==
 
+uc.micro@^1.0.6:
+  version "1.0.6"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/uc.micro/-/uc.micro-1.0.6.tgz#9c411a802a409a91fc6cf74081baba34b24499ac"
+  integrity sha512-8Y75pvTYkLJW2hWQHXxoqRgV7qb9B+9vFEtidML+7koHUFapnVJAZ6cKs+Qjz5Aw3aZWHMC6u0wJE3At+nSGwA==
+
 unfetch@^4.1.0:
   version "4.2.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/unfetch/-/unfetch-4.2.0.tgz#7e21b0ef7d363d8d9af0fb929a5555f6ef97a3be"

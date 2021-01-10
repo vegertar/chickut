@@ -2,8 +2,6 @@ import mdurl from "mdurl";
 import punycode from "punycode/";
 import entities from "entities/lib/maps/entities.json";
 
-import { isValidEntityCode, fromCodePoint } from "../../../editor";
-
 const UNESCAPE_MD_RE = /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g;
 const ENTITY_RE = /&([a-z#][a-z0-9]{1,31});/gi;
 const UNESCAPE_ALL_RE = new RegExp(
@@ -12,18 +10,69 @@ const UNESCAPE_ALL_RE = new RegExp(
 );
 const DIGITAL_ENTITY_TEST_RE = /^#((?:x[a-f0-9]{1,8}|[0-9]{1,8}))/i;
 
-function replaceEntityPattern(match: string, name: keyof typeof entities) {
-  var code = 0;
+export function isValidEntityCode(c: number) {
+  /*eslint no-bitwise:0*/
+  // broken sequence
+  if (c >= 0xd800 && c <= 0xdfff) {
+    return false;
+  }
+  // never used
+  if (c >= 0xfdd0 && c <= 0xfdef) {
+    return false;
+  }
+  if ((c & 0xffff) === 0xffff || (c & 0xffff) === 0xfffe) {
+    return false;
+  }
+  // control codes
+  if (c >= 0x00 && c <= 0x08) {
+    return false;
+  }
+  if (c === 0x0b) {
+    return false;
+  }
+  if (c >= 0x0e && c <= 0x1f) {
+    return false;
+  }
+  if (c >= 0x7f && c <= 0x9f) {
+    return false;
+  }
+  // out of range
+  if (c > 0x10ffff) {
+    return false;
+  }
+  return true;
+}
 
+export function fromCodePoint(c: number) {
+  /*eslint no-bitwise:0*/
+  if (c > 0xffff) {
+    c -= 0x10000;
+    var surrogate1 = 0xd800 + (c >> 10),
+      surrogate2 = 0xdc00 + (c & 0x3ff);
+
+    return String.fromCharCode(surrogate1, surrogate2);
+  }
+  return String.fromCharCode(c);
+}
+
+export function fromEntities(name: string) {
   if (Object.prototype.hasOwnProperty.call(entities, name)) {
-    return entities[name];
+    return entities[name as keyof typeof entities];
+  }
+  return undefined;
+}
+
+function replaceEntityPattern(match: string, name: keyof typeof entities) {
+  const value = fromEntities(name);
+  if (value !== undefined) {
+    return value;
   }
 
   if (
     name.charCodeAt(0) === 0x23 /* # */ &&
     DIGITAL_ENTITY_TEST_RE.test(name)
   ) {
-    code =
+    const code =
       name[1].toLowerCase() === "x"
         ? parseInt(name.slice(2), 16)
         : parseInt(name.slice(1), 10);

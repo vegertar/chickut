@@ -128,6 +128,7 @@ export interface ExtensionAction extends Partial<ExtensionEvents> {
 }
 
 export interface ExtensionState {
+  // we use the existence of property node/mark to determine the corresponding extension type, so an extension should have at most one such properties
   extensions: Record<string, Extension>;
   packs: Record<string, string[]>;
 }

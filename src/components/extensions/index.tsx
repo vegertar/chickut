@@ -18,6 +18,8 @@ export { default as Strikethrough } from "./marks/strikethrough";
 
 // plugins
 export { default as Autolink } from "./plugins/autolink";
+export { default as Emoji } from "./plugins/emoji";
+export { default as Entity } from "./plugins/entity";
 export { default as Escape } from "./plugins/escape";
 export { default as Fence } from "./plugins/fence";
 export { default as Lheading } from "./plugins/lheading";

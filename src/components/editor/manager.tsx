@@ -247,10 +247,8 @@ export class Manager {
 
   private init() {
     for (const name in this.extensions) {
-      const extension = this.extensions[name];
-      const node: NodeSpec | undefined = (extension as NodeExtension).node;
       const deps: Dependency[] = (this.deps[name] = []);
-
+      const node = (this.extensions[name] as NodeExtension).node;
       if (!node) {
         continue;
       }

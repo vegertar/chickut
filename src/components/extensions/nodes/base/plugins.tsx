@@ -239,7 +239,7 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
           if (token.name === "") {
             token.children && this.parseInline(token.children, current.content);
           } else {
-            current.content.push(this.createNode(token));
+            current.content.push(...this.createNodes(token));
           }
           break;
         }
@@ -272,8 +272,7 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
           if (token.name === "text") {
             token.content && nodes.push(this.schema.text(token.content, marks));
           } else {
-            // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
-            nodes.push(this.createNode(token, marks));
+            nodes.push(...this.createNodes(token, marks));
           }
           break;
 
@@ -285,22 +284,26 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
     }
   }
 
-  private createNode(token: Token, marks?: Mark[]): ProsemirrorNode {
+  private createNodes(token: Token, marks?: Mark[]): ProsemirrorNode[] {
+    // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
     const { name, attrs, content } = token;
     const nodeType = this.schema.nodes[name];
     if (nodeType) {
-      return nodeType.createChecked(
-        attrs,
-        content ? this.schema.text(content) : undefined,
-        marks
-      );
+      return [
+        nodeType.createChecked(
+          attrs,
+          content ? this.schema.text(content) : undefined,
+          marks
+        ),
+      ];
     }
 
-    const markType = this.schema.marks[name].create(attrs);
-    return this.schema.text(
-      token.content || "",
-      marks && markType.addToSet(marks)
-    );
+    if (!token.content) {
+      return [];
+    }
+
+    const mark = this.schema.marks[name].create(attrs);
+    return [this.schema.text(token.content, mark.addToSet(marks || Mark.none))];
   }
 }
 
