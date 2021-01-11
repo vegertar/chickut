@@ -57,13 +57,7 @@ export default function Emoji(options?: Options) {
           name: this.name,
           handle: function emoji(state) {
             const fn = applyEmojiesRef.current;
-            if (!fn) {
-              return;
-            }
-
-            for (const token of state.tokens) {
-              fn(token);
-            }
+            fn && state.tokens.forEach((token) => fn(token));
           },
         });
         return [];

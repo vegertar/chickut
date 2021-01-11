@@ -15,6 +15,7 @@ export { default as Backticks } from "./marks/backticks";
 export { default as Emphasis } from "./marks/emphasis";
 export { default as Link } from "./marks/link";
 export { default as Strikethrough } from "./marks/strikethrough";
+export { default as SubSup } from "./marks/subsup";
 
 // plugins
 export { default as Autolink } from "./plugins/autolink";

@@ -31,7 +31,7 @@ const extension: NodeExtension = {
     toDOM: (node) => [
       "pre",
       // TODO: handle fence info
-      { "data-info": node.attrs.info, class: node.type.name },
+      { "data-info": node.attrs.info },
       ["code", 0],
     ],
   },
