@@ -1,3 +1,6 @@
+import merge from "lodash.merge";
+import pickBy from "lodash.pickby";
+import { DOMOutputSpecArray, ParseRule } from "prosemirror-model";
 import { P as UNICODE_PUNCT_RE } from "uc.micro";
 
 export function isPunctChar(ch: string) {
@@ -115,4 +118,47 @@ export function assign<T extends Record<string, any>>(obj: T, ...srcs: T[]): T {
   });
 
   return obj;
+}
+
+const tagMatcher = /^(\w+)(\.(\S+))?/;
+
+export function toDOMSpec<T extends { attrs: Record<string, any> }>(
+  tag: string,
+  attrs?: Record<string, any>
+): (node: T) => DOMOutputSpecArray {
+  const matched = tag.match(tagMatcher);
+  if (!matched) {
+    throw new Error(`Invalid tag ${tag} for matcher ${tagMatcher.source}`);
+  }
+  const [, elementName, , className] = matched;
+
+  return (node) => {
+    if (attrs || className || node.attrs) {
+      const { class: oldClassName, ...others } = pickBy(
+        merge({ ...attrs }, node.attrs),
+        (value) => value && value !== "false"
+      );
+      const newClassName = oldClassName
+        ? `${oldClassName} ${className}`
+        : className;
+      return [elementName, { ...others, class: newClassName }, 0];
+    }
+
+    return [elementName, 0];
+  };
+}
+
+export function toParseRules(tag: string): ParseRule[] {
+  return [
+    {
+      tag,
+      getAttrs: (node) => getAttrs(node as Element),
+    },
+  ];
+}
+
+// Remove element from array and put another array at those position.
+// Useful for some operations with tokens
+export function arrayReplaceAt<T>(src: T[], pos: number, newElements: T[]) {
+  return Array<T>().concat(src.slice(0, pos), newElements, src.slice(pos + 1));
 }

@@ -7,7 +7,5 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: `~~Strikethrough~~ ++Inserted text++ ==Marked text==
-
-~~Strikethrough ++Inserted text ==Marked text==++~~`,
+  text: `H~2~O 19^th^`,
 };

@@ -10,7 +10,7 @@
 // - http://factoryjoe.com/projects/emoticons/
 //
 
-const shortcuts = {
+const aliases = {
   angry: [">:(", ">:-("],
   blush: [':")', ':-")'],
   broken_heart: ["</3", "<\\3"],
@@ -39,4 +39,4 @@ const shortcuts = {
   wink: [";)", ";-)"],
 };
 
-export default shortcuts;
+export default aliases;

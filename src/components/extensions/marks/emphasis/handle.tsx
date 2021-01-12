@@ -5,7 +5,7 @@ import {
   PostInlineRuleHandle,
 } from "../../../editor";
 
-export const handle: InlineRuleHandle = function (state, silent) {
+export const handle: InlineRuleHandle = function emphasis(state, silent) {
   if (silent) {
     return false;
   }
@@ -89,7 +89,7 @@ function postProcess(
 }
 
 // Walk through delimiter list and replace text tokens with tags
-export const postHandle: PostInlineRuleHandle = function (state) {
+export const postHandle: PostInlineRuleHandle = function emphasis(state) {
   postProcess(this.name, state, state.delimiters);
 
   for (const meta of state.tokensMeta) {

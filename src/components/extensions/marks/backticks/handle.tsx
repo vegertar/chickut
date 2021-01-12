@@ -21,7 +21,9 @@ const handle: InlineRuleHandle = function backticks(state, silent) {
   const openerLength = marker.length;
 
   if (state.backticksScanned && (state.backticks[openerLength] || 0) <= start) {
-    if (!silent) state.pending += marker;
+    if (!silent) {
+      state.pending += marker;
+    }
     state.pos += openerLength;
     return true;
   }
