@@ -3,6 +3,16 @@ import pickBy from "lodash.pickby";
 import { DOMOutputSpecArray, ParseRule } from "prosemirror-model";
 import { P as UNICODE_PUNCT_RE } from "uc.micro";
 
+import {
+  Extension,
+  RuleMarkExtension,
+  RuleNodeExtension,
+  NonRuleMarkExtension,
+  NonRuleNodeExtension,
+  AfterPluginExtension,
+  PurePluginExtension,
+} from "./types";
+
 export function isPunctChar(ch: string) {
   return UNICODE_PUNCT_RE.test(ch);
 }
@@ -155,6 +165,62 @@ export function toParseRules(tag: string): ParseRule[] {
       getAttrs: (node) => getAttrs(node as Element),
     },
   ];
+}
+
+export function mergeExtension<T extends RuleNodeExtension<"block">>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends RuleNodeExtension<"inline">>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends NonRuleNodeExtension>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends RuleMarkExtension>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends NonRuleMarkExtension>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends AfterPluginExtension<"node">>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends AfterPluginExtension<"mark">>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends PurePluginExtension>(
+  a: T,
+  b: Partial<T>
+): T;
+export function mergeExtension<T extends Extension>(a: T, b: Partial<T>): never;
+export function mergeExtension<T extends Extension>(
+  { plugins: oldPlugins, ...oldOthers }: T,
+  { plugins: newPlugins, ...newOthers }: Partial<T>
+) {
+  return merge(oldOthers, {
+    ...newOthers,
+    plugins: function (type: any) {
+      return (Array.isArray(oldPlugins)
+        ? oldPlugins
+        : oldPlugins
+        ? (oldPlugins as any).call(this, type)
+        : []
+      ).concat(
+        Array.isArray(newPlugins)
+          ? newPlugins
+          : newPlugins
+          ? (newPlugins as any).call(this, type)
+          : []
+      );
+    },
+  } as T);
 }
 
 // Remove element from array and put another array at those position.

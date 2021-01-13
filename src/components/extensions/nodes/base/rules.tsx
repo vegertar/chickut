@@ -192,10 +192,20 @@ function balanceDelimiters(delimiters: Delimiter[]) {
     const minOpenerIdx = openersBottom[closer.marker][closer.length % 3];
 
     let openerIdx = closerIdx - closer.jump - 1;
+
+    // avoid crash if `closer.jump` is pointing outside of the array, see #742
+    if (openerIdx < -1) {
+      openerIdx = -1;
+    }
+
     let newMinOpenerIdx = openerIdx;
 
-    while (openerIdx > minOpenerIdx) {
-      const opener = delimiters[openerIdx];
+    for (
+      let opener: Delimiter;
+      openerIdx > minOpenerIdx;
+      openerIdx -= opener.jump + 1
+    ) {
+      opener = delimiters[openerIdx];
 
       if (opener.marker !== closer.marker) {
         continue;
@@ -233,8 +243,6 @@ function balanceDelimiters(delimiters: Delimiter[]) {
           break;
         }
       }
-
-      openerIdx -= opener.jump + 1;
     }
 
     if (newMinOpenerIdx !== -1) {

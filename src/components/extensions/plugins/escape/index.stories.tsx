@@ -1,9 +1,7 @@
 import Extension from "./index";
 import { meta, template } from "../../index.stories";
-import Base from "../../nodes/base";
-import Newline from "../../nodes/newline";
 
-export default meta("Plugins", Extension, [Base, Newline]);
+export default meta("Plugins", "Escape", ["Base", "Newline"]);
 
 const Template = template(Extension);
 

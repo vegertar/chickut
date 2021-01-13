@@ -23,6 +23,11 @@ export function useSubscript(
 };
 export function useSubscript(
   marker: number,
+  tag: string | undefined,
+  transform: (s: Token) => void
+): { handle: InlineRuleHandle; extension?: RuleMarkExtension };
+export function useSubscript(
+  marker: number,
   tag?: string,
   transform?: (s: Token) => void
 ) {

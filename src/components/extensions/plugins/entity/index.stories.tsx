@@ -1,7 +1,7 @@
 import Extension from "./index";
 import { meta, template } from "../../index.stories";
 
-export default meta("Plugins", Extension);
+export default meta("Plugins", "Entity");
 
 const Template = template(Extension);
 

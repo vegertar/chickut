@@ -25,13 +25,10 @@ export function useStrikethrough(
 export function useStrikethrough(marker: number, tag?: string) {
   return useMemo(() => {
     const markup = String.fromCharCode(marker);
-    const handle: InlineRuleHandle = function (state, silent) {
-      // Insert each marker as a separate text token, and add it to delimiter list
-      if (silent) {
-        return false;
-      }
 
-      if (state.src.charCodeAt(state.pos) !== marker) {
+    // Insert each marker as a separate text token, and add it to delimiter list
+    const handle: InlineRuleHandle = function (state, silent) {
+      if (silent || state.src.charCodeAt(state.pos) !== marker) {
         return false;
       }
 
@@ -49,10 +46,6 @@ export function useStrikethrough(marker: number, tag?: string) {
 
       for (let i = 0; i < len; i += 2) {
         state.push("text", 0).content = markup + markup;
-
-        // if (!scanned.open && !scanned.close) {
-        //   continue;
-        // }
 
         state.delimiters.push({
           ...scanned,
