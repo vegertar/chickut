@@ -1,7 +1,16 @@
-import { InlineRuleHandle } from "../../../editor";
+import { Env, StateEnv, InlineRuleHandle } from "../../../editor";
+
+export type BackticksStateEnv = StateEnv & {
+  // backtick length => last seen position
+  backticks?: Record<number, number>;
+  backticksScanned?: boolean;
+};
 
 // Parse backticks
-const handle: InlineRuleHandle = function backticks(state, silent) {
+const handle: InlineRuleHandle<Env, BackticksStateEnv> = function backticks(
+  state,
+  silent
+) {
   let pos = state.pos;
   const ch = state.src.charCodeAt(pos);
 
@@ -19,8 +28,13 @@ const handle: InlineRuleHandle = function backticks(state, silent) {
 
   const marker = state.src.slice(start, pos);
   const openerLength = marker.length;
+  const local = state.local;
 
-  if (state.backticksScanned && (state.backticks[openerLength] || 0) <= start) {
+  if (!local.backticks) {
+    local.backticks = {};
+  }
+
+  if (local.backticksScanned && (local.backticks[openerLength] || 0) <= start) {
     if (!silent) {
       state.pending += marker;
     }
@@ -57,11 +71,11 @@ const handle: InlineRuleHandle = function backticks(state, silent) {
     }
 
     // Some different length found, put it in cache as upper limit of where closer can be found
-    state.backticks[closerLength] = matchStart;
+    local.backticks[closerLength] = matchStart;
   }
 
   // Scanned through the end, didn't find anything
-  state.backticksScanned = true;
+  local.backticksScanned = true;
 
   if (!silent) {
     state.pending += marker;

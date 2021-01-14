@@ -25,6 +25,10 @@ export interface Env {
   [key: string]: any;
 }
 
+export interface StateEnv {
+  [key: string]: any;
+}
+
 // 1: opening, 0: self closing, -1: clsoing
 type Nesting = 1 | 0 | -1;
 
@@ -72,19 +76,21 @@ interface StateProps<T, P> {
   env: P;
 }
 
-class State<T, P> {
+class State<T, P, L extends StateEnv> {
   inlineMode = false;
 
   engine: T;
   src: string;
   tokens: Token[];
   env: P;
+  local: L;
 
   constructor({ src, engine, tokens, env }: StateProps<T, P>) {
     this.src = src;
     this.engine = engine;
     this.tokens = tokens;
     this.env = env;
+    this.local = {} as L;
   }
 }
 
@@ -215,12 +221,12 @@ abstract class Parser<T, P, H extends Function> {
   abstract parse(props: StateProps<T, P>): any;
 }
 
-type CoreHandle<T, P> = (
-  this: Rule<CoreHandle<T, P>>,
-  state: State<T, P>
+type CoreHandle<T, P, L = StateEnv> = (
+  this: Rule<CoreHandle<T, P, L>>,
+  state: State<T, P, L>
 ) => void;
 
-export class CoreState<T = {}, P = {}> extends State<T, P> {}
+export class CoreState<T = {}, P = {}, L = {}> extends State<T, P, L> {}
 
 class CoreParser<T, P> extends Parser<T, P, CoreHandle<T, P>> {
   parse(props: StateProps<T, P>) {
@@ -229,7 +235,7 @@ class CoreParser<T, P> extends Parser<T, P, CoreHandle<T, P>> {
   }
 }
 
-export class BlockState<T = {}, P = {}> extends State<T, P> {
+export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
   // The index of bMarks/eMarks/tShift/sCount/bsCount is the zero-based line number.
   // line begin offsets for fast jumps
   bMarks: number[] = [];
@@ -457,9 +463,9 @@ export class BlockState<T = {}, P = {}> extends State<T, P> {
   }
 }
 
-type BlockHandle<T, P> = (
-  this: Rule<BlockHandle<T, P>>,
-  state: BlockState<T, P>,
+type BlockHandle<T, P, L = StateEnv> = (
+  this: Rule<BlockHandle<T, P, L>>,
+  state: BlockState<T, P, L>,
 
   // silent (validation) mode used to check if markup can terminate previous block without empty line. That's used as look-ahead, to detect block end. see: https://github.com/markdown-it/markdown-it/issues/323#issuecomment-271629253
   silent: boolean,
@@ -478,7 +484,7 @@ class BlockParser<T extends { options: Options }, P> extends Parser<
       return;
     }
 
-    const state = new BlockState<T, P>(props);
+    const state = new BlockState(props);
     this.tokenize(state, state.line, state.lineMax);
   }
 
@@ -578,7 +584,7 @@ export type Delimiter = {
   end: number;
 };
 
-export class InlineState<T = {}, P = {}> extends State<T, P> {
+export class InlineState<T = {}, P = {}, L = {}> extends State<T, P, L> {
   tokensMeta = Array<{ delimiters: Delimiter[] } | undefined>(
     this.tokens.length
   );
@@ -594,9 +600,6 @@ export class InlineState<T = {}, P = {}> extends State<T, P> {
   delimiters: Delimiter[] = [];
   // Stack of delimiter lists for upper level tags
   prevDelimiters: Delimiter[][] = [];
-  // backtick length => last seen position
-  backticks: Record<number, number> = {};
-  backticksScanned = false;
 
   // Flush pending text
   pushPending() {
@@ -706,9 +709,9 @@ export class InlineState<T = {}, P = {}> extends State<T, P> {
   }
 }
 
-type InlineHandle<T, P> = (
-  this: Rule<InlineHandle<T, P>>,
-  state: InlineState<T, P>,
+type InlineHandle<T, P, L = StateEnv> = (
+  this: Rule<InlineHandle<T, P, L>>,
+  state: InlineState<T, P, L>,
   silent: boolean
 ) => boolean;
 
@@ -799,9 +802,9 @@ class InlineParser<T extends { options: Options }, P> extends Parser<
   }
 }
 
-type PostInlineHandle<T, P> = (
-  this: Rule<PostInlineHandle<T, P>>,
-  state: InlineState<T, P>
+type PostInlineHandle<T, P, L = StateEnv> = (
+  this: Rule<PostInlineHandle<T, P, L>>,
+  state: InlineState<T, P, L>
 ) => void;
 
 class PostInlineParser<T extends { options: Options }, P> extends Parser<
@@ -861,11 +864,23 @@ export class Engine<P extends Record<string, any> = Env> {
   }
 }
 
-export type CoreRule<P = Env> = Rule<CoreHandle<Engine<P>, P>>;
-export type CoreRuleHandle<P = Env> = CoreRule<P>["handle"];
-export type BlockRule<P = Env> = Rule<BlockHandle<Engine<P>, P>>;
-export type BlockRuleHandle<P = Env> = BlockRule<P>["handle"];
-export type InlineRule<P = Env> = Rule<InlineHandle<Engine<P>, P>>;
-export type InlineRuleHandle<P = Env> = InlineRule<P>["handle"];
-export type PostInlineRule<P = Env> = Rule<PostInlineHandle<Engine<P>, P>>;
-export type PostInlineRuleHandle<P = Env> = PostInlineRule<P>["handle"];
+export type CoreRule<P = Env, L = StateEnv> = Rule<CoreHandle<Engine<P>, P, L>>;
+export type CoreRuleHandle<P = Env, L = StateEnv> = CoreRule<P, L>["handle"];
+export type BlockRule<P = Env, L = StateEnv> = Rule<
+  BlockHandle<Engine<P>, P, L>
+>;
+export type BlockRuleHandle<P = Env, L = StateEnv> = BlockRule<P, L>["handle"];
+export type InlineRule<P = Env, L = StateEnv> = Rule<
+  InlineHandle<Engine<P>, P, L>
+>;
+export type InlineRuleHandle<P = Env, L = StateEnv> = InlineRule<
+  P,
+  L
+>["handle"];
+export type PostInlineRule<P = Env, L = StateEnv> = Rule<
+  PostInlineHandle<Engine<P>, P, L>
+>;
+export type PostInlineRuleHandle<P = Env, L = StateEnv> = PostInlineRule<
+  P,
+  L
+>["handle"];

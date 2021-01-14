@@ -37,6 +37,22 @@
       padding: 3px 4px;
       font-family: theme.var-of(fontFamilyMono);
       font-size: 85%;
+
+      .keyword {
+        color: blue;
+      }
+
+      .punctuation {
+        color: black;
+      }
+
+      .string {
+        color: yellow;
+      }
+
+      .comments {
+        color: green;
+      }
     }
   }
 }

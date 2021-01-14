@@ -1,4 +1,10 @@
-import { NodeExtension, useExtension } from "../../../editor";
+import {
+  getDataset,
+  toDataAttrs,
+  NodeExtension,
+  useExtension,
+} from "../../../editor";
+
 import handle from "./handle";
 import plugins from "./plugins";
 
@@ -6,15 +12,9 @@ import "./style.scss";
 
 const extension: NodeExtension = {
   plugins,
-
-  rule: {
-    handle,
-  },
-
+  rule: { handle },
   node: {
-    attrs: {
-      info: { default: "" },
-    },
+    attrs: { info: { default: "" } },
     content: "text*",
     marks: "",
     group: "block",
@@ -26,14 +26,10 @@ const extension: NodeExtension = {
         tag: "pre",
         preserveWhitespace: "full",
         contentElement: "code",
+        getAttrs: (node) => getDataset(node as HTMLElement),
       },
     ],
-    toDOM: (node) => [
-      "pre",
-      // TODO: handle fence info
-      { "data-info": node.attrs.info },
-      ["code", 0],
-    ],
+    toDOM: ({ attrs }) => ["pre", toDataAttrs(attrs), ["code", 0]],
   },
 };
 

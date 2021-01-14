@@ -7,7 +7,7 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: `\`\`\`
+  text: `\`\`\`js
   var foo = function (bar) {
     return bar++;
   };

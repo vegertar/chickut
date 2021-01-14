@@ -1,5 +1,6 @@
 import merge from "lodash.merge";
 import pickBy from "lodash.pickby";
+import mapKeys from "lodash.mapkeys";
 import { DOMOutputSpecArray, ParseRule } from "prosemirror-model";
 import { P as UNICODE_PUNCT_RE } from "uc.micro";
 
@@ -116,6 +117,27 @@ export function getAttrs(node: Element) {
   );
 }
 
+export function getDataset(node: HTMLElement, attrs?: Record<string, any>) {
+  return {
+    ...node.dataset,
+    ...attrs,
+  };
+}
+
+const CAMEL_RE1 = /\W+/g;
+const CAMEL_RE2 = /([a-z\d])([A-Z])/g;
+const camelToDash = (str: string) =>
+  str.replace(CAMEL_RE1, "-").replace(CAMEL_RE2, "$1-$2");
+
+const isNotFalse = (value: any) => value && value !== "false";
+
+export function toDataAttrs(attrs: Record<string, any>) {
+  return pickBy(
+    mapKeys(attrs, (value, key) => `data-${camelToDash(key)}`),
+    isNotFalse
+  );
+}
+
 export function assign<T extends Record<string, any>>(obj: T, ...srcs: T[]): T {
   srcs.forEach(function (source) {
     if (!source) {
@@ -146,7 +168,7 @@ export function toDOMSpec<T extends { attrs: Record<string, any> }>(
     if (attrs || className || node.attrs) {
       const { class: oldClassName, ...others } = pickBy(
         merge({ ...attrs }, node.attrs),
-        (value) => value && value !== "false"
+        isNotFalse
       );
       const newClassName = oldClassName
         ? `${oldClassName} ${className}`

@@ -65,13 +65,14 @@ function postProcess(
       delimiters[i - 1].marker === startDelim.marker;
 
     const ch = String.fromCharCode(startDelim.marker);
+    const markup = isStrong ? ch + ch : ch;
 
     const openToken = state.tokens[startDelim.token];
     openToken.name = name;
     openToken.nesting = 1;
-    openToken.markup = isStrong ? ch + ch : ch;
+    openToken.markup = markup;
     openToken.content = "";
-    openToken.attrs = { isStrong };
+    openToken.attrs = { isStrong, markup };
 
     const closeToken = state.tokens[endDelim.token];
     closeToken.name = name;
