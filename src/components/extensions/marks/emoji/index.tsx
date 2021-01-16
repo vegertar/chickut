@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from "react";
+import assign from "lodash.assign";
 
 import {
-  assign,
   useExtension,
   Token,
   ExtensionPlugins,
@@ -24,12 +24,8 @@ const defaults: Options = {
   enabled: [],
 };
 
-function useOptions(options?: Options) {
-  const { definitions, aliases, enabled } = assign(
-    {},
-    defaults,
-    options || {}
-  ) as Options;
+function useOptions(options?: Partial<Options>) {
+  const { definitions, aliases, enabled } = assign({}, defaults, options);
 
   return useMemo(() => createOptions({ definitions, aliases, enabled }), [
     definitions,

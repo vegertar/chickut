@@ -1,9 +1,4 @@
-import {
-  getDataset,
-  MarkExtension,
-  toDataAttrs,
-  useExtension,
-} from "../../../editor";
+import { MarkExtension, toDataAttrs, useExtension } from "../../../editor";
 
 import { handle, postHandle } from "./handle";
 
@@ -19,13 +14,13 @@ const extension: MarkExtension = {
     attrs: { markup: {}, isStrong: { default: false } },
     excludes: "", // allow multiple emphasis marks coexist
     parseDOM: [
-      { tag: "em", getAttrs: (node) => getDataset(node as HTMLElement) },
+      { tag: "em", getAttrs: (node) => (node as HTMLElement).dataset },
       {
         tag: "strong",
-        getAttrs: (node) =>
-          getDataset(node as HTMLElement, {
-            isStrong: true,
-          }),
+        getAttrs: (node) => ({
+          ...(node as HTMLElement).dataset,
+          isStrong: true,
+        }),
       },
     ],
     toDOM: ({ attrs: { isStrong, ...dataset } }) => [

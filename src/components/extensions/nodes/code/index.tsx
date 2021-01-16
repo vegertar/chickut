@@ -1,9 +1,4 @@
-import {
-  getDataset,
-  toDataAttrs,
-  NodeExtension,
-  useExtension,
-} from "../../../editor";
+import { toDataAttrs, NodeExtension, useExtension } from "../../../editor";
 
 import handle from "./handle";
 import plugins from "./plugins";
@@ -16,7 +11,7 @@ const extension: NodeExtension = {
   node: {
     attrs: { info: { default: "" } },
     content: "text*",
-    marks: "",
+    marks: "", // disallow marks
     group: "block",
     code: true,
     defining: true,
@@ -26,7 +21,7 @@ const extension: NodeExtension = {
         tag: "pre",
         preserveWhitespace: "full",
         contentElement: "code",
-        getAttrs: (node) => getDataset(node as HTMLElement),
+        getAttrs: (node) => (node as HTMLElement).dataset,
       },
     ],
     toDOM: ({ attrs }) => ["pre", toDataAttrs(attrs), ["code", 0]],

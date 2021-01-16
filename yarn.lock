@@ -1229,6 +1229,69 @@
     exec-sh "^0.3.2"
     minimist "^1.2.0"
 
+"@codemirror/commands@^0.17.1":
+  version "0.17.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/commands/-/commands-0.17.1.tgz#2e5d3af42afc8f305a272d127ba3a471a79ff21a"
+  integrity sha512-y04Rl3kcpnTSzkgnvghjF/9UNjrdVAvT+hxnpuad2OhPcRDEWuFqwwEM7ZpzAkyjFNCG5+KDXuhnERk9cxF6/Q==
+  dependencies:
+    "@codemirror/language" "^0.17.0"
+    "@codemirror/matchbrackets" "^0.17.0"
+    "@codemirror/state" "^0.17.0"
+    "@codemirror/text" "^0.17.0"
+    "@codemirror/view" "^0.17.0"
+    lezer-tree "^0.13.0"
+
+"@codemirror/language@^0.17.0":
+  version "0.17.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/language/-/language-0.17.2.tgz#564d176faefa5302be834a5a8f5b1044a95d8048"
+  integrity sha512-mcAj5qDhv7GE9jpAwUB0ewfRPj0LuoUv4gMRnCraxpKeMUF0BAxr2zXCWt7JKEXYLmueJ7QEjMk8vRaArOXxTQ==
+  dependencies:
+    "@codemirror/state" "^0.17.0"
+    "@codemirror/text" "^0.17.0"
+    "@codemirror/view" "^0.17.0"
+    lezer "^0.13.0"
+    lezer-tree "^0.13.0"
+
+"@codemirror/matchbrackets@^0.17.0":
+  version "0.17.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/matchbrackets/-/matchbrackets-0.17.2.tgz#9dd72046d7bf09550612b2553c41317ed22577b1"
+  integrity sha512-E4TP7lNXk7VtmvvKYH59yNx0lf5ubv7iv0Ok0uWCjxm+RIPnXiOdRoNI7rxITJcgNROOyKnuKsd6AAnmuXxDEQ==
+  dependencies:
+    "@codemirror/language" "^0.17.0"
+    "@codemirror/state" "^0.17.0"
+    "@codemirror/view" "^0.17.0"
+    lezer-tree "^0.13.0"
+
+"@codemirror/rangeset@^0.17.0":
+  version "0.17.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/rangeset/-/rangeset-0.17.1.tgz#41066bcf4b70b2c7595cb1363780688cc3f1235b"
+  integrity sha512-Qv8a8C5CZiUdXGvxniWdULJzXDiz5uSP5ddHFEmekGa9nNVCgdr05nH7R+h3NgJ2P40UEEOPykqXZyy8EHGggw==
+  dependencies:
+    "@codemirror/state" "^0.17.0"
+
+"@codemirror/state@^0.17.0", "@codemirror/state@^0.17.1":
+  version "0.17.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/state/-/state-0.17.1.tgz#ef8db9af29a4485572d380237df5bb0b4d50e7d5"
+  integrity sha512-ELgxzackFVC+wBWpGJGFN6OJ+uIdHrgj4BEh6qooju7U5Mdd1bM594QPGzNMRu3uXjfGj7ANHTATRPc0nnQRfA==
+  dependencies:
+    "@codemirror/text" "^0.17.0"
+
+"@codemirror/text@^0.17.0":
+  version "0.17.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/text/-/text-0.17.2.tgz#7076feeaed16556b52d9b028429296ce10eb1280"
+  integrity sha512-KL+cM+uJPW5skyuTRoW43lOaSQq3YDNEPx5z0V/9Wsz9R9dK4kVP5NIRMUFgl9MUCQ9UxIotvgPDpz65j9wjuA==
+
+"@codemirror/view@^0.17.0", "@codemirror/view@^0.17.3":
+  version "0.17.3"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@codemirror/view/-/view-0.17.3.tgz#feb4482db91e1e612d334dfbf690de7c2a0c7732"
+  integrity sha512-Mrp+BLIZWCi08q+ewGa2YmYD2RcWr1htu91xDd+JSjTfKsQQ0RZq2q72h05KmhZNSS/+rJepWWdLghCa2urRCQ==
+  dependencies:
+    "@codemirror/rangeset" "^0.17.0"
+    "@codemirror/state" "^0.17.0"
+    "@codemirror/text" "^0.17.0"
+    style-mod "^3.2.0"
+    w3c-keyname "^2.2.4"
+
 "@csstools/convert-colors@^1.4.0":
   version "1.4.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@csstools/convert-colors/-/convert-colors-1.4.0.tgz#ad495dc41b12e75d588c6db8b9834f08fa131eb7"
@@ -2514,6 +2577,11 @@
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/braces/-/braces-3.0.0.tgz#7da1c0d44ff1c7eb660a36ec078ea61ba7eb42cb"
   integrity sha512-TbH79tcyi9FHwbyboOKeRachRq63mSuWYXOflsNO9ZyE5ClQ/JaozNKl+aWUq87qPNsXasXxi2AbgfwIJ+8GQw==
 
+"@types/diff-match-patch@^1.0.32":
+  version "1.0.32"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/diff-match-patch/-/diff-match-patch-1.0.32.tgz#d9c3b8c914aa8229485351db4865328337a3d09f"
+  integrity sha512-bPYT5ECFiblzsVzyURaNhljBH2Gh1t9LowgUwciMrNAhFewLkHT2H0Mto07Y4/3KCOGZHRQll3CTtQZ0X11D/A==
+
 "@types/eslint@^7.2.4":
   version "7.2.4"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/eslint/-/eslint-7.2.4.tgz#d12eeed7741d2491b69808576ac2d20c14f74c41"
@@ -2610,6 +2678,13 @@
   version "0.0.29"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/json5/-/json5-0.0.29.tgz#ee28707ae94e11d2b827bcbe5270bcea7f3e71ee"
   integrity sha1-7ihweulOEdK4J7y+UnC86n8+ce4=
+
+"@types/lodash.assign@^4.2.6":
+  version "4.2.6"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/lodash.assign/-/lodash.assign-4.2.6.tgz#e5cc225446c706907893263d5938c6571ad28551"
+  integrity sha512-SaReADQZqf99FUWZ/gHICOAhLfBvaUmVb9y8xCw7o5WDuqDG0YfN1a+by29eipPcV4FITfPbQMJQiOGAeOb4fw==
+  dependencies:
+    "@types/lodash" "*"
 
 "@types/lodash.difference@^4.5.6":
   version "4.5.6"
@@ -5853,7 +5928,7 @@ diff-dom@^4.2.2:
   resolved "https://mirrors.huaweicloud.com/repository/npm/diff-dom/-/diff-dom-4.2.2.tgz#49a121fe1614675b4f28ed50df9547bb0c3c1d52"
   integrity sha512-qO0WsnnMF6Wc5MEm0j4LkwvJWs4Mpkj6pyXWMtcjGJPHWDNcnQY8ijYoSrsZuArBmlHLN9Dqr4de/3ZlbjpRVw==
 
-diff-match-patch@^1.0.0:
+diff-match-patch@^1.0.0, diff-match-patch@^1.0.5:
   version "1.0.5"
   resolved "https://mirrors.huaweicloud.com/repository/npm/diff-match-patch/-/diff-match-patch-1.0.5.tgz#abb584d5f10cd1196dfc55aa03701592ae3f7b37"
   integrity sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw==
@@ -9404,6 +9479,18 @@ levn@~0.3.0:
     prelude-ls "~1.1.2"
     type-check "~0.3.2"
 
+lezer-tree@^0.13.0:
+  version "0.13.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/lezer-tree/-/lezer-tree-0.13.0.tgz#199757338a30e4c5ee8d9a767546d7ce8935bfbe"
+  integrity sha512-YqGD22WxQmT6np2JEX5Z+zhdBSfPEcQ8B6ct+39oLzSAHecUPUd/maN5PKNtnUZbSzd81mEx1ZqzMDA1eRSRcg==
+
+lezer@^0.13.0:
+  version "0.13.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/lezer/-/lezer-0.13.1.tgz#95c8a4e9ad96bae567dff477bdf93b5f1d66f87d"
+  integrity sha512-aDX9OHYWQFt3s7C0IEil//Lckxbr02dCRyxB/uTxVuZjBsNHnUJ8Y83OgDi+uNFwRsexhdoMF0/PSvmky/Fg/g==
+  dependencies:
+    lezer-tree "^0.13.0"
+
 line-column@^1.0.2:
   version "1.0.2"
   resolved "https://mirrors.huaweicloud.com/repository/npm/line-column/-/line-column-1.0.2.tgz#d25af2936b6f4849172b312e4792d1d987bc34a2"
@@ -9496,6 +9583,11 @@ lodash._reinterpolate@^3.0.0:
   version "3.0.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/lodash._reinterpolate/-/lodash._reinterpolate-3.0.0.tgz#0ccf2d89166af03b3663c796538b75ac6e114d9d"
   integrity sha1-DM8tiRZq8Ds2Y8eWU4t1rG4RTZ0=
+
+lodash.assign@^4.2.0:
+  version "4.2.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/lodash.assign/-/lodash.assign-4.2.0.tgz#0d99f3ccd7a6d261d19bdaeb9245005d285808e7"
+  integrity sha1-DZnzzNem0mHRm9rrkkUAXShYCOc=
 
 lodash.curry@^4.0.1:
   version "4.1.1"
@@ -10028,11 +10120,6 @@ mkdirp@^1.0.3, mkdirp@^1.0.4:
   version "1.0.4"
   resolved "https://mirrors.huaweicloud.com/repository/npm/mkdirp/-/mkdirp-1.0.4.tgz#3eb5ed62622756d79a5f0e2a221dfebad75c2f7e"
   integrity sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==
-
-morphdom@^2.6.1:
-  version "2.6.1"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/morphdom/-/morphdom-2.6.1.tgz#e868e24f989fa3183004b159aed643e628b4306e"
-  integrity sha512-Y8YRbAEP3eKykroIBWrjcfMw7mmwJfjhqdpSvoqinu8Y702nAwikpXcNFDiIkyvfCLxLM9Wu95RZqo4a9jFBaA==
 
 move-concurrently@^1.0.1:
   version "1.0.1"
@@ -13822,6 +13909,11 @@ style-loader@1.3.0, style-loader@^1.2.1:
     loader-utils "^2.0.0"
     schema-utils "^2.7.0"
 
+style-mod@^3.2.0:
+  version "3.2.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/style-mod/-/style-mod-3.2.1.tgz#daaa4ad2a8b2880b4c07b29c061d49b5db6cab15"
+  integrity sha512-cQerrMLHjR/fxC4DWC2dRrXc11hvsM7lJ2vtuMOHWU5IG7Deu5RfTbttjbY4xiRAWs3gFIZZFf694jzNPW1Ehw==
+
 style-to-object@0.3.0, style-to-object@^0.3.0:
   version "0.3.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/style-to-object/-/style-to-object-0.3.0.tgz#b1b790d205991cc783801967214979ee19a76e46"
@@ -14737,7 +14829,7 @@ w3c-hr-time@^1.0.2:
   dependencies:
     browser-process-hrtime "^1.0.0"
 
-w3c-keyname@^2.2.0:
+w3c-keyname@^2.2.0, w3c-keyname@^2.2.4:
   version "2.2.4"
   resolved "https://mirrors.huaweicloud.com/repository/npm/w3c-keyname/-/w3c-keyname-2.2.4.tgz#4ade6916f6290224cdbd1db8ac49eab03d0eef6b"
   integrity sha512-tOhfEwEzFLJzf6d1ZPkYfGj+FWhIpBux9ppoP3rlclw3Z0BZv3N7b7030Z1kYth+6rDuAsXUFr+d0VE6Ed1ikw==

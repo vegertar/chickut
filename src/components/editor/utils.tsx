@@ -117,13 +117,6 @@ export function getAttrs(node: Element) {
   );
 }
 
-export function getDataset(node: HTMLElement, attrs?: Record<string, any>) {
-  return {
-    ...node.dataset,
-    ...attrs,
-  };
-}
-
 const CAMEL_RE1 = /\W+/g;
 const CAMEL_RE2 = /([a-z\d])([A-Z])/g;
 const camelToDash = (str: string) =>
@@ -136,20 +129,6 @@ export function toDataAttrs(attrs: Record<string, any>) {
     mapKeys(attrs, (value, key) => `data-${camelToDash(key)}`),
     isNotFalse
   );
-}
-
-export function assign<T extends Record<string, any>>(obj: T, ...srcs: T[]): T {
-  srcs.forEach(function (source) {
-    if (!source) {
-      return;
-    }
-
-    for (const key in source) {
-      obj[key] = source[key];
-    }
-  });
-
-  return obj;
 }
 
 const tagMatcher = /^(\w+)(\.(\S+))?/;
@@ -173,7 +152,11 @@ export function toDOMSpec<T extends { attrs: Record<string, any> }>(
       const newClassName = oldClassName
         ? `${oldClassName} ${className}`
         : className;
-      return [elementName, { ...others, class: newClassName }, 0];
+      return [
+        elementName,
+        newClassName ? others : { ...others, class: newClassName },
+        0,
+      ];
     }
 
     return [elementName, 0];
