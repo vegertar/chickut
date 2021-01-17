@@ -1,6 +1,5 @@
 import { Node as ProsemirrorNode, NodeType } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
-import { EditorState } from "prosemirror-state";
 import { inputRules, textblockTypeInputRule } from "prosemirror-inputrules";
 
 import { ExtensionPlugin } from "../../../editor";
@@ -13,7 +12,6 @@ class CodePlugin extends ExtensionPlugin {
     view: EditorView,
     getPos: boolean | (() => number)
   ) => new NodeView(node, view, getPos as () => number);
-  decorations = (state: EditorState) => this.getState(state);
 }
 
 // since markdown do not work on empty lines, so use input rule to enable very first code node when typing

@@ -1,25 +1,16 @@
+import { diff_match_patch } from "diff-match-patch";
 import { Node as ProsemirrorNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
 import { Transaction } from "prosemirror-state";
 import { exitCode } from "prosemirror-commands";
 
-import {
-  ChangeSpec as CMChangeSpec,
-  EditorState as CMEditorState,
-} from "@codemirror/state";
-import {
-  EditorView as CMEditorView,
-  keymap as CMkeymap,
-  Command as CMCommand,
-} from "@codemirror/view";
-import { defaultKeymap as CMdefaultKeymap } from "@codemirror/commands";
-
-import { diff_match_patch } from "diff-match-patch";
+import * as cm from "./cm";
+import lang from "./lang";
 
 const dmp = new diff_match_patch();
 
 export class NodeView {
-  readonly cm: CMEditorView;
+  readonly cm: cm.EditorView;
   readonly dom: HTMLElement;
 
   constructor(
@@ -27,17 +18,13 @@ export class NodeView {
     protected view: EditorView,
     protected getPos: () => number
   ) {
-    this.cm = new CMEditorView({
-      state: CMEditorState.create({
-        extensions: [
-          CMkeymap.of([
-            ...CMdefaultKeymap,
-            ...Object.entries(this.keymaps()).map(([key, run]) => ({
-              key,
-              run,
-            })),
-          ]),
-        ],
+    this.dom = document.createElement("div");
+    this.dom.className = node.type.name;
+
+    this.cm = new cm.EditorView({
+      parent: this.dom,
+      state: cm.EditorState.create({
+        extensions: [cm.basicSetup, lang()],
       }),
       dispatch: (tr) => {
         this.cm.update([tr]);
@@ -47,11 +34,11 @@ export class NodeView {
         }
       },
     });
-    this.dom = this.cm.dom;
+
     this.render();
   }
 
-  keymaps(): { [key: string]: CMCommand } {
+  keymaps(): Record<string, cm.Command> {
     return {
       "Ctrl-Enter": () => {
         if (exitCode(this.view.state, this.view.dispatch)) {
@@ -78,7 +65,7 @@ export class NodeView {
   downwardChanges() {
     const from = this.cm.state.doc.toString();
     const to = this.node.textContent;
-    const steps: CMChangeSpec[] = [];
+    const steps: cm.ChangeSpec[] = [];
 
     let index = 0;
     for (const [op, text] of dmp.diff_main(from, to)) {
