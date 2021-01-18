@@ -11,5 +11,14 @@ Default.args = {
     line 1 of code
     line 2 of code
     line 3 of code
-`,
+
+setup a counter
+
+    var x = 0;
+    const id = setInterval(() => ++x, 1000);
+    () => clearInterval(id);
+
+show
+
+    "counter: " + x`,
 };

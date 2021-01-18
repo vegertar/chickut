@@ -14,4 +14,42 @@
     background-color: transparent !important;
     border: none !important;
   }
+
+  .code {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
+    & > .inspector {
+      order: -1;
+    }
+
+    & > .panel {
+      position: absolute;
+      display: flex;
+      top: 2px;
+      right: 6px;
+
+      button {
+        padding: 0;
+        outline: none;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        vertical-align: middle;
+        background-color: transparent;
+
+        & > svg {
+          width: 18px;
+          height: 18px;
+          fill: theme.var-of(text);
+          opacity: 0.6;
+
+          &:hover {
+            opacity: 1;
+          }
+        }
+      }
+    }
+  }
 }

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import produce from "immer";
 import { diff_match_patch } from "diff-match-patch";
 import { Node as ProsemirrorNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
@@ -9,17 +11,29 @@ import lang from "./lang";
 
 const dmp = new diff_match_patch();
 
+type Handle<T> = ((event: T) => void) | undefined;
+
+var onCreate: Handle<NodeView>;
+var onChange: Handle<string>;
+var onDestroy: Handle<string>;
+var onEvent: Handle<Event>;
+
+var seq = 0;
+
 export class NodeView {
-  readonly cm: cm.EditorView;
+  readonly id: string;
   readonly dom: HTMLElement;
+  readonly cm: cm.EditorView;
 
   constructor(
     protected node: ProsemirrorNode,
     protected view: EditorView,
     protected getPos: () => number
   ) {
+    this.id = `${node.type.name}-${++seq}`;
     this.dom = document.createElement("div");
     this.dom.className = node.type.name;
+    this.dom.id = this.id;
 
     this.cm = new cm.EditorView({
       parent: this.dom,
@@ -31,11 +45,21 @@ export class NodeView {
         if (tr.docChanged) {
           const tr = this.upwardChanges();
           tr && this.view.dispatch(tr);
+          onChange?.(this.id);
         }
       },
     });
 
+    this.initEvent();
     this.render();
+
+    onCreate?.(this);
+  }
+
+  initEvent() {
+    const handle: Handle<Event> = (event) => onEvent?.(event);
+    this.dom.onmouseenter = handle;
+    this.dom.onmouseleave = handle;
   }
 
   keymaps(): Record<string, cm.Command> {
@@ -55,6 +79,15 @@ export class NodeView {
     }
     this.node = node;
     return this.render() === false ? false : true;
+  }
+
+  destroy() {
+    this.cm.destroy();
+    onDestroy?.(this.id);
+  }
+
+  selectNode() {
+    console.log(">>>>>>>>>>>>>>>>>>>>>>>>>", this.node);
   }
 
   render(): boolean | void {
@@ -113,4 +146,54 @@ export class NodeView {
     }
     return tr;
   }
+}
+
+export function useView(name: string) {
+  const [nodeViews, setViews] = useState<NodeView[]>([]);
+  const [focus, setFocus] = useState<string>();
+  const [change, setChange] = useState<string>();
+
+  useEffect(() => {
+    onCreate = (view) =>
+      setViews((views) =>
+        produce(views, (draft: NodeView[]) => {
+          draft.push(view);
+        })
+      );
+    onChange = (id) => setChange(id);
+    onDestroy = (id) =>
+      setViews((views) =>
+        produce(views, (draft: NodeView[]) => {
+          const index = draft.findIndex((view) => view.id === id);
+          if (index !== -1) {
+            draft.splice(index, 1);
+          }
+        })
+      );
+    return () => {
+      onCreate = undefined;
+      onChange = undefined;
+      onDestroy = undefined;
+    };
+  }, []);
+
+  useEffect(() => {
+    onEvent = (event) => {
+      const { type, target } = event;
+      const nameMatched =
+        target instanceof HTMLElement && target.classList.contains(name);
+
+      switch (type) {
+        case "mouseenter":
+          nameMatched && setFocus((target as Element).id);
+          break;
+        case "mouseleave":
+          nameMatched && setFocus(undefined);
+          break;
+      }
+    };
+    return () => (onEvent = undefined);
+  }, [name]);
+
+  return { nodeViews, focus, change };
 }
