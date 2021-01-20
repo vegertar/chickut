@@ -1,15 +1,33 @@
+import { useEffect, useReducer } from "react";
 import { parseModule, ESTree } from "meriyah";
 import isEqualWith from "lodash.isequalwith";
+import isEmpty from "lodash.isempty";
+import produce from "immer";
 
 type ESTreeNodeType = ESTree.Node["type"] | ESTree.Expression["type"];
 type Evaluators = Partial<Record<ESTreeNodeType, (x: ESTree.Node) => void>>;
 
 const nop = () => {};
 const ws = /^\s+$/;
+const comment = /^\s*\/[/*]/;
 const frame =
   typeof requestAnimationFrame === "function"
     ? requestAnimationFrame
     : setImmediate;
+
+const isEqualEnv = (a: Record<string, any>, b: Record<string, any>) => {
+  for (const key in a) {
+    if (!b.hasOwnProperty(key)) {
+      return false;
+    }
+  }
+  for (const key in b) {
+    if (!a.hasOwnProperty(key)) {
+      return false;
+    }
+  }
+  return true;
+};
 
 type Range = [number, number] | null;
 
@@ -44,6 +62,9 @@ export class Snippet {
       const last = this.vars[this.vars.length - 1];
       if (last && !last.name) {
         last.name = name;
+        if (!last.range) {
+          last.range = range;
+        }
       } else {
         let i = this.vars.length - 1;
         let j: number | undefined;
@@ -137,13 +158,46 @@ export class Snippet {
       }
     },
 
+    FunctionDeclaration: (node: ESTree.Node) => {
+      const { id, params, body, range } = node as ESTree.FunctionDeclaration;
+      if (id) {
+        this.vars.push({
+          name: "",
+          kind: "var",
+          nesting: this.nesting,
+          range,
+        });
+        this.evaluators[id.type]?.(id);
+      }
+      this.nesting++;
+      for (const param of params) {
+        this.vars.push({
+          kind: "let",
+          nesting: this.nesting,
+          name: "",
+        });
+        this.evaluators[param.type]?.(param);
+      }
+      body && this.evaluators[body.type]?.(body);
+      this.nesting--;
+    },
+
+    TemplateLiteral: (node: ESTree.Node) => {
+      const { expressions } = node as ESTree.TemplateLiteral;
+      for (const item of expressions) {
+        this.evaluators[item.type]?.(item);
+      }
+    },
+
     ExpressionStatement: (node: ESTree.Node) => {
       const { expression, range } = node as ESTree.ExpressionStatement;
       this.evaluators[expression.type]?.(expression);
       if (
         range &&
         this.range &&
-        (range[1] === this.range[1] || ws.test(this.code.slice(range[1])))
+        (range[1] === this.range[1] ||
+          ws.test(this.code.slice(range[1])) ||
+          comment.test(this.code.slice(range[1])))
       ) {
         this.lastExpression = range;
       }
@@ -156,6 +210,11 @@ export class Snippet {
         this.evaluators[item.type]?.(item);
       }
       this.nesting -= 1;
+    },
+
+    ReturnStatement: (node: ESTree.Node) => {
+      const { argument: param } = node as ESTree.ReturnStatement;
+      param && this.evaluators[param.type]?.(param);
     },
 
     ArrayPattern: (node: ESTree.Node) => {
@@ -286,12 +345,23 @@ export class Snippet {
 // the records of global variables for each sneppet
 type Records = Record<string, string[]>;
 // the DAG graph
-type Topo = { name: string; from: Set<string>; to: Set<string> }[];
+type Topo = {
+  // variable name
+  name: string;
+  // variable owner
+  from: Set<string>;
+  // variable listener
+  to: Set<string>;
+}[];
 // track DFS status
 type Visited = Record<string, undefined | 1 | 2>;
 
 export class CycleError extends Error {}
-export class AmbiguousError extends Error {}
+export class AmbiguousError extends Error {
+  constructor(public readonly name: string) {
+    super(`Ambiguous Name: ${name}`);
+  }
+}
 
 function dfs(
   source: Map<string, Snippet>,
@@ -408,70 +478,66 @@ export type Closure<T = Result | null> = {
   result: T;
 };
 
-type Options = {
+export type Options = {
   onReturned?: (closure: Closure<Result>) => void;
   onDisposed?: (closure: Closure<null>) => void;
 };
 
-function isEqualEnv(a: Record<string, any>, b: Record<string, any>) {
-  for (const key in a) {
-    if (!b.hasOwnProperty(key)) {
-      return false;
-    }
-  }
-  for (const key in b) {
-    if (!a.hasOwnProperty(key)) {
-      return false;
-    }
-  }
-  return true;
-}
+type Handle = () => any;
+type Graph = {
+  callers: Record<string, Set<string>>;
+  callees: Record<string, Handle>;
+};
+type State = {
+  closures: Record<string, Closure>;
+  topo: Topo;
+};
 
 export default class Runtime {
   public readonly options: Options;
-
   public readonly snippets = new Map<string, Snippet>();
-  public readonly closures: Record<string, Closure> = {};
-
-  protected topo: Topo = [];
-  protected graph = new Map<string, ((values: any[]) => any)[]>();
-  protected disposed = false;
-  protected obsoleted: { closures: Record<string, Closure>; topo: Topo }[] = [];
+  public readonly state: State = { closures: {}, topo: [] };
+  protected readonly graph: Graph = { callers: {}, callees: {} };
+  protected running = false;
 
   constructor(codes: string[] = [], options?: Options) {
     this.options = { ...options };
     codes.forEach((code) => this.add(code));
   }
 
+  reconfigure(options?: Options) {
+    Object.assign(this.options, options);
+    return this;
+  }
+
+  // update a snippet and refresh executions if at running
   add(code: string, id = `snippet-${this.snippets.size}`) {
     const old = this.snippets.get(id);
     if (!old || old.code !== code) {
       this.snippets.set(id, new Snippet(code, id));
       this.setup(id);
     }
-    return this;
+    return this.refresh(id);
   }
 
-  del(id: string) {
+  // delete a snippet and rebuild graph if at running
+  delete(id: string) {
     if (this.snippets.has(id)) {
       this.snippets.delete(id);
-      delete this.closures[id];
       this.setup();
     }
     return this;
   }
 
   protected setup(target?: string) {
-    const oldTopo = this.topo;
-    const oldClosures: Record<string, Closure> = {};
-
-    this.topo = toposort(this.snippets);
+    const { closures: oldClosures, topo: oldTopo } = this.state;
+    const topo = toposort(this.snippets);
     const closures: Record<string, Closure> = {};
 
     this.snippets.forEach(({ id }) => {
       const env: Record<string, any> = {};
       const params: string[] = [];
-      this.topo.forEach(({ name, from, to }) => {
+      topo.forEach(({ name, from, to }) => {
         if (from.has(id)) {
           env[name] = undefined;
         }
@@ -480,18 +546,21 @@ export default class Runtime {
         }
       });
 
-      closures[id] = {
+      const closure: Closure = {
         id,
-        env: this.proxy(env, id),
+        env,
         params,
         timestamp: 0,
         fn: nop,
         result: null,
       };
+
+      closure.env = this.proxy(env, closure);
+      closures[id] = closure;
     });
 
     this.snippets.forEach((snippet, id) => {
-      const oldClosure = this.closures[id];
+      const oldClosure = oldClosures[id];
       const newClosure = closures[id];
 
       if (
@@ -499,88 +568,95 @@ export default class Runtime {
         !isEqualWith(oldClosure.params, newClosure.params) ||
         !isEqualEnv(oldClosure.env, newClosure.env)
       ) {
-        if (oldClosure?.result) {
-          oldClosures[id] = oldClosure;
-        }
-
-        this.closures[id] = newClosure;
         // eslint-disable-next-line no-new-func
-        this.closures[id].fn = new Function(
+        newClosure.fn = new Function(
           "__env__",
           ...newClosure.params,
           snippet.transform()
         );
+        closures[id] = newClosure;
+      } else {
+        // reuse old one
+        closures[id] = oldClosure;
+        delete oldClosures[id];
       }
     });
-    this.graph = this.createGraph();
-    this.obsoleted.push({ closures: oldClosures, topo: oldTopo });
+
+    this.state.closures = closures;
+    this.state.topo = topo;
+
+    if (this.running) {
+      if (!isEmpty(oldClosures)) {
+        this.obsolete({ closures: oldClosures, topo: oldTopo });
+      }
+      this.resetGraph();
+    }
   }
 
-  private createGraph() {
-    const graph: Runtime["graph"] = new Map();
-    this.topo.forEach(({ name, to }, i) => {
-      if (to.size === 0) {
-        return;
+  protected createCallees() {
+    const { topo, closures } = this.state;
+    const callees: Record<string, Handle> = {};
+
+    for (const callee in closures) {
+      const calleeClosure = closures[callee];
+      const params = calleeClosure.params;
+      const callers: number[] = [];
+
+      for (let i = 0; i < topo.length; ++i) {
+        if (topo[i].to.has(callee)) {
+          callers.push(i);
+        }
       }
 
-      const handlers: ((values: any[]) => any)[] = [];
-      for (const target of to) {
-        const closure = this.closures[target];
-        const params = closure.params;
-        const others = new Set<string>();
-        for (let j = 0; j < this.topo.length; ++j) {
-          if (j !== i && this.topo[j].to.has(target)) {
-            let ts = -1;
-            let other: string | undefined;
-            for (const id of this.topo[j].from) {
-              const obj = this.closures[id];
-              if (obj.timestamp > ts) {
-                other = id;
-                ts = obj.timestamp;
-              }
-            }
-            if (other !== undefined) {
-              others.add(other);
-            }
-          }
+      callees[callee] = () => {
+        if (!this.running) {
+          return;
         }
 
-        const args = new Map<string, Closure>();
-        if (others.size) {
-          for (let i = 0; i < params.length; ++i) {
-            const param = params[i];
-            for (const j of others) {
-              const other = this.closures[j];
-              if (Object.getOwnPropertyDescriptor(other.env, param)) {
-                args.set(param, other);
-                break;
-              }
+        const values = Array(params.length);
+        for (const i of callers) {
+          // find the latest caller
+          let ts = -1;
+          let caller: string | undefined;
+          for (const id of topo[i].from) {
+            const obj = closures[id];
+            if (!obj) {
+              // current evaluation had been obsoleted
+              return;
+            }
+            if (obj.timestamp > ts) {
+              caller = id;
+              ts = obj.timestamp;
             }
           }
-        }
 
-        handlers.push((values: any[]) => {
-          if (args.size) {
+          if (caller) {
+            // retrieve arguments
+            const callerClosure = closures[caller];
             for (let i = 0; i < params.length; ++i) {
               const param = params[i];
-              const paramClosure = args.get(param);
-              if (paramClosure) {
-                values[i] = paramClosure.env[param];
+              if (callerClosure.env.hasOwnProperty(param)) {
+                values[i] = callerClosure.env[param];
               }
             }
           }
+        }
 
-          this.cleanup(closure);
-          this.compute(closure, ...values);
-        });
-      }
+        this.cleanup(calleeClosure);
+        this.compute(calleeClosure, ...values);
+      };
+    }
 
-      if (handlers.length) {
-        graph.set(name, handlers);
-      }
+    return callees;
+  }
+
+  protected resetGraph() {
+    const callers: Record<string, Set<string>> = {};
+    this.state.topo.forEach(({ name, to }) => {
+      callers[name] = to;
     });
-
-    return graph;
+    this.graph.callees = this.createCallees();
+    this.graph.callers = callers;
   }
 
   protected cleanup(closure: Closure) {
@@ -591,16 +667,19 @@ export default class Runtime {
     }
   }
 
-  protected cleanupBy(closures: Record<string, Closure>, topo: Topo) {
+  protected obsolete({ topo, closures }: State) {
     for (let i = topo.length - 1; i >= 0; --i) {
-      for (const id of this.topo[i].from) {
+      for (const id of topo[i].from) {
         const closure = closures[id];
-        closure && this.cleanup(closure);
+        if (closure) {
+          this.cleanup(closure);
+          // TODO: clear env and notify downstream
+        }
       }
     }
   }
 
-  protected proxy(env: Record<string, any>, id: string) {
+  protected proxy(env: Record<string, any>, closure: Closure) {
     return new Proxy(env, {
       set: (target, key, value, receiver) => {
         if (value === target[key as string]) {
@@ -609,11 +688,9 @@ export default class Runtime {
 
         const ret = Reflect.set(target, key, value, receiver);
         if (ret) {
-          this.closures[id].timestamp = new Date().getTime();
-          if (!this.disposed) {
-            const handlers = this.graph.get(key as string);
-            handlers?.forEach((fn) => frame(() => fn(Object.values(target))));
-          }
+          closure.timestamp = new Date().getTime();
+          const callees = this.graph.callers[key as string];
+          callees?.forEach((callee) => frame(this.graph.callees[callee]));
         }
 
         return ret;
@@ -621,46 +698,138 @@ export default class Runtime {
     });
   }
 
+  transform() {
+    // TODO: export a complete js code
+    return "";
+  }
+
   evaluate() {
-    if (this.obsoleted.length) {
-      this.obsoleted.forEach((item) =>
-        this.cleanupBy(item.closures, item.topo)
-      );
-      this.obsoleted = [];
+    this.running = true;
+    this.resetGraph();
+    return this.refresh();
+  }
+
+  refresh(target?: string) {
+    if (!this.running) {
+      return this;
     }
 
-    const done = new Set<string>();
-    this.topo.forEach(({ from, to }) => {
-      for (const id of from) {
-        if (!done.has(id)) {
-          done.add(id);
-          const closure = this.closures[id];
-          if (!closure.result) {
+    if (!target) {
+      const { topo, closures } = this.state;
+      const done = new Set<string>();
+      topo.forEach(({ from, to }) => {
+        let n = done.size;
+        for (const id of from) {
+          if (!done.has(id)) {
+            const closure = closures[id];
+            done.add(id);
             frame(() => this.compute(closure));
           }
         }
-      }
-      // will be automatically ran by functions within from
-      for (const i of to) {
-        done.add(i);
-      }
-    });
+        if (n < done.size) {
+          // will be automatically ran by functions within from
+          for (const i of to) {
+            done.add(i);
+          }
+        }
+      });
+    } else if (this.snippets.has(target)) {
+      frame(this.graph.callees[target]);
+    }
 
     return this;
   }
 
   dispose() {
-    this.disposed = true;
-    this.cleanupBy(this.closures, this.topo);
+    this.running = false;
+    this.obsolete(this.state);
+    this.snippets.clear();
   }
 
   compute(closure: Closure, ...args: any[]) {
     try {
-      const value = closure.fn!(closure.env, ...args);
+      const value = closure.fn(closure.env, ...args);
       closure.result = { value, date: new Date() };
     } catch (error) {
       closure.result = { error, date: new Date() };
     }
     this.options.onReturned?.(closure as Closure<Result>);
   }
+}
+
+function reducer(
+  state: {
+    runtime: Runtime;
+    results: Record<string, Result>;
+    status: Record<
+      string,
+      {
+        /* TODO: */
+      }
+    >;
+  },
+  action: {
+    returned?: Closure<Result>;
+    disposed?: Closure<null>;
+    add?: { code: string; id: string };
+    delete?: string;
+  }
+) {
+  if (action.returned) {
+    const { id, result } = action.returned;
+    state = produce(state, (draft) => {
+      draft.results[id] = result;
+    });
+  }
+
+  if (action.disposed) {
+    // TODO:
+    console.log(action.disposed);
+  }
+
+  if (action.add) {
+    const { code, id } = action.add;
+    state.runtime.add(code, id);
+    state = produce(state, (draft) => {
+      draft.status[id] = {};
+    });
+  }
+
+  if (action.delete) {
+    const id = action.delete;
+    state.runtime.delete(id);
+    state = produce(state, (draft) => {
+      delete draft.status[id];
+    });
+  }
+
+  return state;
+}
+
+export function useRuntime() {
+  const [{ runtime, ...state }, dispatch] = useReducer(reducer, {
+    runtime: new Runtime(),
+    results: {},
+    status: {},
+  });
+
+  useEffect(() => {
+    let unmounted = false;
+    runtime
+      .reconfigure({
+        onReturned: (returned) => {
+          unmounted || dispatch({ returned });
+        },
+        onDisposed: (disposed) => {
+          unmounted || dispatch({ disposed });
+        },
+      })
+      .evaluate();
+    return () => {
+      unmounted = true;
+      runtime.dispose();
+    };
+  }, [runtime]);
+
+  return [state, dispatch] as [typeof state, typeof dispatch];
 }

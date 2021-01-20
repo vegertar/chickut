@@ -13,15 +13,47 @@ function sleep(n: number) {
   });
 }
 
-describe("transform", () => {
+describe("compile", () => {
   const cases = [
-    { input: `"counter" + x    `, output: `;return "counter" + x    ` },
+    {
+      code: `"counter" + x    `,
+      vars: [],
+      refs: [{ name: "x" }],
+      tr: `;return "counter" + x    `,
+    },
+    {
+      code: `"counter" + x  // comment`,
+      vars: [],
+      refs: [{ name: "x" }],
+      tr: `;return "counter" + x  // comment`,
+    },
+    {
+      code: `"counter" + x  /* comment */`,
+      vars: [],
+      refs: [{ name: "x" }],
+      tr: `;return "counter" + x  /* comment */`,
+    },
+    {
+      code: `\`counter: \${x} (\${y})\``,
+      vars: [],
+      refs: [{ name: "x" }, { name: "y" }],
+      tr: `;return \`counter: \${x} (\${y})\``,
+    },
+    {
+      code: "function getCounter() { return counter; }",
+      vars: [{ name: "getCounter" }],
+      refs: [{ name: "counter" }],
+      tr:
+        "function getCounter() { return counter; };__env__.getCounter = getCounter;",
+    },
   ];
 
-  cases.forEach(({ input, output }, i) =>
-    it(input, () => {
-      const r = new Snippet(input, `${i}`);
-      expect(r.transform()).toBe(output);
+  cases.forEach(({ code, vars, refs, tr }, i) =>
+    it(code, () => {
+      const r = new Snippet(code, `${i}`);
+      expect(r.vars).toMatchObject(vars);
+      expect(r.refs).toMatchObject(refs);
+      expect(r.transform()).toBe(tr);
     })
   );
 });
@@ -91,7 +123,7 @@ describe("the minimal snippet", () => {
 
   it("functions", async () => {
     const runtime = new Runtime(cases.map((item) => item.code));
-    const [f1, f2, f3, f4, f5] = Object.values(runtime.closures).map(
+    const [f1, f2, f3, f4, f5] = Object.values(runtime.state.closures).map(
       (item) => item.fn!
     );
 
@@ -130,7 +162,7 @@ describe("the minimal snippet", () => {
     await sleep(3000);
     runtime.dispose();
 
-    const [c1, c2, c3, c4, c5] = Object.values(runtime.closures);
+    const [c1, c2, c3, c4, c5] = Object.values(runtime.state.closures);
 
     expect(c1.result!.value).toBeUndefined();
     expect(c1.env).toMatchObject({});

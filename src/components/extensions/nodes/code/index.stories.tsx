@@ -14,11 +14,28 @@ Default.args = {
 
 setup a counter
 
-    var x = 0;
-    const id = setInterval(() => ++x, 1000);
-    () => clearInterval(id);
+    var x = getCounter();
+    const id = setInterval(() => ++x, 100);
+    () => {
+        clearInterval(id);
+        setCounter(x);
+    }
+
+setup extra indicators
+
+    const y = new Date().toLocaleString();
+
+    let counter = 0;
+
+    function setCounter(n) {
+        counter = n;
+    }
+
+    function getCounter() {
+        return counter;
+    }
 
 show
 
-    "counter: " + x`,
+    \`id: \${id}  startup: \${y}  counter: \${x}\``,
 };

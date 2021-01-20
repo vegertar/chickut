@@ -1,16 +1,36 @@
 import React from "react";
-import { MdPlayArrow } from "react-icons/md";
+import { BsArrowClockwise, BsToggleOn, BsToggleOff } from "react-icons/bs";
 
 type Props = {
-  onExecute?: (event: React.MouseEvent) => void;
+  isToggleOn?: boolean;
+  onToggle?: (isToggleOn: boolean) => void;
+  onRefresh?: () => void;
 };
 
-export default function Panel({ onExecute }: Props) {
+export default function Panel({ isToggleOn, onToggle, onRefresh }: Props) {
   return (
     <div className="panel">
-      <button onClick={onExecute}>
-        <MdPlayArrow />
+      <button>
+        {isToggleOn ? (
+          <BsToggleOn
+            onClick={() => {
+              onToggle?.(false);
+            }}
+          />
+        ) : (
+          <BsToggleOff
+            onClick={() => {
+              onToggle?.(true);
+            }}
+          />
+        )}
       </button>
+
+      {isToggleOn && (
+        <button onClick={() => onRefresh?.()}>
+          <BsArrowClockwise />
+        </button>
+      )}
     </div>
   );
 }
