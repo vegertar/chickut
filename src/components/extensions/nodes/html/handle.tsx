@@ -4,7 +4,6 @@ import { BlockRuleHandle } from "../../../editor";
 
 // An array of opening and corresponding closing sequences for html tags,
 // last argument defines whether it can terminate a paragraph or not
-//
 const HTML_SEQUENCES: [RegExp, RegExp, boolean][] = [
   [/^<(script|pre|style)(?=(\s|>|$))/i, /<\/(script|pre|style)>/i, true],
   [/^<!--/, /-->/, true],

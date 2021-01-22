@@ -1,12 +1,13 @@
 import React from "react";
+import { Portal } from "react-portal";
+import { Fragment } from "prosemirror-model";
 
 import { useExtension, NodeExtension } from "../../../editor";
 
 import handle from "./handle";
 import plugins from "./plugins";
-import { useView } from "./view";
+import { useView, Wrapper } from "./view";
 
-const name = "html";
 const extension: NodeExtension = {
   plugins,
 
@@ -24,20 +25,44 @@ const extension: NodeExtension = {
     draggable: false,
     parseDOM: [
       {
-        tag: `div.${name}`,
-        contentElement: ">pre>code",
+        tag: "div.html",
         preserveWhitespace: "full",
+        getAttrs: (node) => {
+          if (!(node as HTMLElement).querySelector(">.wrapper")) {
+            return false;
+          }
+        },
+        getContent: (dom, schema) => {
+          const content = (dom.firstChild as HTMLElement).innerHTML;
+          return Fragment.from<any>(schema.text(content));
+        },
       },
     ],
-    toDOM: () => [
-      "div",
-      { class: name },
-      ["pre", ["code", { spellCheck: "false" }, 0]],
-      ["div", { class: "view", contentEditable: "false" }],
-    ],
+    toDOM: (node) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "wrapper";
+      wrapper.innerHTML = node.textContent;
+      return ["div", { class: "html" }, wrapper];
+    },
   },
 };
 
 export default function Html() {
-  return useView(useExtension(extension, name));
+  const { name } = useExtension(extension, "html");
+  const { nodeViews } = useView(name);
+
+  return (
+    <>
+      {nodeViews.map((nodeView) => {
+        const { id, dom, cm } = nodeView;
+        const html = cm.state.doc.toString();
+
+        return (
+          <Portal key={id} node={dom}>
+            <Wrapper html={html} />
+          </Portal>
+        );
+      })}
+    </>
+  );
 }

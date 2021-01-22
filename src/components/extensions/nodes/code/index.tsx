@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Portal } from "react-portal";
 
 import { toDataAttrs, NodeExtension, useExtension } from "../../../editor";
@@ -8,7 +8,7 @@ import plugins from "./plugins";
 import Panel from "./panel";
 import Inspector from "./inspector";
 import { useView } from "./view";
-import { useRuntime } from "./runtime";
+import { useScript } from "./script";
 
 import "./style.scss";
 
@@ -25,53 +25,45 @@ const extension: NodeExtension = {
     draggable: false,
     parseDOM: [
       {
-        tag: "pre",
+        tag: "pre.code",
         preserveWhitespace: "full",
-        contentElement: "code",
         getAttrs: (node) => (node as HTMLElement).dataset,
       },
     ],
-    toDOM: ({ attrs }) => ["pre", toDataAttrs(attrs), ["code", 0]],
+    toDOM: ({ attrs }) => [
+      "pre",
+      { ...toDataAttrs(attrs), class: "code" },
+      ["code", 0],
+    ],
   },
 };
 
 export default function Code() {
   const { name } = useExtension(extension, "code");
-  const { created, destroyed } = useView(name);
-  const [{ status, results }, dispatch] = useRuntime();
-
-  useEffect(() => {
-    destroyed && dispatch({ delete: destroyed.id });
-  }, [destroyed, dispatch]);
+  const { nodeViews } = useView(name);
+  const script = useScript(nodeViews);
 
   return (
     <>
-      {created.map((nodeView) => {
-        const id = nodeView.id;
-        const result = results[id];
+      {nodeViews.map((nodeView) => {
+        const { id, dom, cm } = nodeView;
+        const state = script.get(id);
 
         return (
-          <Portal key={id} node={nodeView.dom}>
+          <Portal key={id} node={dom}>
             <Panel
-              isToggleOn={status[id] !== undefined}
+              isToggleOn={state !== undefined}
               onToggle={(isToggleOn) => {
                 if (isToggleOn) {
-                  const code = nodeView.cm.state.doc.toString();
-                  dispatch({ add: { code, id } });
+                  const code = cm.state.doc.toString();
+                  script.activate(code, id);
                 } else {
-                  dispatch({ delete: id });
+                  script.deactivate(id);
                 }
               }}
-              onRefresh={() =>
-                dispatch({
-                  add: {
-                    code: nodeView.cm.state.doc.toString(),
-                    id,
-                  },
-                })
-              }
+              onRefresh={() => script.activate(cm.state.doc.toString(), id)}
             />
-            {result && <Inspector {...result} />}
+            {state && <Inspector {...state} />}
           </Portal>
         );
       })}

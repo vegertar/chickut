@@ -1,88 +1,42 @@
-import React, { useEffect, useState } from "react";
-import { Node as ProsemirrorNode } from "prosemirror-model";
-import { EditorView } from "prosemirror-view";
+import React, { useEffect, useRef } from "react";
 import { DiffDOM } from "diff-dom";
 
-import { ExtensionPlugin } from "../../../editor";
-import Runtime from "./runtime";
+import { NodeView as CodeView, useView as useCodeView } from "../code/view";
+
+export class NodeView extends CodeView {}
+
+export function useView(name: string) {
+  return useCodeView(name);
+}
 
 const dd = new DiffDOM();
 
-var updateVersion: (() => void) | undefined;
-
-export class NodeView {
-  readonly dom: HTMLElement;
-  readonly contentDOM?: Node | null;
-
-  constructor(public readonly node: ProsemirrorNode) {
-    const { dom, contentDOM } = ExtensionPlugin.createDefaultNode(node)!;
-    this.dom = dom as HTMLElement;
-    this.contentDOM = contentDOM;
-    this.setView(node);
-  }
-
-  update(node: ProsemirrorNode) {
-    if (node.type !== this.node.type) {
-      return false;
-    }
-
-    this.setView(node);
-    return true;
-  }
-
-  private setView(node: ProsemirrorNode) {
-    const from = this.dom.querySelector(".view")!;
-    const to = from.cloneNode() as HTMLElement;
-    to.innerHTML = node.textContent;
-
-    console.log(dd.diff(from, to));
-
-    // morphdom(from, to, {
-    //   onElUpdated(node) {
-    //     console.log(node);
-    //   },
-    // });
-
-    from.innerHTML = node.textContent;
-    if (from.querySelector("script")) {
-      updateVersion?.();
-    }
+function update(oldElement: HTMLElement, html: string) {
+  const newElement = oldElement.cloneNode() as HTMLElement;
+  newElement.innerHTML = html;
+  if (newElement.innerHTML === html) {
+    // TODO: detect script diff
+    dd.apply(oldElement, dd.diff(oldElement, newElement));
+  } else {
+    // TODO: handle error for invalid HTML
   }
 }
 
-function useScript(name?: string) {
-  const [version, setVersion] = useState(0);
-  const [testingData, setTestingData] = useState<string>();
+export function Wrapper({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    updateVersion = () => setVersion((x) => x + 1);
-    return () => (updateVersion = undefined);
-  }, []);
+    if (!ref.current) {
+      return;
+    }
 
-  useEffect(() => {
-    const codes: string[] = [];
-    document
-      .querySelectorAll<HTMLScriptElement>(`div.${name}>div.view script`)
-      .forEach((script) => {
-        if (script.textContent) {
-          codes.push(script.textContent);
-        }
-      });
+    const wrapper = ref.current;
+    if (!wrapper.innerHTML) {
+      wrapper.innerHTML = html;
+    } else {
+      update(wrapper, html);
+    }
+  }, [html]);
 
-    const runtime = new Runtime(codes, {
-      onReturned: (closure) => {
-        if (closure.result) {
-          setTestingData(closure.result);
-        }
-      },
-    });
-    runtime.evaluate();
-    return () => runtime.dispose();
-  }, [version, name]);
-
-  return testingData ? <span>{testingData}</span> : null;
-}
-
-export function useView({ view, name }: { view?: EditorView; name?: string }) {
-  return useScript(name);
+  return <div className="wrapper" ref={ref}></div>;
 }

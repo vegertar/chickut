@@ -158,7 +158,6 @@ describe("the minimal snippet", () => {
 
   it("evaluate", async () => {
     const runtime = new Runtime(cases.map((item) => item.code));
-    runtime.evaluate();
     await sleep(3000);
     runtime.dispose();
 

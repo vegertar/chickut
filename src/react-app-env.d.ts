@@ -39,14 +39,13 @@ declare module "diff-dom" {
     action: Action;
     newValue: string;
     oldValue: string;
-    route: [number | number];
+    route: [number, number];
   }
 
-  type Diffs = Array<Diff>;
   export class DiffDOM {
     constructor(options?: Options);
-    apply(tree: Node, diffs: Diffs): boolean;
-    undo(tree: Node, diffs: Diffs): void;
-    diff(t1Node: any, t2Node: any): Diffs;
+    apply(tree: Node, diffs: Diff[]): boolean;
+    undo(tree: Node, diffs: Diff[]): void;
+    diff(t1Node: any, t2Node: any): Diff[];
   }
 }

@@ -2,7 +2,6 @@ import { useEffect, useReducer } from "react";
 import { parseModule, ESTree } from "meriyah";
 import isEqualWith from "lodash.isequalwith";
 import isEmpty from "lodash.isempty";
-import produce from "immer";
 
 type ESTreeNodeType = ESTree.Node["type"] | ESTree.Expression["type"];
 type Evaluators = Partial<Record<ESTreeNodeType, (x: ESTree.Node) => void>>;
@@ -342,7 +341,7 @@ export class Snippet {
   }
 }
 
-// the records of global variables for each sneppet
+// the records of global variables for each snippet
 type Records = Record<string, string[]>;
 // the DAG graph
 type Topo = {
@@ -350,7 +349,7 @@ type Topo = {
   name: string;
   // variable owner
   from: Set<string>;
-  // variable listener
+  // variable listeners consisting of snippet id
   to: Set<string>;
 }[];
 // track DFS status
@@ -464,18 +463,12 @@ export function toposort(source: Map<string, Snippet> | Snippet[]) {
 }
 
 export type Result = {
+  // time at function ended
   date: Date;
+  // returned value if any
   value?: any;
+  // caught exception if any
   error?: any;
-};
-
-export type Closure<T = Result | null> = {
-  id: string;
-  env: Record<string, any>;
-  params: string[];
-  timestamp: number;
-  fn: Function;
-  result: T;
 };
 
 export type Options = {
@@ -483,45 +476,71 @@ export type Options = {
   onDisposed?: (closure: Closure<null>) => void;
 };
 
-type Handle = () => any;
-type Graph = {
-  callers: Record<string, Set<string>>;
-  callees: Record<string, Handle>;
+export type Closure<T = Result | null> = {
+  // as same as code id
+  id: string;
+  // enviornment of this closure
+  env: Record<string, any>;
+  // last time of updating env
+  timestamp: number;
+  // parameters list of bound function
+  params: string[];
+  // bound function
+  fn: Function;
+  // result of function execution
+  result: T;
+  options: Options;
 };
-type State = {
-  closures: Record<string, Closure>;
-  topo: Topo;
-};
+
+export class DisposedError extends Error {
+  constructor() {
+    super("Runtime Has Been Disposed");
+  }
+}
 
 export default class Runtime {
   public readonly options: Options;
   public readonly snippets = new Map<string, Snippet>();
-  public readonly state: State = { closures: {}, topo: [] };
-  protected readonly graph: Graph = { callers: {}, callees: {} };
-  protected running = false;
+  public readonly state = {
+    // id -> Closure
+    closures: {} as Record<string, Closure>,
+    // variables topo
+    topo: [] as Topo,
+  };
+
+  protected readonly graph = {
+    // variable -> <id>[]
+    callers: {} as Record<string, Set<string>>,
+    // id -> fn
+    callees: {} as Record<string, () => any>,
+  };
+
+  protected running = true;
 
   constructor(codes: string[] = [], options?: Options) {
     this.options = { ...options };
     codes.forEach((code) => this.add(code));
+    this.refresh();
   }
 
-  reconfigure(options?: Options) {
-    Object.assign(this.options, options);
-    return this;
-  }
-
-  // update a snippet and refresh executions if at running
+  // update a snippet and rebuild graph
   add(code: string, id = `snippet-${this.snippets.size}`) {
+    if (!this.running) {
+      throw new DisposedError();
+    }
     const old = this.snippets.get(id);
     if (!old || old.code !== code) {
       this.snippets.set(id, new Snippet(code, id));
       this.setup(id);
     }
-    return this.refresh(id);
+    return this;
   }
 
-  // delete a snippet and rebuild graph if at running
+  // delete a snippet and rebuild graph
   delete(id: string) {
+    if (!this.running) {
+      throw new DisposedError();
+    }
     if (this.snippets.has(id)) {
       this.snippets.delete(id);
       this.setup();
@@ -553,6 +572,7 @@ export default class Runtime {
         timestamp: 0,
         fn: nop,
         result: null,
+        options: oldClosures[id]?.options || { ...this.options },
       };
 
       closure.env = this.proxy(env, closure);
@@ -585,17 +605,15 @@ export default class Runtime {
     this.state.closures = closures;
     this.state.topo = topo;
 
-    if (this.running) {
-      if (!isEmpty(oldClosures)) {
-        this.obsolete({ closures: oldClosures, topo: oldTopo });
-      }
-      this.resetGraph();
+    if (!isEmpty(oldClosures)) {
+      this.obsolete({ closures: oldClosures, topo: oldTopo });
     }
+    this.resetGraph();
   }
 
   protected createCallees() {
     const { topo, closures } = this.state;
-    const callees: Record<string, Handle> = {};
+    const callees: Record<string, () => any> = {};
 
     for (const callee in closures) {
       const calleeClosure = closures[callee];
@@ -663,11 +681,11 @@ export default class Runtime {
     if (closure.result && typeof closure.result.value === "function") {
       closure.result.value();
       closure.result = null;
-      this.options.onDisposed?.(closure as Closure<null>);
+      closure.options.onDisposed?.(closure as Closure<null>);
     }
   }
 
-  protected obsolete({ topo, closures }: State) {
+  protected obsolete({ topo, closures }: Runtime["state"]) {
     for (let i = topo.length - 1; i >= 0; --i) {
       for (const id of topo[i].from) {
         const closure = closures[id];
@@ -703,15 +721,9 @@ export default class Runtime {
     return "";
   }
 
-  evaluate() {
-    this.running = true;
-    this.resetGraph();
-    return this.refresh();
-  }
-
-  refresh(target?: string) {
+  refresh(target?: string, options?: Options) {
     if (!this.running) {
-      return this;
+      throw new DisposedError();
     }
 
     if (!target) {
@@ -733,17 +745,32 @@ export default class Runtime {
           }
         }
       });
-    } else if (this.snippets.has(target)) {
-      frame(this.graph.callees[target]);
+    } else {
+      if (options) {
+        const closure = this.state.closures[target];
+        Object.assign(closure.options, options);
+      }
+      const fn = this.graph.callees[target];
+      fn && frame(fn);
     }
 
     return this;
   }
 
+  reconfigure(allOptions: Record<string, Options>) {
+    for (const id in allOptions) {
+      const options = allOptions[id];
+      const closure = this.state.closures[id];
+      closure && Object.assign(closure.options, options);
+    }
+  }
+
   dispose() {
-    this.running = false;
-    this.obsolete(this.state);
-    this.snippets.clear();
+    if (this.running) {
+      this.running = false;
+      this.obsolete(this.state);
+      this.snippets.clear();
+    }
   }
 
   compute(closure: Closure, ...args: any[]) {
@@ -753,83 +780,6 @@ export default class Runtime {
     } catch (error) {
       closure.result = { error, date: new Date() };
     }
-    this.options.onReturned?.(closure as Closure<Result>);
+    closure.options.onReturned?.(closure as Closure<Result>);
   }
-}
-
-function reducer(
-  state: {
-    runtime: Runtime;
-    results: Record<string, Result>;
-    status: Record<
-      string,
-      {
-        /* TODO: */
-      }
-    >;
-  },
-  action: {
-    returned?: Closure<Result>;
-    disposed?: Closure<null>;
-    add?: { code: string; id: string };
-    delete?: string;
-  }
-) {
-  if (action.returned) {
-    const { id, result } = action.returned;
-    state = produce(state, (draft) => {
-      draft.results[id] = result;
-    });
-  }
-
-  if (action.disposed) {
-    // TODO:
-    console.log(action.disposed);
-  }
-
-  if (action.add) {
-    const { code, id } = action.add;
-    state.runtime.add(code, id);
-    state = produce(state, (draft) => {
-      draft.status[id] = {};
-    });
-  }
-
-  if (action.delete) {
-    const id = action.delete;
-    state.runtime.delete(id);
-    state = produce(state, (draft) => {
-      delete draft.status[id];
-    });
-  }
-
-  return state;
-}
-
-export function useRuntime() {
-  const [{ runtime, ...state }, dispatch] = useReducer(reducer, {
-    runtime: new Runtime(),
-    results: {},
-    status: {},
-  });
-
-  useEffect(() => {
-    let unmounted = false;
-    runtime
-      .reconfigure({
-        onReturned: (returned) => {
-          unmounted || dispatch({ returned });
-        },
-        onDisposed: (disposed) => {
-          unmounted || dispatch({ disposed });
-        },
-      })
-      .evaluate();
-    return () => {
-      unmounted = true;
-      runtime.dispose();
-    };
-  }, [runtime]);
-
-  return [state, dispatch] as [typeof state, typeof dispatch];
 }

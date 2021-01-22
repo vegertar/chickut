@@ -7,7 +7,5 @@ const Template = template(Extension);
 
 export const Default = Template.bind({});
 Default.args = {
-  text: `<script>"counter: " + x</script>
-
-<script>var x = 0; setInterval(() => ++x, 1000)</script>`,
+  text: `<i>hello</i> <button onclick="alert('html')">click</button>`,
 };

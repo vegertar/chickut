@@ -32,7 +32,7 @@ export class NodeView {
     protected getPos: () => number
   ) {
     this.name = node.type.name;
-    this.id = `${node.type.name}-${++seq}`;
+    this.id = `${node.type.name}-${new Date().getTime()}-${++seq}`;
     this.dom = document.createElement("div");
     this.dom.className = this.name;
     this.dom.id = this.id;
@@ -40,7 +40,16 @@ export class NodeView {
     this.cm = new cm.EditorView({
       parent: this.dom,
       state: cm.EditorState.create({
-        extensions: [cm.basicSetup, lang()],
+        extensions: [
+          cm.basicSetup,
+          lang(),
+          cm.keymap.of(
+            Object.entries(this.keymaps()).map(([key, run]) => ({
+              key,
+              run,
+            }))
+          ),
+        ],
       }),
       dispatch: (tr) => {
         this.cm.update([tr]);
@@ -147,20 +156,19 @@ export class NodeView {
 }
 
 type State = {
-  created: NodeView[];
-  destroyed?: NodeView;
+  nodeViews: NodeView[];
   focused?: string;
-  updated?: string;
+  updated?: { id: string };
 };
 
 export function useView(name: string) {
-  const [state, setState] = useState<State>({ created: [] });
+  const [state, setState] = useState<State>({ nodeViews: [] });
 
   useEffect(() => {
     onCreate.set(name, (view) =>
       setState((state) =>
         produce(state, (draft: State) => {
-          draft.created.push(view);
+          draft.nodeViews.push(view);
         })
       )
     );
@@ -168,7 +176,7 @@ export function useView(name: string) {
     onUpdate.set(name, (id) =>
       setState((state) =>
         produce(state, (draft) => {
-          draft.updated = id;
+          draft.updated = { id };
         })
       )
     );
@@ -176,9 +184,9 @@ export function useView(name: string) {
     onDestroy.set(name, (id) =>
       setState((views) =>
         produce(views, (draft) => {
-          const index = draft.created.findIndex((view) => view.id === id);
+          const index = draft.nodeViews.findIndex((view) => view.id === id);
           if (index !== -1) {
-            draft.destroyed = draft.created.splice(index, 1)[0];
+            draft.nodeViews.splice(index, 1);
           }
         })
       )
