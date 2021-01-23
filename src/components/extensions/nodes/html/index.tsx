@@ -27,14 +27,15 @@ const extension: NodeExtension = {
       {
         tag: "div.html",
         preserveWhitespace: "full",
-        getAttrs: (node) => {
-          if (!(node as HTMLElement).querySelector(">.wrapper")) {
+        getAttrs: (dom) => {
+          if (!(dom as HTMLElement).querySelector(">.wrapper")) {
             return false;
           }
         },
         getContent: (dom, schema) => {
-          const content = (dom.firstChild as HTMLElement).innerHTML;
-          return Fragment.from<any>(schema.text(content));
+          const html = (dom as HTMLElement).querySelector(">.wrapper")!
+            .innerHTML;
+          return schema.text(html).content as Fragment<any>;
         },
       },
     ],
@@ -59,7 +60,7 @@ export default function Html() {
 
         return (
           <Portal key={id} node={dom}>
-            <Wrapper html={html} />
+            <Wrapper className="wrapper" children={html} />
           </Portal>
         );
       })}

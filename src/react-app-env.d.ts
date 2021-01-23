@@ -19,33 +19,135 @@ declare module "diff-dom" {
     compress?: boolean; // Whether to work with compressed diffs
   };
 
-  type Action =
-    | "addAttribute"
-    | "modifyAttribute"
-    | "removeAttribute"
-    | "modifyTextElement"
-    | "relocateGroup"
-    | "removeElement"
-    | "addElement"
-    | "removeTextElement"
-    | "addTextElement"
-    | "replaceElement"
-    | "modifyValue"
-    | "modifyChecked"
-    | "modifySelected"
-    | "modifyComment";
+  type InlineElement = {
+    nodeName: "#text";
+    data: string;
+  };
 
-  class Diff {
-    action: Action;
-    newValue: string;
-    oldValue: string;
-    route: [number, number];
+  type BlockElement = {
+    nodeName: string;
+    childNodes: Element[];
+  };
+
+  type Element = InlineElement | BlockElement;
+
+  export interface AddAttribute {
+    action: "addAttribute";
+    name: string;
+    route: number[];
+    value: string;
   }
+
+  export interface ModifyAttribute {
+    action: "modifyAttribute";
+    name: string;
+    route: number[];
+    value: string;
+  }
+
+  export interface RemoveAttribute {
+    action: "removeAttribute";
+    name: string;
+    route: number[];
+    value: string;
+  }
+
+  export interface AddTextElement {
+    action: "addTextElement";
+    route: number[];
+    value: string;
+  }
+
+  export interface RemoveTextElement {
+    action: "removeTextElement";
+    route: number[];
+    value: string;
+  }
+
+  export interface ModifyTextElement {
+    action: "modifyTextElement";
+    route: number[];
+    oldValue: string;
+    newValue: string;
+  }
+
+  export interface AddElement {
+    action: "addElement";
+    route: number[];
+    element: Element;
+  }
+
+  export interface RemoveElement {
+    action: "removeElement";
+    route: number[];
+    element: Element;
+  }
+
+  export interface ReplaceElement {
+    action: "replaceElement";
+    route: number[];
+    oldValue: Element;
+    newValue: Element;
+  }
+
+  export interface RelocateGroup {
+    action: "relocateGroup";
+    route: number[];
+    groupLength: number;
+    from: number;
+    to: number;
+  }
+
+  export interface ModifyValue {
+    action: "modifyValue";
+    route: number[];
+    oldValue: string;
+    newValue: string;
+  }
+
+  export interface ModifyChecked {
+    action: "modifyChecked";
+    route: number[];
+    oldValue: boolean;
+    newValue: boolean;
+  }
+
+  export interface ModifySelected {
+    action: "modifySelected";
+    route: number[];
+    oldValue: boolean;
+    newValue: boolean;
+  }
+
+  export interface ModifyComment {
+    action: "modifyComment";
+    route: number[];
+    oldValue: string;
+    newValue: string;
+  }
+
+  export type Diff =
+    | AddAttribute
+    | ModifyAttribute
+    | RemoveAttribute
+    | AddTextElement
+    | RemoveTextElement
+    | ModifyTextElement
+    | AddElement
+    | RemoveElement
+    | ReplaceElement
+    | RelocateGroup
+    | ModifyValue
+    | ModifyChecked
+    | ModifySelected
+    | ModifyComment;
+
+  type Diffs = Diff[];
 
   export class DiffDOM {
     constructor(options?: Options);
-    apply(tree: Node, diffs: Diff[]): boolean;
-    undo(tree: Node, diffs: Diff[]): void;
-    diff(t1Node: any, t2Node: any): Diff[];
+    apply(tree: Node, diffs: Diffs): boolean;
+    undo(tree: Node, diffs: Diffs): void;
+    diff(t1Node: Node, t2Node: Node): Diffs;
   }
 }

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from "react";
-import { DiffDOM } from "diff-dom";
+import React, { HTMLAttributes, useEffect, useRef } from "react";
 
 import { NodeView as CodeView, useView as useCodeView } from "../code/view";
+
+import { updateDOM } from "./utils";
 
 export class NodeView extends CodeView {}
 
@@ -9,20 +10,10 @@ export function useView(name: string) {
   return useCodeView(name);
 }
 
-const dd = new DiffDOM();
-
-function update(oldElement: HTMLElement, html: string) {
-  const newElement = oldElement.cloneNode() as HTMLElement;
-  newElement.innerHTML = html;
-  if (newElement.innerHTML === html) {
-    // TODO: detect script diff
-    dd.apply(oldElement, dd.diff(oldElement, newElement));
-  } else {
-    // TODO: handle error for invalid HTML
-  }
-}
-
-export function Wrapper({ html }: { html: string }) {
+export function Wrapper({
+  children: html,
+  ...attrs
+}: { children: string } & HTMLAttributes<HTMLDivElement>) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,9 +25,10 @@ export function Wrapper({ html }: { html: string }) {
     if (!wrapper.innerHTML) {
       wrapper.innerHTML = html;
     } else {
-      update(wrapper, html);
+      // TODO:
+      updateDOM(wrapper, html);
     }
   }, [html]);
 
-  return <div className="wrapper" ref={ref}></div>;
+  return <div {...attrs} ref={ref} />;
 }

@@ -3216,6 +3216,11 @@
   dependencies:
     "@types/jest" "*"
 
+"@types/trie-prefix-tree@^1.5.0":
+  version "1.5.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/trie-prefix-tree/-/trie-prefix-tree-1.5.0.tgz#6baf31a70a13e456296eebd91c53322dce274def"
+  integrity sha512-lRHdDWUVOgIeVVZA9HWb7STfeeRasmo/BeQ6KpHGpr45pi8gxrQOLFys1cbgpC9avPc8aTeCqjWjpG46k+IGqA==
+
 "@types/uglify-js@*":
   version "3.11.1"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/uglify-js/-/uglify-js-3.11.1.tgz#97ff30e61a0aa6876c270b5f538737e2d6ab8ceb"
@@ -14497,6 +14502,11 @@ tr46@^2.0.2:
   integrity sha512-3n1qG+/5kg+jrbTzwAykB5yRYtQCTqOGKq5U5PE3b0a1/mzo6snDhjGS0zJVJunO0NrT3Dg1MLy5TjWP/UJppg==
   dependencies:
     punycode "^2.1.1"
+
+trie-prefix-tree@^1.5.1:
+  version "1.5.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/trie-prefix-tree/-/trie-prefix-tree-1.5.1.tgz#209c91f0e66cde53af2c5de8aceeca5558cdf03d"
+  integrity sha512-Jjvj/dA97wXnabG/NLJUgo4IQMj6vucH+Qxm7of/omfWSmZlPqdRU6Ta4GmQqCZH+n3/iYZUwfvUoEhB0Hs83Q==
 
 trim-trailing-lines@^1.0.0:
   version "1.1.4"
