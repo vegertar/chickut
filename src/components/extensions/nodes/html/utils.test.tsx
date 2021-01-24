@@ -1,4 +1,4 @@
-import { getRoutes, getFromRoute, updateDOM } from "./utils";
+import { getRoutes, getFromRoute, Track } from "./utils";
 
 describe("getRoutes", () => {
   const s = `
@@ -26,12 +26,12 @@ describe("getRoutes", () => {
   });
 
   it("has 1 <div>", () => {
-    const routes = getRoutes(root, "div");
+    const routes = getRoutes(root, "DIV");
     expect(routes).toMatchObject([[]]);
   });
 
   it("has 1 <table>", () => {
-    const routes = getRoutes(root, "table");
+    const routes = getRoutes(root, "TABLE");
     expect(routes).toMatchObject([[1]]);
     expect(
       routes.map((route) => getFromRoute(root, route)?.nodeName)
@@ -39,7 +39,7 @@ describe("getRoutes", () => {
   });
 
   it("has 2 <tr>", () => {
-    const routes = getRoutes(root, "tr");
+    const routes = getRoutes(root, "TR");
     expect(routes).toMatchObject([
       [1, 1, 0],
       [1, 1, 2],
@@ -50,7 +50,7 @@ describe("getRoutes", () => {
   });
 
   it("has 2 <th>", () => {
-    const routes = getRoutes(root, "th");
+    const routes = getRoutes(root, "TH");
     expect(routes).toMatchObject([
       [1, 1, 0, 1],
       [1, 1, 0, 3],
@@ -61,14 +61,14 @@ describe("getRoutes", () => {
   });
 
   it("has 3 <td>", () => {
-    const routes = getRoutes(root, "td");
+    const routes = getRoutes(root, "TD");
     expect(
       routes.map((route) => getFromRoute(root, route)?.nodeName)
     ).toMatchObject(Array(3).fill("TD"));
   });
 
   it("has 1 <script>", () => {
-    const routes = getRoutes(root, "script");
+    const routes = getRoutes(root, "SCRIPT");
     expect(
       routes.map((route) => getFromRoute(root, route)?.nodeName)
     ).toMatchObject(["SCRIPT"]);
@@ -77,42 +77,44 @@ describe("getRoutes", () => {
 
 describe("updateDOM", () => {
   const root = document.createElement("div");
-  const records: Record<string, string> = {};
+  const track = new Track("script");
   const savedRecords: Record<string, string>[] = [];
 
-  const addScript = updateDOM(root, "<script>alert()</script>", records);
-  savedRecords.push({ ...records });
+  const addScript = track.updateDOM(root, "<script>alert()</script>");
+  savedRecords.push({ ...track.records });
 
-  const insertTextBefore = updateDOM(root, `hello${root.innerHTML}`, records);
-  savedRecords.push({ ...records });
+  const insertTextBefore = track.updateDOM(root, `hello${root.innerHTML}`);
+  savedRecords.push({ ...track.records });
 
-  const insertEmptyNodeAfter = updateDOM(
+  const insertEmptyNodeAfter = track.updateDOM(
     root,
-    `${root.innerHTML}<div></div>`,
-    records
+    `${root.innerHTML}<div></div>`
   );
-  savedRecords.push({ ...records });
+  savedRecords.push({ ...track.records });
 
-  const insertEmbedScript = updateDOM(
+  const insertEmbedScript = track.updateDOM(
     root,
-    `${root.innerHTML}<div><script>console.log('ok')</script></div>`,
-    records
+    `${root.innerHTML}<div><script>console.log('ok')</script></div>`
   );
-  savedRecords.push({ ...records });
+  savedRecords.push({ ...track.records });
 
-  const modifyAndInsertEmbedScript = updateDOM(
+  const modifyAndInsertEmbedScript = track.updateDOM(
     root,
-    `hello<script>alert('ok')</script><div><script>console.error()</script></div><div><script>console.log('ok')</script></div>`,
-    records
+    `hello<script>alert('ok')</script><div><script>console.error()</script></div><div><script>console.log('ok')</script></div>`
   );
-  savedRecords.push({ ...records });
+  savedRecords.push({ ...track.records });
 
-  const removeHeadTextAndModifyScript = updateDOM(
+  const removeHeadTextAndModifyScript = track.updateDOM(
     root,
-    `<script>alert()</script><div><script>console.error()</script></div><div><script>console.log('ok')</script></div>`,
-    records
+    `<script>alert()</script><div><script>console.error()</script></div><div><script>console.log('ok')</script></div>`
   );
-  savedRecords.push({ ...records });
+  savedRecords.push({ ...track.records });
+
+  const insertNestedScript = track.updateDOM(
+    root,
+    `<script>alert()</script><div><script>console.error()</script></div><div><div><script>console.info()</script></div><script>console.log('ok')</script></div>`
+  );
+  savedRecords.push({ ...track.records });
 
   it("add a script", () => {
     expect(addScript).toMatchObject([{ op: 1, path: "0" }]);
@@ -147,8 +149,16 @@ describe("updateDOM", () => {
   });
 
   it("the scripts id are not changed", () => {
+    const records = savedRecords[5];
     expect(savedRecords[0]["0"]).toBe(records["0"]);
     expect(savedRecords[3]["3,0"]).toBe(records["2,0"]);
     expect(savedRecords[4]["2,0"]).toBe(records["1,0"]);
+  });
+
+  it("insert nested script", () => {
+    expect(insertNestedScript).toMatchObject([
+      { op: 2, path: "2,1" },
+      { op: 1, path: "2,0,0" },
+    ]);
   });
 });

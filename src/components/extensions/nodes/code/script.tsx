@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import Runtime, { Result } from "./runtime";
 
-const runtime = new Runtime();
+export const runtime = new Runtime();
 
 type State = {
   result?: Result;
@@ -35,8 +35,7 @@ export function useScript(all: { id: string }[]) {
 
   useEffect(() => {
     return () => {
-      const all = allRef.current;
-      all?.forEach(({ id }) => runtime.delete(id));
+      allRef.current?.forEach(({ id }) => runtime.delete(id));
     };
   }, []);
 

@@ -1,8 +1,9 @@
 import React, { HTMLAttributes, useEffect, useRef } from "react";
 
 import { NodeView as CodeView, useView as useCodeView } from "../code/view";
+import { runtime } from "../code/script";
 
-import { updateDOM } from "./utils";
+import { getFromRoute, Track } from "./utils";
 
 export class NodeView extends CodeView {}
 
@@ -13,22 +14,53 @@ export function useView(name: string) {
 export function Wrapper({
   children: html,
   ...attrs
-}: { children: string } & HTMLAttributes<HTMLDivElement>) {
-  const ref = useRef<HTMLDivElement>(null);
+}: {
+  children: string;
+} & HTMLAttributes<HTMLDivElement>) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef(new Track("script"));
 
   useEffect(() => {
-    if (!ref.current) {
+    const track = trackRef.current;
+    return () => {
+      for (const id in track.records) {
+        runtime.delete(id);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!divRef.current) {
       return;
     }
 
-    const wrapper = ref.current;
-    if (!wrapper.innerHTML) {
-      wrapper.innerHTML = html;
-    } else {
-      // TODO:
-      updateDOM(wrapper, html);
+    const wrapper = divRef.current;
+    const track = trackRef.current;
+    for (const { path, op } of track.updateDOM(wrapper, html)) {
+      const route = path.split(",").map((x) => parseInt(x));
+      const node = getFromRoute(wrapper, route);
+      if (!node) {
+        continue;
+      }
+
+      const id = track.records[path];
+      switch (op) {
+        case 1:
+        case 0:
+          runtime.add(node.textContent || "", id).refresh(id, {
+            onReturned: (closure) => {
+              console.log("TODO:", closure);
+            },
+            onDisposed: (closure) => {
+              console.log("TODO:", closure);
+            },
+          });
+          break;
+        case -1:
+          runtime.delete(id);
+      }
     }
   }, [html]);
 
-  return <div {...attrs} ref={ref} />;
+  return <div {...attrs} ref={divRef} />;
 }
