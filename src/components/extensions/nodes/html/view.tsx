@@ -23,8 +23,8 @@ export function Wrapper({
   useEffect(() => {
     const track = trackRef.current;
     return () => {
-      for (const id in track.records) {
-        runtime.delete(id);
+      for (const path in track.records) {
+        runtime.delete(track.records[path]);
       }
     };
   }, []);
@@ -47,14 +47,7 @@ export function Wrapper({
       switch (op) {
         case 1:
         case 0:
-          runtime.add(node.textContent || "", id).refresh(id, {
-            onReturned: (closure) => {
-              console.log("TODO:", closure);
-            },
-            onDisposed: (closure) => {
-              console.log("TODO:", closure);
-            },
-          });
+          runtime.add(node.textContent || "", id).refresh(id);
           break;
         case -1:
           runtime.delete(id);

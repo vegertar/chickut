@@ -12697,6 +12697,11 @@ react-syntax-highlighter@^13.5.0:
     prismjs "^1.21.0"
     refractor "^3.1.0"
 
+react-tag-names@^1.0.0:
+  version "1.0.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/react-tag-names/-/react-tag-names-1.0.0.tgz#20caf182e4172993f868d0824b5f74a1fdf5b15a"
+  integrity sha512-hO0Nm4sL+OaPQ2gDMJ94/ESPzX70NUNmkk2adQV2iJBuHvttc8njaMze93OUmBoDJ9/idnExKGWnTy0LyiV33w==
+
 react-textarea-autosize@^8.1.1:
   version "8.3.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/react-textarea-autosize/-/react-textarea-autosize-8.3.0.tgz#e6e2fd186d9f61bb80ac6e2dcb4c55504f93c2fa"

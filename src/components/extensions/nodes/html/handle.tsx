@@ -1,4 +1,4 @@
-import tags from "./tags";
+import { htmlTagNames as tags } from "react-tag-names";
 import { HTML_OPEN_CLOSE_TAG_RE } from "./re";
 import { BlockRuleHandle } from "../../../editor";
 

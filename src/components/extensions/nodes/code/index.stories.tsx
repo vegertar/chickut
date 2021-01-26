@@ -15,7 +15,7 @@ Default.args = {
 setup a counter
 
     var x = getCounter();
-    const id = setInterval(() => ++x, 100);
+    const id = setInterval(() => ++x, 1000);
     () => {
         clearInterval(id);
         setCounter(x);
@@ -37,5 +37,13 @@ setup extra indicators
 
 show
 
-    \`id: \${id}  startup: \${y}  counter: \${x}\``,
+    \`id: \${id}  startup: \${y}  counter: \${x}\`
+
+React
+
+    React.createElement("span", null, "Hello")
+
+jsx
+
+    <>{x}</>`,
 };

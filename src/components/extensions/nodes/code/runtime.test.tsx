@@ -46,6 +46,121 @@ describe("compile", () => {
       tr:
         "function getCounter() { return counter; };__env__.getCounter = getCounter;",
     },
+    {
+      code: `a = b = c + d`,
+      vars: [{ name: "a" }, { name: "b" }],
+      refs: [{ name: "c" }, { name: "d" }],
+      tr: `;return (__env__.a) = (__env__.b) = c + d`,
+    },
+    {
+      code: `a = c + d; a + 1`,
+      vars: [{ name: "a" }],
+      refs: [{ name: "c" }, { name: "d" }, { name: "a", nesting: 0 }],
+      tr: `(__env__.a) = c + d; ;return (__env__.a) + 1`,
+    },
+    {
+      code: `x = {a, b: 1, [c]: "x"}`,
+      vars: [{ name: "x" }],
+      refs: [{ name: "a" }, { name: "c" }],
+      tr: `;return (__env__.x) = {a, b: 1, [c]: "x"}`,
+    },
+    {
+      code: `x = {[a]: a + 1, a: 2, b: 1 + d, [c]: "x", e: {f}}`,
+      vars: [{ name: "x" }],
+      refs: [
+        { name: "a" },
+        { name: "a" },
+        { name: "d" },
+        { name: "c" },
+        { name: "f" },
+      ],
+      tr: `;return (__env__.x) = {[a]: a + 1, a: 2, b: 1 + d, [c]: "x", e: {f}}`,
+    },
+    {
+      code: "<>{x}</>",
+      vars: [],
+      refs: [
+        { name: "", jsx: "JSXOpeningFragment" },
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXExpressionContainer" },
+        { name: "x" },
+        { name: "", jsx: "JSXClosingFragment" },
+      ],
+      tr: ";return React.createElement(React.Fragment, null, x)",
+    },
+    {
+      code: "<>hello, {x}</>",
+      vars: [],
+      refs: [
+        { name: "", jsx: "JSXOpeningFragment" },
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXText" },
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXExpressionContainer" },
+        { name: "x" },
+        { name: "", jsx: "JSXClosingFragment" },
+      ],
+      tr: ";return React.createElement(React.Fragment, null, 'hello, ', x)",
+    },
+    {
+      code: "<>{...x}</>",
+      vars: [],
+      refs: [
+        { name: "", jsx: "JSXOpeningFragment" },
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXSpreadChild" },
+        { name: "x" },
+        { name: "", jsx: "JSXClosingFragment" },
+      ],
+      tr: ";return React.createElement(React.Fragment, null, ...x)",
+    },
+    {
+      code: "<Hello a={x + y} b='x'>x {...x}</Hello>",
+      vars: [],
+      refs: [
+        { name: "", jsx: "JSXOpeningElement" }, // <
+        { name: "Hello" },
+        { name: "", jsx: "JSXAttribute" }, // a={x}
+        { name: "", jsx: "JSXIdentifier" }, // a
+        { name: "", jsx: "JSXExpressionContainer" },
+        { name: "x" },
+        { name: "y" },
+        { name: "", jsx: "JSXAttribute" }, // b='x'
+        { name: "", jsx: "JSXIdentifier" }, // b
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXText" }, // 'x '
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXSpreadChild" }, // {...x}
+        { name: "x" },
+        { name: "", jsx: "JSXClosingElement" },
+      ],
+      tr:
+        ";return React.createElement(Hello, {'a': x + y, 'b': 'x'}, 'x ', ...x)",
+    },
+    {
+      code: "<><span x-x={{a, b:1, [c]:d}}>{x}</span></>",
+      vars: [],
+      refs: [
+        { name: "", jsx: "JSXOpeningFragment" },
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXOpeningElement" },
+        { name: "", jsx: "JSXIdentifier" }, // span
+        { name: "", jsx: "JSXAttribute" }, // x-x={{a, b:1, [c]:d}}
+        { name: "", jsx: "JSXIdentifier" }, // x-x=
+        { name: "", jsx: "JSXExpressionContainer" }, // {{a, b:1, [c]:d}}
+        { name: "a" },
+        { name: "c" },
+        { name: "d" },
+
+        { name: "", jsx: "JSXChild" },
+        { name: "", jsx: "JSXExpressionContainer" },
+        { name: "x" },
+        { name: "", jsx: "JSXClosingElement" },
+        { name: "", jsx: "JSXClosingFragment" },
+      ],
+      tr:
+        ";return React.createElement(React.Fragment, null, React.createElement('span', {'x-x': {a, b:1, [c]:d}}, x))",
+    },
   ];
 
   cases.forEach(({ code, vars, refs, tr }, i) =>
@@ -96,6 +211,12 @@ describe("the minimal snippet", () => {
       refs: [{ name: "x" }, { name: "y", nesting: 0 }],
       tr: `const y = x - 1;;__env__.y = y; ;return (__env__.y)`,
     },
+    {
+      code: `console.log()`,
+      vars: [],
+      refs: [{ name: "console" }],
+      tr: `;return console.log()`,
+    },
   ];
 
   cases.forEach(({ code, vars, refs, tr }, i) =>
@@ -114,7 +235,8 @@ describe("the minimal snippet", () => {
       { name: "z", from: new Set(["3"]), to: new Set(["1"]) },
       { name: "x", from: new Set(["1"]), to: new Set(["0", "2", "4"]) },
       { name: "a", from: new Set(["3"]), to: new Set(["0"]) },
-      { name: "", from: new Set(["0"]), to: new Set() },
+      { name: "1", from: new Set(["0"]), to: new Set() },
+      { name: "2", from: new Set(["5"]), to: new Set() },
       { name: "y", from: new Set(["2", "4"]), to: new Set() },
       { name: "b", from: new Set(["3"]), to: new Set([]) },
       { name: "id", from: new Set(["3"]), to: new Set([]) },
@@ -127,10 +249,10 @@ describe("the minimal snippet", () => {
       (item) => item.fn!
     );
 
-    expect(f1(undefined, 1, 2)).toBeUndefined();
+    expect(f1(undefined, {}, 1, 2)).toBeUndefined();
 
     const env2 = { x: undefined };
-    const ret2 = f2(env2, 1);
+    const ret2 = f2(env2, {}, 1);
     expect(typeof ret2).toBe("number");
     expect(env2.x).toBe(0);
     await sleep(1500);
@@ -138,12 +260,12 @@ describe("the minimal snippet", () => {
     expect(env2.x).toBe(1);
 
     const env3 = { y: undefined };
-    const ret3 = f3(env3, 10);
+    const ret3 = f3(env3, {}, 10);
     expect(env3.y).toBe(ret3);
     expect(ret3).toBe(11);
 
     const env4 = { z: undefined, a: undefined };
-    const ret4 = f4(env4);
+    const ret4 = f4(env4, {});
     expect(typeof ret4).toBe("function");
     expect(env4.z).toBe(0);
     await sleep(1500);
@@ -151,7 +273,7 @@ describe("the minimal snippet", () => {
     expect(env4.a).toBe(1);
 
     const env5 = { y: undefined };
-    const ret5 = f5(env5, 10);
+    const ret5 = f5(env5, {}, 10);
     expect(env5.y).toBe(ret5);
     expect(ret5).toBe(9);
   });

@@ -91,6 +91,7 @@
     "react-icons": "^4.1.0",
     "react-portal": "^4.2.1",
     "react-scripts": "4.0.0",
+    "react-tag-names": "^1.0.0",
     "sass": "^1.29.0",
     "sass-loader": "^10.0.5",
     "trie-prefix-tree": "^1.5.1",

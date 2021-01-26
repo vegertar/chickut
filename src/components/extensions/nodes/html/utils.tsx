@@ -2,7 +2,7 @@ import trie from "trie-prefix-tree";
 import * as dd from "diff-dom";
 
 const diffDOM = new dd.DiffDOM();
-const disabledScriptType = "text/---plain---";
+const disabledScriptType = "text/disabled";
 
 var seq = 0;
 
