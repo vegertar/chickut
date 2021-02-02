@@ -19,7 +19,6 @@ const extension: NodeExtension = {
     group: "block",
     parseDOM: [{ tag: `div.${name}` }],
     toDOM: ({ attrs }) => ["div", { ...attrs, class: name }],
-    toText: ({ attrs }) => `[${attrs.label}]: ${attrs.href} ${attrs.title}`,
   },
 };
 

@@ -104,6 +104,19 @@ export class Manager {
     const schema = this.createSchema(topNode);
     const plugins = this.createPlugins(schema);
 
+    for (const key in schema.nodes) {
+      const node = schema.nodes[key];
+      console.log(
+        `${key}
+        textblock: ${node.isTextblock}
+        text: ${node.isText}
+        leaf: ${node.isLeaf}
+        inline: ${node.isInline}
+        block: ${node.isBlock}
+        atom: ${node.isAtom}`
+      );
+    }
+
     return {
       state: EditorState.create<ExtensionSchema>({ schema, plugins }),
     } as DirectEditorProps<ExtensionSchema>;
@@ -278,8 +291,8 @@ export class Manager {
 
   private orderExtensions() {
     // nodes order is determined by DAG and tag precedence
-    // marks order is determined by insertion order
-    // plugins order is determined by either associated node/mark (with after property) or insertion order
+    // marks order is determined by rank property
+    // plugins order is determined by associated node/mark if any
     for (const name of this.bfsPath) {
       const extension = this.extensions[name];
       if (!extension) {
@@ -314,6 +327,8 @@ export class Manager {
         }
       }
     }
+
+    this.marks.sort(this.markRanking);
   }
 
   private getTag(props?: { parseDOM?: ParseRule[] | null }) {
@@ -359,6 +374,15 @@ export class Manager {
     }
 
     return x - y;
+  };
+
+  private markRanking = (a: string, b: string) => {
+    const { mark: x } = this.extensions[a] as { mark?: { rank?: number } };
+    const { mark: y } = this.extensions[b] as { mark?: { rank?: number } };
+    if (x && y) {
+      return (x.rank || 0) - (y.rank || 0);
+    }
+    return 0;
   };
 
   private detectInfinity() {

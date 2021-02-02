@@ -76,16 +76,16 @@ export function useStrikethrough(marker: number, tag?: string) {
         const endDelim = delimiters[startDelim.end];
 
         const openToken = tokens[startDelim.token];
-        openToken.name = name;
         openToken.nesting = 1;
+        openToken.name = name;
         openToken.markup = markup + markup;
         openToken.content = "";
 
         const closeToken = tokens[endDelim.token];
-        closeToken.name = name;
         closeToken.nesting = -1;
-        closeToken.markup = undefined;
-        closeToken.content = undefined;
+        closeToken.name = openToken.name;
+        closeToken.markup = openToken.markup;
+        closeToken.content = openToken.content;
 
         const i = endDelim.token - 1;
         if (tokens[i].name === "text" && tokens[i].content === markup) {
@@ -135,9 +135,9 @@ export function useStrikethrough(marker: number, tag?: string) {
       ? ({
           rule: { handle, postHandle },
           mark: {
+            inclusive: false,
             parseDOM: toParseRules(tag),
             toDOM: toDOMSpec(tag),
-            toText: (_, s) => `${markup}${markup}${s}${markup}${markup}`,
           },
         } as MarkExtension)
       : undefined;

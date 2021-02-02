@@ -1,6 +1,6 @@
-import { htmlTagNames as tags } from "react-tag-names";
-import { HTML_OPEN_CLOSE_TAG_RE } from "./re";
 import { BlockRuleHandle } from "../../../editor";
+
+import { HTML_OPEN_CLOSE_TAG_RE } from "./re";
 
 // An array of opening and corresponding closing sequences for html tags,
 // last argument defines whether it can terminate a paragraph or not
@@ -10,7 +10,7 @@ const HTML_SEQUENCES: [RegExp, RegExp, boolean][] = [
   [/^<\?/, /\?>/, true],
   [/^<![A-Z]/, />/, true],
   [/^<!\[CDATA\[/, /\]\]>/, true],
-  [new RegExp(`^</?(${tags.join("|")})(?=(\\s|/?>|$))`, "i"), /^$/, true],
+  [new RegExp(`^</?([A-Za-z][A-Za-z0-9\\-]*)(?=(\\s|/?>|$))`, "i"), /^$/, true],
   [new RegExp(`${HTML_OPEN_CLOSE_TAG_RE.source}\\s*$`), /^$/, false],
 ];
 
@@ -75,7 +75,6 @@ const handle: BlockRuleHandle = function html(
   state.line = nextLine;
 
   const token = state.push(this.name, 0);
-  token.map = [startLine, nextLine];
   token.content = state.getLines(startLine, nextLine, state.blkIndent, true);
 
   return true;

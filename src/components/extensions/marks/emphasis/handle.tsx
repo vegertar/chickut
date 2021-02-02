@@ -68,22 +68,22 @@ function postProcess(
     const markup = isStrong ? ch + ch : ch;
 
     const openToken = state.tokens[startDelim.token];
-    openToken.name = name;
     openToken.nesting = 1;
+    openToken.name = name;
     openToken.markup = markup;
     openToken.content = "";
     openToken.attrs = { isStrong, markup };
 
     const closeToken = state.tokens[endDelim.token];
-    closeToken.name = name;
     closeToken.nesting = -1;
-    closeToken.markup = undefined;
-    closeToken.content = undefined;
-    closeToken.attrs = undefined;
+    closeToken.name = openToken.name;
+    closeToken.markup = openToken.markup;
+    closeToken.content = openToken.content;
+    closeToken.attrs = openToken.attrs;
 
     if (isStrong) {
-      state.tokens[delimiters[i - 1].token].content = undefined;
-      state.tokens[delimiters[startDelim.end + 1].token].content = undefined;
+      state.tokens[delimiters[i - 1].token].content = "";
+      state.tokens[delimiters[startDelim.end + 1].token].content = "";
       i--;
     }
   }

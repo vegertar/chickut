@@ -1,8 +1,10 @@
 import { NodeExtension, useExtension } from "../../../editor";
+
 import handle from "./handle";
 
 import "./style.scss";
 
+const name = "blockquote";
 const extension: NodeExtension = {
   rule: {
     handle,
@@ -13,12 +15,12 @@ const extension: NodeExtension = {
     content: "block+",
     group: "block",
     defining: true,
-    parseDOM: [{ tag: "blockquote" }],
-    toDOM: () => ["blockquote", 0],
+    parseDOM: [{ tag: name }],
+    toDOM: () => [name, 0],
   },
 };
 
 export default function Blockquote() {
-  useExtension(extension, "blockquote");
+  useExtension(extension, name);
   return null;
 }

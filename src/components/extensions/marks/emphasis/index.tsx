@@ -12,7 +12,8 @@ const extension: MarkExtension = {
 
   mark: {
     attrs: { markup: {}, isStrong: { default: false } },
-    excludes: "", // allow multiple emphasis marks coexist
+    excludes: "",
+    inclusive: false,
     parseDOM: [
       { tag: "em", getAttrs: (node) => (node as HTMLElement).dataset },
       {
@@ -27,7 +28,6 @@ const extension: MarkExtension = {
       isStrong ? "strong" : "em",
       toDataAttrs(dataset),
     ],
-    toText: ({ attrs }, s) => `${attrs.markup}${s}${attrs.markup}`,
   },
 };
 

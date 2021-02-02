@@ -19,8 +19,6 @@ const extension: NodeExtension = {
       { tag: "img[src]", getAttrs: (node) => getAttrs(node as Element) },
     ],
     toDOM: ({ attrs }) => ["img", attrs],
-    toText: ({ attrs }) =>
-      `![${attrs.alt}](${attrs.src}${attrs.title ? ` "${attrs.title}"` : ""})`,
   },
 };
 

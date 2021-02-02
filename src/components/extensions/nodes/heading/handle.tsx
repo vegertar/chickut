@@ -2,8 +2,11 @@ import { BlockRuleHandle, isSpace } from "../../../editor";
 
 // heading (# , ## , ...)
 const handle: BlockRuleHandle = function heading(state, silent, startLine) {
-  let pos = state.bMarks[startLine] + state.tShift[startLine];
-  let max = state.eMarks[startLine];
+  const start = state.bMarks[startLine];
+  const end = state.eMarks[startLine];
+
+  let pos = start + state.tShift[startLine];
+  let max = end;
 
   // if it's indented more than 3 spaces, it should be a code block
   if (state.sCount[startLine] - state.blkIndent >= 4) {
@@ -28,7 +31,8 @@ const handle: BlockRuleHandle = function heading(state, silent, startLine) {
     return false;
   }
 
-  if (state.env.typing && pos === max) {
+  const { typing } = state.env;
+  if (typing && pos === max) {
     // The commonmark spec(so did the original markdown-it code) treats '#...' without tailing chars as the empty heading, i.e. the condition (pos < max) is legal, but which makes hard typing for different levels.
     return false;
   }
@@ -38,7 +42,6 @@ const handle: BlockRuleHandle = function heading(state, silent, startLine) {
   }
 
   // Let's cut tails like '    ###  ' from the end of string
-
   max = state.skipSpacesBack(max, pos);
   const tmp = state.skipCharsBack(max, 0x23, pos); // #
   if (tmp > pos && isSpace(state.src.charCodeAt(tmp - 1))) {
@@ -48,15 +51,14 @@ const handle: BlockRuleHandle = function heading(state, silent, startLine) {
   state.line = startLine + 1;
 
   const openToken = state.push(this.name, 1, { level });
-  openToken.markup = "#".repeat(level);
-  openToken.map = [startLine, state.line];
+  openToken.markup = state.src.slice(start, pos);
 
   const inlineToken = state.push("", 0);
-  inlineToken.content = state.src.slice(pos, max).trim();
-  inlineToken.map = [startLine, state.line];
+  inlineToken.content = state.src.slice(pos, max); // TODO: .trim();
   inlineToken.children = [];
 
-  state.push(this.name, -1);
+  const closeToken = state.push(this.name, -1);
+  closeToken.markup = state.src.slice(max, end);
 
   return true;
 };

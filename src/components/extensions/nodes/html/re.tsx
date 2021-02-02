@@ -1,3 +1,4 @@
+const tagName = "[A-Za-z][A-Za-z0-9\\-]*";
 const attrName = "[a-zA-Z_:][a-zA-Z0-9:._-]*";
 
 const unquoted = "[^\"'=<>`\\x00-\\x20]+";
@@ -6,8 +7,8 @@ const doubleQuoted = '"[^"]*"';
 const attrValue = `(?:${unquoted}|${singleQuoted}|${doubleQuoted})`;
 
 const attribute = `(?:\\s+${attrName}(?:\\s*=\\s*${attrValue})?)`;
-const openTag = "<[A-Za-z][A-Za-z0-9\\-]*" + attribute + "*\\s*\\/?>";
-const closeTag = "<\\/[A-Za-z][A-Za-z0-9\\-]*\\s*>";
+const openTag = `<${tagName}${attribute}*\\s*\\/?>`;
+const closeTag = `<\\/${tagName}\\s*>`;
 const comment = "<!---->|<!--(?:-?[^>-])(?:-?[^-])*-->";
 const processing = "<[?][\\s\\S]*?[?]>";
 const declaration = "<![A-Z]+\\s+[^>]*>";

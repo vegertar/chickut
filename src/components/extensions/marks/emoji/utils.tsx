@@ -82,6 +82,10 @@ export function transform(token: Token, definitions: Record<string, string>) {
     token.attrs["data-missing"] = true;
   } else {
     token.content = content;
+    token.attrs.markupPosition = -1;
+    token.markup =
+      token.attrs["data-alias"] ||
+      `${token.markup}${definition}${token.markup}`;
   }
 }
 

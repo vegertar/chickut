@@ -1,49 +1,4 @@
 @use "../../../theme";
 
 .editor {
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    margin: 1em 0 0.5em;
-    font-weight: 500;
-    cursor: default;
-
-    &:before {
-      @include theme.read-only {
-        display: none;
-      }
-      display: block;
-      position: absolute;
-      font-family: theme.var-of(fontFamilyMono);
-      color: theme.var-of(textSecondary);
-      font-size: 13px;
-      left: -24px;
-    }
-  }
-
-  h1:before {
-    content: "H1";
-    line-height: 3em;
-  }
-  h2:before {
-    content: "H2";
-    line-height: 2.8em;
-  }
-  h3:before {
-    content: "H3";
-    line-height: 2.3em;
-  }
-  h4:before {
-    content: "H4";
-    line-height: 2.2em;
-  }
-  h5:before {
-    content: "H5";
-  }
-  h6:before {
-    content: "H6";
-  }
 }

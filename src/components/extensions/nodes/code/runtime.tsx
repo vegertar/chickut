@@ -1,6 +1,6 @@
-import { parseModule, ESTree } from "meriyah";
 import React from "react";
 import reactTagNames from "react-tag-names";
+import { parseModule, ESTree } from "meriyah";
 import isEqualWith from "lodash.isequalwith";
 import isEmpty from "lodash.isempty";
 import assign from "lodash.assign";
@@ -684,8 +684,6 @@ export function toposort(source: Map<string, Snippet> | Snippet[]) {
 }
 
 export type Result = {
-  // time at function ended
-  date: Date;
   // returned value if any
   value?: any;
   // caught exception if any
@@ -777,9 +775,9 @@ export default class Runtime {
         ...Object.values(closure.options.library),
         ...args
       );
-      closure.result = { value, date: new Date() };
+      closure.result = { value };
     } catch (error) {
-      closure.result = { error, date: new Date() };
+      closure.result = { error };
     }
     closure.options.onReturned?.(closure as Closure<Result>);
   }
@@ -801,6 +799,7 @@ export default class Runtime {
         }
       });
 
+      params.sort();
       const closure: Closure = {
         id,
         env,

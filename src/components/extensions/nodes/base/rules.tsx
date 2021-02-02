@@ -18,7 +18,6 @@ export const block: CoreRuleHandle = function (state) {
   if (state.inlineMode) {
     const token = new Token("", 0);
     token.content = state.src;
-    token.map = [0, 1];
     token.children = [];
     state.tokens.push(token);
   } else {
@@ -99,11 +98,10 @@ export const paragraph: BlockRuleHandle = function paragraph(
   state.line = nextLine;
 
   // open token
-  state.push(name, 1).map = [startLine, state.line];
+  state.push(name, 1);
 
   const inlineToken = state.push("", 0);
   inlineToken.content = content;
-  inlineToken.map = [startLine, state.line];
   inlineToken.children = [];
 
   // close token

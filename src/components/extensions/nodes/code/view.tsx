@@ -1,76 +1,53 @@
 import { useEffect, useState } from "react";
 import produce from "immer";
-import { diff_match_patch } from "diff-match-patch";
 import { Node as ProsemirrorNode } from "prosemirror-model";
-import { EditorView } from "prosemirror-view";
+import { NodeView as INodeView } from "prosemirror-view";
 import { Transaction } from "prosemirror-state";
 import { exitCode } from "prosemirror-commands";
+
+import { NodeView as BaseNodeView, dmp } from "../../../editor";
 
 import * as cm from "./cm";
 import lang from "./lang";
 
-const dmp = new diff_match_patch();
+export class NodeView extends BaseNodeView implements INodeView {
+  contentDOM = null;
 
-type Handle<T> = ((event: T) => void) | undefined;
+  readonly cm = new cm.EditorView({
+    parent: this.dom,
+    state: cm.EditorState.create({
+      doc: this.node.textContent,
+      extensions: [
+        cm.basicSetup,
+        lang(),
+        cm.keymap.of(
+          Object.entries(this.keymaps()).map(([key, run]) => ({
+            key,
+            run,
+          }))
+        ),
+      ],
+    }),
+    dispatch: (tr) => {
+      this.cm.update([tr]);
+      if (tr.docChanged) {
+        const tr = this.upwardChanges();
+        tr && this.view.dispatch(tr);
+      }
+    },
+  });
 
-const onCreate = new Map<string, Handle<NodeView>>();
-const onUpdate = new Map<string, Handle<string>>();
-const onDestroy = new Map<string, Handle<string>>();
-const onEvent = new Map<string, Handle<Event>>();
-
-var seq = 0;
-
-export class NodeView {
-  readonly name: string;
-  readonly id: string;
-  readonly dom: HTMLElement;
-  readonly cm: cm.EditorView;
-
-  constructor(
-    protected node: ProsemirrorNode,
-    protected view: EditorView,
-    protected getPos: () => number
-  ) {
-    this.name = node.type.name;
-    this.id = `${node.type.name}-${new Date().getTime()}-${++seq}`;
-    this.dom = document.createElement("div");
-    this.dom.className = this.name;
-    this.dom.id = this.id;
-
-    this.cm = new cm.EditorView({
-      parent: this.dom,
-      state: cm.EditorState.create({
-        extensions: [
-          cm.basicSetup,
-          lang(),
-          cm.keymap.of(
-            Object.entries(this.keymaps()).map(([key, run]) => ({
-              key,
-              run,
-            }))
-          ),
-        ],
-      }),
-      dispatch: (tr) => {
-        this.cm.update([tr]);
-        if (tr.docChanged) {
-          const tr = this.upwardChanges();
-          tr && this.view.dispatch(tr);
-          onUpdate.get(this.name)?.(this.id);
-        }
-      },
-    });
-
-    this.initEvent();
-    this.render();
-
-    onCreate.get(this.name)?.(this);
+  destroy() {
+    this.cm.destroy();
+    super.destroy();
   }
 
-  initEvent() {
-    const handle: Handle<Event> = (event) => onEvent.get(this.name)?.(event);
-    this.dom.onmouseenter = handle;
-    this.dom.onmouseleave = handle;
+  render(old?: ProsemirrorNode): boolean | void {
+    if (old) {
+      const tr = this.downwardChanges();
+      tr && this.cm.dispatch(tr);
+    }
+    return super.render(old);
   }
 
   keymaps(): Record<string, cm.Command> {
@@ -82,24 +59,6 @@ export class NodeView {
         return true;
       },
     };
-  }
-
-  update(node: ProsemirrorNode) {
-    if (node.type !== this.node.type) {
-      return false;
-    }
-    this.node = node;
-    return this.render() === false ? false : true;
-  }
-
-  destroy() {
-    this.cm.destroy();
-    onDestroy.get(this.name)?.(this.id);
-  }
-
-  render(): boolean | void {
-    const tr = this.downwardChanges();
-    tr && this.cm.dispatch(tr);
   }
 
   downwardChanges() {
@@ -165,23 +124,23 @@ export function useView(name: string) {
   const [state, setState] = useState<State>({ nodeViews: [] });
 
   useEffect(() => {
-    onCreate.set(name, (view) =>
+    NodeView.createHandles.set(name, (view) =>
       setState((state) =>
         produce(state, (draft: State) => {
-          draft.nodeViews.push(view);
+          draft.nodeViews.push(view as NodeView);
         })
       )
     );
 
-    onUpdate.set(name, (id) =>
+    NodeView.updateHandles.set(name, (id) => {
       setState((state) =>
         produce(state, (draft) => {
           draft.updated = { id };
         })
-      )
-    );
+      );
+    });
 
-    onDestroy.set(name, (id) =>
+    NodeView.destroyHandles.set(name, (id) =>
       setState((views) =>
         produce(views, (draft) => {
           const index = draft.nodeViews.findIndex((view) => view.id === id);
@@ -192,36 +151,10 @@ export function useView(name: string) {
       )
     );
 
-    onEvent.set(name, (event) => {
-      const { type, target } = event;
-      const nameMatched =
-        target instanceof HTMLElement && target.classList.contains(name);
-
-      switch (type) {
-        case "mouseenter":
-          nameMatched &&
-            setState((state) =>
-              produce(state, (draft) => {
-                draft.focused = (target as Element).id;
-              })
-            );
-          break;
-        case "mouseleave":
-          nameMatched &&
-            setState((state) =>
-              produce(state, (draft) => {
-                draft.focused = undefined;
-              })
-            );
-          break;
-      }
-    });
-
     return () => {
-      onCreate.delete(name);
-      onUpdate.delete(name);
-      onDestroy.delete(name);
-      onEvent.delete(name);
+      NodeView.createHandles.delete(name);
+      NodeView.updateHandles.delete(name);
+      NodeView.destroyHandles.delete(name);
     };
   }, [name]);
 

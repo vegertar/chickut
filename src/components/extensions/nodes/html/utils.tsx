@@ -2,7 +2,7 @@ import trie from "trie-prefix-tree";
 import * as dd from "diff-dom";
 
 const diffDOM = new dd.DiffDOM();
-const disabledScriptType = "text/disabled";
+const disabledScriptType = "disabled-";
 
 var seq = 0;
 
@@ -125,18 +125,22 @@ export class Track {
   private disableScript(element: Node) {
     element instanceof HTMLElement &&
       element.querySelectorAll("script").forEach((script) => {
-        if (!script.getAttribute("type")) {
-          script.setAttribute("type", disabledScriptType);
-        }
+        script.setAttribute(
+          "type",
+          disabledScriptType + (script.getAttribute("type") || "")
+        );
       });
   }
 
   private restoreScript(element: Node) {
-    (element as HTMLElement)
-      .querySelectorAll(`script[type="${disabledScriptType}"]`)
-      .forEach((script) => {
+    (element as HTMLElement).querySelectorAll("script").forEach((script) => {
+      const type = script.getAttribute("type");
+      if (type === disabledScriptType) {
         script.removeAttribute("type");
-      });
+      } else if (type) {
+        script.setAttribute("type", type.slice(disabledScriptType.length));
+      }
+    });
   }
 
   updateDOM(target: Node, innerHTML: string) {

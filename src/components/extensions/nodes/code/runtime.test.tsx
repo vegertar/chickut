@@ -120,13 +120,14 @@ describe("compile", () => {
       refs: [
         { name: "", jsx: "JSXOpeningElement" }, // <
         { name: "Hello" },
-        { name: "", jsx: "JSXAttribute" }, // a={x}
+        { name: "", jsx: "JSXAttribute" }, // a={x + y}
         { name: "", jsx: "JSXIdentifier" }, // a
         { name: "", jsx: "JSXExpressionContainer" },
         { name: "x" },
         { name: "y" },
         { name: "", jsx: "JSXAttribute" }, // b='x'
         { name: "", jsx: "JSXIdentifier" }, // b
+
         { name: "", jsx: "JSXChild" },
         { name: "", jsx: "JSXText" }, // 'x '
         { name: "", jsx: "JSXChild" },

@@ -21,14 +21,11 @@ const extension: NodeExtension = {
     content: "inline*",
     group: "block",
     defining: true,
-    draggable: false,
     parseDOM: range(1, 7).map((level) => ({
       tag: `h${level}`,
       attrs: { level },
     })),
     toDOM: (node) => [`h${node.attrs.level}`, 0],
-    toText: ({ attrs, text }) =>
-      `${"#".repeat(attrs.level || 1)} ${text || ""}`,
   },
 };
 

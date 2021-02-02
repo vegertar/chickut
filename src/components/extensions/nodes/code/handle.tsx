@@ -32,7 +32,6 @@ const handle: BlockRuleHandle = function code(
 
   const token = state.push(this.name, 0);
   token.content = state.getLines(startLine, last, 4 + state.blkIndent, true);
-  token.map = [startLine, state.line];
 
   return true;
 };

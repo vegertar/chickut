@@ -80,19 +80,20 @@ const extension: PluginExtension = {
         return false;
       }
 
-      const content = state
-        .getLines(startLine, nextLine, state.blkIndent, false)
-        .trim();
+      const content = state.getLines(
+        startLine,
+        nextLine,
+        state.blkIndent,
+        false
+      );
+      // TODO: .trim();
 
       state.line = nextLine + 1;
 
-      const openToken = state.push(type.name, 1, { level });
-      openToken.markup = String.fromCharCode(marker);
-      openToken.map = [startLine, state.line];
+      state.push(type.name, 1, { level }).markup = String.fromCharCode(marker);
 
       const inlineToken = state.push("", 0);
       inlineToken.content = content;
-      inlineToken.map = [startLine, state.line - 1];
       inlineToken.children = [];
 
       state.push(type.name, -1);

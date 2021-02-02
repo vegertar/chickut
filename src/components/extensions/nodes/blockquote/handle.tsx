@@ -270,17 +270,12 @@ const handle: BlockRuleHandle = function blockquote(
   const oldIndent = state.blkIndent;
   state.blkIndent = 0;
 
-  const openToken = state.push(this.name, 1);
-  openToken.markup = ">";
-  const lines = (openToken.map = [startLine, 0]);
-
+  state.push(this.name, 1).markup = ">";
   state.engine.block.tokenize(state, startLine, nextLine);
-
   state.push(this.name, -1);
 
   state.lineMax = oldLineMax;
   state.parent = oldParent;
-  lines[1] = state.line;
 
   // Restore original tShift; this might not be necessary since the parser
   // has already been here, but just to make sure we can do that.

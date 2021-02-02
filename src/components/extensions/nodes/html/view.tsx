@@ -47,7 +47,11 @@ export function Wrapper({
       switch (op) {
         case 1:
         case 0:
-          runtime.add(node.textContent || "", id).refresh(id);
+          try {
+            runtime.add(node.textContent || "", id).refresh(id);
+          } catch (error) {
+            console.log("TODO:", error);
+          }
           break;
         case -1:
           runtime.delete(id);

@@ -154,7 +154,7 @@ export function toDOMSpec<T extends { attrs: Record<string, any> }>(
         : className;
       return [
         elementName,
-        newClassName ? others : { ...others, class: newClassName },
+        !newClassName ? others : { ...others, class: newClassName },
         0,
       ];
     }

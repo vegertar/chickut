@@ -1,11 +1,11 @@
-import { ExtensionPack, NodeExtension, useExtension } from "../../../editor";
+import { ExtensionPack, useExtension } from "../../../editor";
 
 import { paragraph } from "./rules";
 import { docPlugins, paragraphPlugins } from "./plugins";
 
 import "./style.scss";
 
-const pack: ExtensionPack<NodeExtension> = [
+const pack: ExtensionPack = [
   {
     name: "doc",
     node: { content: "block+" },
@@ -18,12 +18,23 @@ const pack: ExtensionPack<NodeExtension> = [
   },
 
   {
+    name: "markup",
+    mark: {
+      inclusive: false,
+      rank: Infinity,
+      parseDOM: [{ tag: "markup" }],
+      toDOM: () => ["markup"],
+    },
+  },
+
+  {
     name: "paragraph",
     node: {
+      attrs: { marker: { default: false } },
       content: "inline*",
       group: "block",
       parseDOM: [{ tag: "p" }],
-      toDOM: () => ["p", 0],
+      toDOM: ({ attrs }) => ["p", attrs.marker ? { class: "marker" } : {}, 0],
     },
     rule: { handle: paragraph },
     plugins: paragraphPlugins,

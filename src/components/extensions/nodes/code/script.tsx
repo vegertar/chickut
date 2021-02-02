@@ -45,23 +45,32 @@ export function useScript(all: { id: string }[]) {
         return state[id];
       },
       activate(code: string, id: string) {
-        runtime.add(code, id).refresh(id, {
-          onReturned: (closure) => {
-            setState((state) =>
-              produce(state, (draft) => {
-                draft[id].result = closure.result;
-              })
-            );
-          },
-          onDisposed: (closure) => {
-            console.log("TODO:", closure);
-          },
-        });
-        setState((state) =>
-          produce(state, (draft) => {
-            draft[id] = {};
-          })
-        );
+        try {
+          runtime.add(code, id).refresh(id, {
+            onReturned: (closure) => {
+              setState((state) =>
+                produce(state, (draft) => {
+                  draft[id].result = closure.result;
+                })
+              );
+            },
+            onDisposed: (closure) => {
+              console.log("TODO:", closure);
+            },
+          });
+
+          setState((state) =>
+            produce(state, (draft) => {
+              draft[id] = {};
+            })
+          );
+        } catch (error) {
+          setState((state) =>
+            produce(state, (draft) => {
+              draft[id] = { result: { error } };
+            })
+          );
+        }
       },
       deactivate(id: string) {
         runtime.delete(id);

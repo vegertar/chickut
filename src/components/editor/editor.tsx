@@ -100,8 +100,7 @@ export default forwardRef<EditorHandle, Props>(function Editor(props, ref) {
               .toString()
               .slice(0, 100)}...`
           );
-          const newState = this.state.apply(tr);
-          this.updateState(newState);
+          this.updateState(this.state.apply(tr));
         },
       });
     }

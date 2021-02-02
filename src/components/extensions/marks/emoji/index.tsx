@@ -86,7 +86,6 @@ export function useEmoji(marker: number, tag?: string, options?: Options) {
         return undefined;
       }
 
-      const markup = String.fromCharCode(marker);
       return mergeExtension(extension, {
         plugins,
         mark: {
@@ -95,14 +94,9 @@ export function useEmoji(marker: number, tag?: string, options?: Options) {
             "data-alias": { default: "" },
             "data-missing": { default: false },
           },
-          toText: ({ attrs }) =>
-            `${
-              attrs["data-alias"] ||
-              `${markup}${attrs["data-definition"]}${markup}`
-            }`,
         },
       });
-    }, [marker, extension, plugins]),
+    }, [extension, plugins]),
   };
 }
 

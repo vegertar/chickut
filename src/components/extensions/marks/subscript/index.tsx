@@ -93,9 +93,9 @@ export function useSubscript(
       ? ({
           rule: { handle },
           mark: {
+            inclusive: false,
             parseDOM: toParseRules(tag),
             toDOM: toDOMSpec(tag),
-            toText: (_, s) => `${markup}${s}${markup}`,
           },
         } as RuleMarkExtension)
       : undefined;

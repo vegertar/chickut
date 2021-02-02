@@ -35,15 +35,19 @@ setup extra indicators
         return counter;
     }
 
-show
+js
 
     \`id: \${id}  startup: \${y}  counter: \${x}\`
 
 React
 
-    React.createElement("span", null, "Hello")
+    React.createElement(React.Fragment, null, "id: ", id, "  startup: ", y, "  counter: ", x)
 
 jsx
 
-    <>{x}</>`,
+    <>id: {id}  startup: {y}  counter: {x}</>
+
+import
+
+    import { h, Component, render } from 'https://unpkg.com/preact?module'`,
 };

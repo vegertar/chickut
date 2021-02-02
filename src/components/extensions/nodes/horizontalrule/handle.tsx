@@ -48,7 +48,6 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
   state.line = startLine + 1;
 
   const token = state.push(this.name, 0);
-  token.map = [startLine, state.line];
   token.markup = Array(cnt + 1).join(String.fromCharCode(marker));
 
   return true;

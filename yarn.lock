@@ -3073,9 +3073,9 @@
     "@types/prosemirror-view" "*"
 
 "@types/prosemirror-model@*", "@types/prosemirror-model@^1.11.0":
-  version "1.11.1"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-model/-/prosemirror-model-1.11.1.tgz#f1258bfe8d6f2fb68a2f95b3af57e18e5868cbab"
-  integrity sha512-sAue1p9V/JjATX1JzQDFzW2ON8QEGUz3eMSpJX94oCr0CoAQgK4/kSM2funtQKy1GHd+xr7wZ509ykt49b+T1Q==
+  version "1.11.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-model/-/prosemirror-model-1.11.2.tgz#af7a9571a8d43ad433f0580099628627962cc11b"
+  integrity sha512-mohs15V+gxj10QWJGVooErzSE9ryTo1Wy92lULiQ0BSN5Po9K4vngPzfKmLft0+gAPbEghovTX+I2zQW3bZo1w==
   dependencies:
     "@types/orderedmap" "*"
 
@@ -3089,25 +3089,25 @@
     "@types/prosemirror-state" "*"
 
 "@types/prosemirror-state@*", "@types/prosemirror-state@^1.2.5":
-  version "1.2.5"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-state/-/prosemirror-state-1.2.5.tgz#a91304e9aab6e71f868e23b3a1ae514a75033f8f"
-  integrity sha512-a5DxAifiF6vmdSJ5jsDMkpykUgUJUy+T5Q5hCjFOKJ4cfd3m3q1lsFKr7Bc4r91Qb7rfqyiKCMDnASS8LIHrKw==
+  version "1.2.6"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-state/-/prosemirror-state-1.2.6.tgz#bb0169084239a8393b354c6fda5420fc347d6bab"
+  integrity sha512-tJo0wC+/cQvbrPDVx01Fnng9Fs41bAMVxgJY1KLOyIsUPN0otUN1KdoQurLMmHNHTvIna9ZXxjZD//xJKLYfJw==
   dependencies:
     "@types/prosemirror-model" "*"
     "@types/prosemirror-transform" "*"
     "@types/prosemirror-view" "*"
 
 "@types/prosemirror-transform@*", "@types/prosemirror-transform@^1.1.1":
-  version "1.1.1"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-transform/-/prosemirror-transform-1.1.1.tgz#5a0de16e8e0123b4c3d9559235e19f39cee85e5c"
-  integrity sha512-yYCYSoiRH+Wcbl8GJc0PFCzeyMzNQ1vL2xrHHSXZuNcIlH75VoiKrZFeZ6BS9cl8mYXjZrlmdBe8YOxYvyKM6A==
+  version "1.1.2"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-transform/-/prosemirror-transform-1.1.2.tgz#fe883c19a5a9f1882346a294efd09d55c6764c7a"
+  integrity sha512-Ozyvs5Dquc49gaFysmC4gNhv6E65r569HSzw4RXdZgIljZ5Y9K4kHFlDvsWBBDH19+1178X9LMmM9J620O6Bug==
   dependencies:
     "@types/prosemirror-model" "*"
 
 "@types/prosemirror-view@*", "@types/prosemirror-view@^1.16.1":
-  version "1.16.1"
-  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-view/-/prosemirror-view-1.16.1.tgz#09d66e2518366fd8d6c316c35c621bc374a0414c"
-  integrity sha512-vsL7QB9Qmg9HcBTWsOkmBEGMF0CfA/SZgtqlUArQglnDWV40ZJYonkjBzyP+YhurMC/s4JT4T2vzfnv7rFF/cg==
+  version "1.17.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/prosemirror-view/-/prosemirror-view-1.17.1.tgz#0895df5a57ae6e68d4f3f8020d9be4ef52192980"
+  integrity sha512-PNiGGc6BffxHQzMR09UUilsBR8xFPDsKiPIXb4K/g56voPIvqq1pqySnWFfSR50Vo4ZL0tss3VBLWiiiKzVahQ==
   dependencies:
     "@types/prosemirror-model" "*"
     "@types/prosemirror-state" "*"
@@ -12120,10 +12120,17 @@ prosemirror-keymap@^1.0.0, prosemirror-keymap@^1.1.2, prosemirror-keymap@^1.1.4:
     prosemirror-state "^1.0.0"
     w3c-keyname "^2.2.0"
 
-prosemirror-model@>=1.0.0, prosemirror-model@^1.0.0, prosemirror-model@^1.1.0, prosemirror-model@^1.12.0, prosemirror-model@^1.8.1:
+prosemirror-model@>=1.0.0, prosemirror-model@^1.8.1:
   version "1.12.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-model/-/prosemirror-model-1.12.0.tgz#deb6acbce5c62ea35ef3d59c7d4c54f65d6d9fba"
   integrity sha512-B5syrXluQwEPfih8PqZcVg2VWRUf8Rj97K/VNSkQtjUPL1BCoTUgdLERIlxdWHkwqvujFsT3Pw5ubc4/ofF1jQ==
+  dependencies:
+    orderedmap "^1.1.0"
+
+prosemirror-model@^1.0.0, prosemirror-model@^1.1.0, prosemirror-model@^1.12.0:
+  version "1.13.1"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-model/-/prosemirror-model-1.13.1.tgz#fa3dc888cf6928bd3968620588ffe6458d201f9f"
+  integrity sha512-PNH+b5bilAJi1B5yJ8QzoNY3ZV+nlD0jKG3XCBk7PmE/YUTJomBkFBS005vfU+3M9yeVR8/6spAEDsfVFUhNeQ==
   dependencies:
     orderedmap "^1.1.0"
 
@@ -12135,10 +12142,18 @@ prosemirror-schema-list@^1.1.4:
     prosemirror-model "^1.0.0"
     prosemirror-transform "^1.0.0"
 
-prosemirror-state@>=1.0.0, prosemirror-state@^1.0.0, prosemirror-state@^1.2.2, prosemirror-state@^1.3.1, prosemirror-state@^1.3.3:
+prosemirror-state@>=1.0.0, prosemirror-state@^1.2.2, prosemirror-state@^1.3.1:
   version "1.3.3"
   resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-state/-/prosemirror-state-1.3.3.tgz#b2862866b14dec2b3ae1ab18229f2bd337651a2c"
   integrity sha512-PLXh2VJsIgvlgSTH6I2Yg6vk1CzPDp21DFreVpQtDMY2S6WaMmrQgDTLRcsrD8X38v8Yc873H7+ogdGzyIPn+w==
+  dependencies:
+    prosemirror-model "^1.0.0"
+    prosemirror-transform "^1.0.0"
+
+prosemirror-state@^1.0.0, prosemirror-state@^1.3.3:
+  version "1.3.4"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-state/-/prosemirror-state-1.3.4.tgz#4c6b52628216e753fc901c6d2bfd84ce109e8952"
+  integrity sha512-Xkkrpd1y/TQ6HKzN3agsQIGRcLckUMA9u3j207L04mt8ToRgpGeyhbVv0HI7omDORIBHjR29b7AwlATFFf2GLA==
   dependencies:
     prosemirror-model "^1.0.0"
     prosemirror-transform "^1.0.0"
@@ -12154,7 +12169,14 @@ prosemirror-tables@^1.1.1:
     prosemirror-transform "^1.2.1"
     prosemirror-view "^1.13.3"
 
-prosemirror-transform@^1.0.0, prosemirror-transform@^1.1.0, prosemirror-transform@^1.2.1, prosemirror-transform@^1.2.8:
+prosemirror-transform@^1.0.0, prosemirror-transform@^1.1.0, prosemirror-transform@^1.2.8:
+  version "1.2.9"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-transform/-/prosemirror-transform-1.2.9.tgz#dfa048102c12a457deaf4c60ae633ac3eaacc7c9"
+  integrity sha512-oiocfgn7J7Fulvl7luBsyxdAf0CJp96+0FIcqhHSvYVr/R4KqZNxXcU9xESaI9Xw+tTvDUiiS3gedVk3AOic4w==
+  dependencies:
+    prosemirror-model "^1.0.0"
+
+prosemirror-transform@^1.2.1:
   version "1.2.8"
   resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-transform/-/prosemirror-transform-1.2.8.tgz#4b86544fa43637fe381549fb7b019f4fb71fe65c"
   integrity sha512-hKqceqv9ZmMQXNQkhFjr0KFGPvkhygaWND+uIM0GxRpALrKfxP97SsgHTBs3OpJhDmh5N+mB4D/CksB291Eavg==
@@ -12166,10 +12188,19 @@ prosemirror-utils@^0.9.6:
   resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-utils/-/prosemirror-utils-0.9.6.tgz#3d97bd85897e3b535555867dc95a51399116a973"
   integrity sha512-UC+j9hQQ1POYfMc5p7UFxBTptRiGPR7Kkmbl3jVvU8VgQbkI89tR/GK+3QYC8n+VvBZrtAoCrJItNhWSxX3slA==
 
-prosemirror-view@^1.0.0, prosemirror-view@^1.1.0, prosemirror-view@^1.13.3, prosemirror-view@^1.16.1:
+prosemirror-view@^1.0.0, prosemirror-view@^1.1.0, prosemirror-view@^1.13.3:
   version "1.16.1"
   resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-view/-/prosemirror-view-1.16.1.tgz#375794a253151205394bb1ece07bcc2a647c85da"
   integrity sha512-7iDdRf2PAIgOnstcxqUxzf8IbHGfxygQs5covfxOHLWKyx7SSLRnBIlwVda54Hr6N26F4t5Kj2jfK7uIBcAKAw==
+  dependencies:
+    prosemirror-model "^1.1.0"
+    prosemirror-state "^1.0.0"
+    prosemirror-transform "^1.1.0"
+
+prosemirror-view@^1.16.1:
+  version "1.17.3"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/prosemirror-view/-/prosemirror-view-1.17.3.tgz#66a51da731e840a83ddcc9531f2e5f2b519ce5ff"
+  integrity sha512-jZiuoLe/5wY4ztFZrLbnpCf2EfCpW0gCBwLNoF07ACSNTWvjcnR8WaHTiSxBK75TbSPvtqr3B8dW4K1bdYUSLg==
   dependencies:
     prosemirror-model "^1.1.0"
     prosemirror-state "^1.0.0"

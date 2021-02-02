@@ -1,9 +1,7 @@
 // Text engine pruning from markdown-it
 
-import { Transaction } from "prosemirror-state";
 import merge from "lodash.merge";
 
-import { ExtensionSchema } from "./types";
 import {
   expandTab,
   isMdAsciiPunct,
@@ -20,7 +18,6 @@ export interface Options {
 }
 
 export interface Env {
-  tr: Transaction<ExtensionSchema>;
   typing?: boolean;
   [key: string]: any;
 }
@@ -33,8 +30,6 @@ export interface StateEnv {
 type Nesting = 1 | 0 | -1;
 
 export class Token {
-  // Source map info. Format: `[ line_begin, line_end ]`
-  map?: [number, number];
   // nesting level, the same as `state.level`
   level?: number;
   // An array of child nodes
@@ -43,8 +38,6 @@ export class Token {
   content?: string;
   // '*' or '_' for emphasis, fence string for fence, etc.
   markup?: string;
-  // A place for plugins to store an arbitrary data
-  meta?: Record<string, any>;
   // If it's true, ignore this element when rendering. Used for tight lists hide paragraphs.
   hidden = false;
 
@@ -57,7 +50,7 @@ export class Token {
     //   root inline token,
     //   leaf text,
     //   and whatever self-closed tags (e.g. <br>, <hr>),
-    //   leaf blocks never have marks (e.g. code, fence, HTML),
+    //   leaf blocks (e.g. code, fence, HTML),
     // the nesting is 0
     public nesting: Nesting,
     // Token attributes, e.g. html attributes, heading level, fence info, etc.
@@ -82,7 +75,10 @@ class State<T, P, L extends StateEnv> {
   engine: T;
   src: string;
   tokens: Token[];
+
+  // arbitary data bound to the user passing env at init
   env: P;
+  // arbitary data bound to specific parsing phase, e.g. core, block, inline, and so on
   local: L;
 
   constructor({ src, engine, tokens, env }: StateProps<T, P>) {
@@ -851,13 +847,6 @@ export class Engine<P extends Record<string, any> = Env> {
   }
 
   parse(src: string, env = {} as P): Token[] {
-    console.log(
-      "~~~~~~~~~~~",
-      this.core,
-      this.block,
-      this.inline,
-      this.postInline
-    );
     const props = { engine: this, src, env, tokens: [] };
     this.core.parse(props);
     return props.tokens;

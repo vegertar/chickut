@@ -12,7 +12,7 @@ const extension: MarkExtension = {
       href: {},
       title: { default: null },
     },
-    // inclusive: false,
+    inclusive: false,
     parseDOM: [
       {
         tag: "a[href]",
@@ -20,8 +20,6 @@ const extension: MarkExtension = {
       },
     ],
     toDOM: ({ attrs }) => ["a", attrs],
-    toText: ({ attrs }, s) =>
-      `[${s}](${attrs.href}${attrs.title ? ` "${attrs.title}"` : ""})`,
   },
 };
 

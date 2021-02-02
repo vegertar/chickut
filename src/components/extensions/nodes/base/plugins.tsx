@@ -4,28 +4,28 @@ import {
   Fragment,
   Slice,
   Mark,
-  ResolvedPos,
 } from "prosemirror-model";
-import { Transaction } from "prosemirror-state";
-import { ReplaceAroundStep } from "prosemirror-transform";
+import {
+  Transaction,
+  EditorState,
+  Selection,
+  Plugin,
+  PluginKey,
+} from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { baseKeymap } from "prosemirror-commands";
+import { baseKeymap, Command } from "prosemirror-commands";
 import { keydownHandler } from "prosemirror-keymap";
 
-import {
-  ExtensionPlugin,
-  Token,
-  Plugin,
-  trimSplit,
-  ExtensionSchema,
-  RuleMarkSpec,
-} from "../../../editor";
+import { Token, ExtensionSchema } from "../../../editor";
+
 import { balancePairs, setup, text, textCollapse } from "./rules";
+import { resolvePos, nodeToText } from "./utils";
 
 type ParseContext = {
-  type: NodeType;
+  type: NodeType | null;
   content: ProsemirrorNode[];
-  attrs?: Record<string, any>;
+  marks: Mark[];
+  token?: Token;
 };
 
 type State = {
@@ -35,77 +35,58 @@ type State = {
   text: string;
 };
 
-function toText(node: ProsemirrorNode, start: number, end: number) {
-  let textWithoutMarkup = "";
-  let textWithMarkup = "";
+export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
+  readonly name = this.type.name;
+  readonly engine = this.type.schema.cached.engine;
+  readonly schema = this.type.schema;
 
-  const text = node.text?.slice(start, end);
-  if (text) {
-    textWithoutMarkup += text;
-    textWithMarkup += node.marks.reduce((s, mark) => {
-      const toText = (mark.type.spec as RuleMarkSpec).toText;
-      if (!toText) {
-        return s;
+  constructor(public readonly type: NodeType<ExtensionSchema>) {
+    super({
+      key: new PluginKey(type.name),
+      props: {
+        handleTextInput(view, from, to, text) {
+          const self = this as ParagraphPlugin;
+          return self.handleTextInput(view, from, to, text);
+        },
+
+        handlePaste(view, event, slice) {
+          const self = this as ParagraphPlugin;
+          return self.handlePaste(view, event, slice);
+        },
+
+        handleKeyDown: function (view, event) {
+          const self = this as ParagraphPlugin;
+          return self.handleKeyDown(view, event) || false;
+        },
+      },
+    });
+  }
+
+  private handleBackspace: Command = (state, dispatch) => {
+    let { from, to, empty } = state.selection;
+    if (empty) {
+      if (from > 1) {
+        --from;
+      } else {
+        return false;
       }
-      const [left, x, right] = trimSplit(s);
-      return `${left}${toText(mark, x)}${right}`;
-    }, text);
-  }
+    }
 
-  return [textWithoutMarkup, textWithMarkup];
-}
+    const tr = this.transform(state, from, to, "");
+    if (tr) {
+      dispatch?.(tr);
+      return true;
+    }
 
-function nodeToText(node: ProsemirrorNode, start = 0, end = node.content.size) {
-  if (node.isText && node.text) {
-    return toText(node, start, end || node.text.length);
-  }
-
-  let textWithoutMarkup = "";
-  let textWithMarkup = "";
-
-  node.nodesBetween(
-    start,
-    end,
-    (node, pos) => {
-      if (node.isText && node.text) {
-        const [a, b] = toText(node, Math.max(start, pos) - pos, end - pos);
-        textWithoutMarkup += a;
-        textWithMarkup += b;
-      } else if (node.isLeaf) {
-        textWithoutMarkup += "\ufffc";
-      }
-    },
-    0
-  );
-
-  return [textWithoutMarkup, textWithMarkup];
-}
-
-function sliceToText(slice: Slice) {
-  if (slice === Slice.empty) {
-    return "";
-  }
-
-  const content: string[] = [];
-  slice.content.forEach((node) => {
-    content.push(nodeToText(node)[1]);
-  });
-  return content.join("\n");
-}
-
-function textBefore($from: ResolvedPos, max = 500) {
-  const end = $from.parentOffset;
-  const start = Math.max(0, end - max);
-  return nodeToText($from.parent, start, end);
-}
-
-export class ParagraphPlugin extends ExtensionPlugin<State | null> {
-  initState = () => {
-    return null;
+    return false;
   };
 
-  applyState = (tr: Transaction, prev: State | null) => {
-    return tr.getMeta(this) || (tr.selectionSet || tr.docChanged ? null : prev);
+  private keydownHandlers = keydownHandler({
+    Backspace: this.handleBackspace,
+  });
+
+  handleKeyDown = (view: EditorView, event: KeyboardEvent) => {
+    return this.keydownHandlers(view, event);
   };
 
   handleTextInput = (
@@ -119,7 +100,13 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       return false;
     }
 
-    return this.text(view, from, to, text, true);
+    const tr = this.transform(view.state, from, to, text);
+    if (!tr) {
+      return false;
+    }
+
+    view.dispatch(tr.scrollIntoView());
+    return true;
   };
 
   handlePaste = (view: EditorView, event: ClipboardEvent, slice: Slice) => {
@@ -129,125 +116,121 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
       console.warn("TODO: paste html", html);
     }
 
-    const text = clipboardData?.getData("text/plain") || sliceToText(slice);
+    const text =
+      clipboardData?.getData("text/plain") ||
+      nodeToText(slice.content, 0, slice.content.size);
     if (!text) {
       return false;
     }
 
-    const { from, to } = view.state.selection;
-    const ok = this.text(view, from, to, text);
-    ok && event.preventDefault();
-    return ok;
+    const state = view.state;
+    const { from, to } = state.selection;
+    const tr = this.transform(state, from, to, text);
+    if (!tr) {
+      return false;
+    }
+
+    view.dispatch(tr.scrollIntoView());
+    event.preventDefault();
+    return true;
   };
 
-  private text(
-    view: EditorView,
+  private transform(
+    state: EditorState,
     from: number,
     to: number,
-    text: string,
-    typing = false
+    text: string
   ) {
-    const state = view.state;
-    const $from = state.doc.resolve(from);
-    const spec = $from.parent.type.spec;
-    if (spec.code) {
-      return false;
+    let tr = state.tr.insertText(text, from, to);
+    const cursor = tr.mapping.map(to);
+
+    // as the new inserted text might be changing the whole block rendering,
+    // e.g. "*" into middle of "*hello*world*", we have to find range up to the same parent node
+    // TODO: for reference changing, the whole doc might be affected
+    const $target = resolvePos(tr.doc, tr.mapping.map(from), cursor);
+
+    const target = $target.parent;
+    const source = target.textContent; // nodeToText(parent, 0, parent.content.size);
+    const tokens = this.engine.parse(source);
+    if (!tokens.length) {
+      return null;
     }
 
-    const tr = state.tr;
-    const [textWithoutMarkup, textWithMarkup] = textBefore($from);
-    const ok = this.transform(
-      tr,
-      from - textWithoutMarkup.length,
-      to,
-      textWithMarkup + text,
-      typing
-    );
-
-    ok &&
-      view.dispatch(
-        tr.setMeta(this, { tr, from, to, text, typing }).scrollIntoView()
-      );
-    return ok;
-  }
-
-  private transform(
-    tr: Transaction,
-    start: number,
-    end: number,
-    text: string,
-    typing?: boolean
-  ) {
-    const tokens = this.engine.parse(text, { tr, typing });
-    if (tokens.length === 0) {
-      return false;
+    const { content } = this.parse(tokens, {
+      type: $target.parent.type,
+      content: [],
+      marks: Mark.none,
+    });
+    if (!content.length) {
+      return null;
     }
 
-    const $start = tr.doc.resolve(start);
-    const {
-      type,
-      content: [head, ...tail],
-    } = this.parse(tokens, { type: $start.parent.type, content: [] });
+    const start = $target.start();
+    const end = $target.end();
 
-    if (!head) {
-      return false;
-    }
-
-    if (head.type === this.type) {
-      tr.replaceWith(start, end, head.content);
-    } else if (start === $start.start()) {
-      if (type !== head.type) {
-        tr.replaceRangeWith(start, end, head);
-      } else {
-        tr.delete(start, end).step(
-          new ReplaceAroundStep(
-            tr.mapping.map($start.before()),
-            tr.mapping.map($start.after()),
-            tr.mapping.map($start.start()),
-            tr.mapping.map($start.end()),
-            new Slice(Fragment.from(head), 0, 0),
-            1,
-            true
-          )
-        );
+    if (start > 0) {
+      let pos = start - 1;
+      for (const node of content) {
+        tr.setNodeMarkup(pos, node.type, node.attrs, node.marks);
+        // TODO:
+        break;
       }
+
+      tr.setSelection(Selection.near(tr.doc.resolve(cursor)));
     } else {
-      console.warn("TODO:", type, head.type);
+      tr.replaceRange(start, end, new Slice(Fragment.from(content), 0, 0));
     }
 
-    if (tail.length) {
-      tr.insert(tr.mapping.map(end), tail);
-    }
-
-    return true;
+    return tr;
   }
 
   private parse(tokens: Token[], context: ParseContext) {
-    console.log(tokens);
     const stack = [context];
 
     for (const token of tokens) {
+      const current = stack[stack.length - 1];
+
       switch (token.nesting) {
         case 1: {
-          const type = this.schema.nodes[token.name];
-          stack.push({ type, content: [], attrs: token.attrs });
+          const newItem: ParseContext = {
+            type: this.schema.nodes[token.name] || null,
+            content: [],
+            marks: current.marks,
+            token,
+          };
+          if (!newItem.type) {
+            newItem.marks = this.schema.marks[token.name]
+              .create(token.attrs)
+              .addToSet(current.marks);
+          }
+          stack.push(newItem);
           break;
         }
 
         case 0: {
-          const current = stack[stack.length - 1];
           if (token.name === "") {
-            token.children && this.parseInline(token.children, current.content);
+            token.children && this.parse(token.children, current);
           } else {
-            current.content.push(...this.createNodes(token));
+            current.content.push(...this.createNodes(token, current.marks));
           }
           break;
         }
 
         case -1: {
-          const { type, content, attrs } = stack.pop()!;
-          const node = type.createAndFill(attrs, content);
-          node && stack[stack.length - 1].content.push(node);
+          const { type, content, marks, token: openToken } = stack.pop()!;
+          const marked = [
+            ...this.createNodes(openToken!, marks),
+            ...content,
+            ...this.createNodes(token, marks),
+          ];
+          const last = stack[stack.length - 1];
+          if (type) {
+            last.content.push(
+              type.createAndFill(openToken!.attrs, marked, marks)!
+            );
+          } else {
+            last.content.push(...marked);
+          }
           break;
         }
       }
@@ -256,61 +239,84 @@ export class ParagraphPlugin extends ExtensionPlugin<State | null> {
     return context;
   }
 
-  private parseInline(tokens: Token[], nodes: ProsemirrorNode[]) {
-    const stack = [Mark.none];
+  private createNodes(token: Token, marks: Mark[]): ProsemirrorNode[] {
+    // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
+    const { name, attrs, nesting, content, markup } = token;
+    const nodes: ProsemirrorNode[] = [];
+    const nodeType = this.schema.nodes[name];
+    const { markupPosition = nesting } = attrs || {};
 
-    for (const token of tokens) {
-      switch (token.nesting) {
-        case 1: {
-          const type = this.schema.marks[token.name].create(token.attrs);
-          stack.push(type.addToSet(stack[stack.length - 1]));
-          break;
-        }
-
-        case 0:
-          const marks = stack[stack.length - 1];
-          if (token.name === "text") {
-            token.content && nodes.push(this.schema.text(token.content, marks));
+    switch (nesting) {
+      case 0:
+        if (name !== "text") {
+          if (nodeType) {
+            nodes.push(
+              nodeType.createChecked(
+                attrs,
+                content ? this.schema.text(content) : undefined,
+                marks
+              )
+            );
           } else {
-            nodes.push(...this.createNodes(token, marks));
-          }
-          break;
+            marks = this.schema.marks[name].create(attrs).addToSet(marks);
+            const marker = markup && this.createMarkup(markup, marks);
 
-        case -1: {
-          stack.pop();
-          break;
+            if (marker && markupPosition >= 0) {
+              nodes.push(marker);
+            }
+            if (content) {
+              nodes.push(this.schema.text(content, marks));
+            }
+            if (marker && markupPosition <= 0) {
+              nodes.push(marker);
+            }
+          }
+        } else if (content) {
+          nodes.push(this.schema.text(content, marks));
         }
-      }
+        break;
+
+      case 1:
+      case -1:
+        if (markup && markupPosition === nesting) {
+          const marker = this.schema.text(
+            markup,
+            this.schema.marks.markup.create().addToSet(marks)
+          );
+          if (!nodeType || nodeType.isTextblock) {
+            nodes.push(marker);
+          } else if (nodeType.isBlock) {
+            const p = this.createMarkedParagraph(marker);
+            if (nodeType.validContent(Fragment.from(p))) {
+              nodes.push(p);
+            }
+          }
+        }
+        break;
     }
+
+    return nodes;
   }
 
-  private createNodes(token: Token, marks?: Mark[]): ProsemirrorNode[] {
-    // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
-    const { name, attrs, content } = token;
-    const nodeType = this.schema.nodes[name];
-    if (nodeType) {
-      return [
-        nodeType.createChecked(
-          attrs,
-          content ? this.schema.text(content) : undefined,
-          marks
-        ),
-      ];
-    }
+  private createMarkup(markup: string, marks: Mark[]) {
+    return this.schema.text(
+      markup,
+      this.schema.marks.markup.create().addToSet(marks)
+    );
+  }
 
-    if (!token.content) {
-      return [];
-    }
-
-    const mark = this.schema.marks[name].create(attrs);
-    return [this.schema.text(token.content, mark.addToSet(marks || Mark.none))];
+  private createMarkedParagraph(marker: ProsemirrorNode) {
+    return this.type.create({ marker: true }, marker);
   }
 }
 
 export class BasePlugin extends Plugin {
   constructor(name: string) {
-    super(name, {
-      handleKeyDown: keydownHandler(baseKeymap),
+    super({
+      key: new PluginKey(name),
+      props: {
+        handleKeyDown: keydownHandler(baseKeymap),
+      },
     });
   }
 }

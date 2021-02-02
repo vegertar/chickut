@@ -27,6 +27,12 @@ export type ExtensionSchema = ProsemirrorSchema & {
 export type NodeType = ProsemirrorNodeType<ExtensionSchema>;
 export type MarkType = ProsemirrorMarkType<ExtensionSchema>;
 
+export type ExtensionSpec<T extends NodeType | MarkType> = T extends NodeType
+  ? NodeSpec
+  : MarkSpec & {
+      rank?: number;
+    };
+
 export type ExtensionRule<
   T extends CoreRule | BlockRule | InlineRule
 > = Partial<Pick<T, "alt" | "handle">> & {
@@ -38,14 +44,13 @@ export type ExtensionPlugins<
   T extends NodeType | MarkType | ExtensionSchema
 > = (this: ThisT & { name: string }, type: T) => Plugin[];
 
-export type RuleNodeSpec<T extends "block" | "inline"> = NodeSpec & {
+export type RuleNodeSpec<T extends "block" | "inline"> = ExtensionSpec<
+  NodeType
+> & {
   group: T;
-  toText?: (node: ProsemirrorNode) => string;
 };
 
-export type RuleMarkSpec = MarkSpec & {
-  toText?(mark: Mark, content: string): string;
-};
+export type RuleMarkSpec = ExtensionSpec<MarkType>;
 
 type RuleNodeGroups = "block" | "inline";
 

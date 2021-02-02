@@ -19,7 +19,7 @@ const extension: NodeExtension = {
   node: {
     content: "text*",
     marks: "",
-    group: "block", // TODO: html inline
+    group: "block", // TODO: html inline, integrating JSX
     code: true,
     defining: true,
     draggable: false,

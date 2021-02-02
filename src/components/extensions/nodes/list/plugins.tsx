@@ -5,20 +5,24 @@ import {
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
+import { Plugin, PluginKey } from "prosemirror-state";
 
-import { BlockRule, ExtensionPlugin, ExtensionSchema } from "../../../editor";
+import { BlockRule, ExtensionSchema } from "../../../editor";
 
 import handle from "./handle";
 import names from "./names";
 
-export class ListItemPlugin extends ExtensionPlugin {
+export class ListItemPlugin extends Plugin {
   constructor(type: NodeType) {
-    super(type, {
-      handleKeyDown: keydownHandler({
-        Enter: splitListItem(type),
-        Tab: sinkListItem(type),
-        "Shift-Tab": liftListItem(type),
-      }),
+    super({
+      key: new PluginKey(type.name),
+      props: {
+        handleKeyDown: keydownHandler({
+          Enter: splitListItem(type),
+          Tab: sinkListItem(type),
+          "Shift-Tab": liftListItem(type),
+        }),
+      },
     });
   }
 }

@@ -7,7 +7,6 @@ import "./styles.scss";
 const extension: MarkExtension = {
   rule: { handle },
   mark: {
-    excludes: "_", // excludes all marks
     parseDOM: [{ tag: "code" }],
     toDOM: () => ["code", { spellCheck: "false" }],
   },
