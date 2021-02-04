@@ -31,12 +31,6 @@ const handle: BlockRuleHandle = function heading(state, silent, startLine) {
     return false;
   }
 
-  const { typing } = state.env;
-  if (typing && pos === max) {
-    // The commonmark spec(so did the original markdown-it code) treats '#...' without tailing chars as the empty heading, i.e. the condition (pos < max) is legal, but which makes hard typing for different levels.
-    return false;
-  }
-
   if (silent) {
     return true;
   }

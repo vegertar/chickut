@@ -19,7 +19,7 @@ import { keydownHandler } from "prosemirror-keymap";
 import { Token, ExtensionSchema } from "../../../editor";
 
 import { balancePairs, setup, text, textCollapse } from "./rules";
-import { resolvePos, nodeToText } from "./utils";
+import { textBetween } from "./utils";
 
 type ParseContext = {
   type: NodeType | null;
@@ -64,25 +64,74 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
 
   private handleBackspace: Command = (state, dispatch) => {
     let { from, to, empty } = state.selection;
+    if (empty && from <= 1) {
+      return false;
+    }
+
     if (empty) {
-      if (from > 1) {
-        --from;
-      } else {
+      while (--from > 0) {
+        const $from = state.doc.resolve(from);
+        if ($from.parent !== $from.doc) {
+          break;
+        }
+      }
+      if (from === 0) {
         return false;
       }
     }
 
-    const tr = this.transform(state, from, to, "");
-    if (tr) {
-      dispatch?.(tr);
-      return true;
+    const tr = this.transform(state, from, to);
+    if (!tr) {
+      return false;
     }
 
-    return false;
+    dispatch?.(tr.scrollIntoView());
+    return true;
+  };
+
+  private handleDelete: Command = (state, dispatch) => {
+    const size = state.doc.content.size;
+    let { from, to, empty } = state.selection;
+    if (empty && to >= size) {
+      return false;
+    }
+
+    if (empty) {
+      while (++to < size) {
+        const $to = state.doc.resolve(to);
+        if ($to.parent !== $to.doc) {
+          break;
+        }
+      }
+      if (to === size) {
+        return false;
+      }
+    }
+
+    const tr = this.transform(state, from, to);
+    if (!tr) {
+      return false;
+    }
+
+    dispatch?.(tr.scrollIntoView());
+    return true;
+  };
+
+  private handleEnter: Command = (state, dispatch) => {
+    const { from, to } = state.selection;
+    const tr = this.transform(state, from, to, "\n");
+    if (!tr) {
+      return false;
+    }
+
+    dispatch?.(tr.scrollIntoView());
+    return true;
   };
 
   private keydownHandlers = keydownHandler({
     Backspace: this.handleBackspace,
+    Delete: this.handleDelete,
+    Enter: this.handleEnter,
   });
 
   handleKeyDown = (view: EditorView, event: KeyboardEvent) => {
@@ -118,7 +167,7 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
 
     const text =
       clipboardData?.getData("text/plain") ||
-      nodeToText(slice.content, 0, slice.content.size);
+      textBetween(slice.content, 0, slice.content.size);
     if (!text) {
       return false;
     }
@@ -139,25 +188,32 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     state: EditorState,
     from: number,
     to: number,
-    text: string
+    text?: string
   ) {
-    let tr = state.tr.insertText(text, from, to);
-    const cursor = tr.mapping.map(to);
+    const tr = text
+      ? state.tr.replace(
+          from,
+          to,
+          new Slice(Fragment.from(this.schema.text(text)), 0, 0)
+        )
+      : state.tr.delete(from, to);
 
-    // as the new inserted text might be changing the whole block rendering,
-    // e.g. "*" into middle of "*hello*world*", we have to find range up to the same parent node
-    // TODO: for reference changing, the whole doc might be affected
-    const $target = resolvePos(tr.doc, tr.mapping.map(from), cursor);
+    const start = tr.mapping.map(from);
+    const end = tr.mapping.map(to);
+    const $node = tr.doc.resolve(
+      tr.doc.resolve(start === 0 ? 1 : start).start()
+    );
 
-    const target = $target.parent;
-    const source = target.textContent; // nodeToText(parent, 0, parent.content.size);
+    const node = $node.parent;
+    const source = textBetween(node, 0, node.content.size);
+
     const tokens = this.engine.parse(source);
     if (!tokens.length) {
       return null;
     }
 
     const { content } = this.parse(tokens, {
-      type: $target.parent.type,
+      type: node.type,
       content: [],
       marks: Mark.none,
     });
@@ -165,23 +221,18 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       return null;
     }
 
-    const start = $target.start();
-    const end = $target.end();
+    const [head, ...tail] = content;
+    if (!node.sameMarkup(head)) {
+      // rather node position than content position
+      tr.setNodeMarkup($node.pos - 1, head.type, head.attrs, head.marks);
+    }
+    tr.replaceWith($node.pos, $node.pos + node.content.size, head.content);
 
-    if (start > 0) {
-      let pos = start - 1;
-      for (const node of content) {
-        tr.setNodeMarkup(pos, node.type, node.attrs, node.marks);
-        // TODO:
-        break;
-      }
-
-      tr.setSelection(Selection.near(tr.doc.resolve(cursor)));
-    } else {
-      tr.replaceRange(start, end, new Slice(Fragment.from(content), 0, 0));
+    if (tail.length) {
+      tr.insert($node.pos + head.content.size, tail);
     }
 
-    return tr;
+    return tr.setSelection(Selection.near(tr.doc.resolve(end)));
   }
 
   private parse(tokens: Token[], context: ParseContext) {

@@ -36,11 +36,6 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
     return false;
   }
 
-  if (state.env.typing && !isSpace(state.src.charCodeAt(pos - 1))) {
-    // there should be tailing with a space on typing mode
-    return false;
-  }
-
   if (silent) {
     return true;
   }

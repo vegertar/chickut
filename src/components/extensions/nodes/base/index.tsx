@@ -18,12 +18,22 @@ const pack: ExtensionPack = [
   },
 
   {
+    name: "blank",
+    node: {
+      content: "text*",
+      group: "block",
+      parseDOM: [{ tag: "div.blank" }],
+      toDOM: () => ["div", { class: "blank" }, 0],
+    },
+  },
+
+  {
     name: "markup",
     mark: {
       inclusive: false,
       rank: Infinity,
-      parseDOM: [{ tag: "markup" }],
-      toDOM: () => ["markup"],
+      parseDOM: [{ tag: "span.markup" }],
+      toDOM: () => ["span", { class: "markup" }],
     },
   },
 

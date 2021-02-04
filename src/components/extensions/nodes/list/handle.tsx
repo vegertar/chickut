@@ -17,11 +17,6 @@ function skipBulletListMarker<T>(state: BlockState<T, Env>, startLine: number) {
     return -1;
   }
 
-  if (pos === max && state.env.typing) {
-    // "-" is not a list item on typing mode
-    return -1;
-  }
-
   if (pos < max && !isSpace(state.src.charCodeAt(pos))) {
     // " -test " - is not a list item
     return -1;
@@ -73,11 +68,6 @@ function skipOrderedListMarker<T>(
       break;
     }
 
-    return -1;
-  }
-
-  if (pos === max && state.env.typing) {
-    // "1." is not a list item on typing mode
     return -1;
   }
 

@@ -18,7 +18,6 @@ export interface Options {
 }
 
 export interface Env {
-  typing?: boolean;
   [key: string]: any;
 }
 
@@ -42,9 +41,10 @@ export class Token {
   hidden = false;
 
   constructor(
-    // There are two preserved name:
+    // the preserve names:
     //   "": the root of inline token, which contains actual inline children with name, e.g. "text", "link", etc.
     //   "text": the final leaf token without marks and children.
+    //   "blank": the leaf block for a blank line
     public name: string,
     // In case of
     //   root inline token,
@@ -282,6 +282,15 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
           } else {
             offset++;
           }
+
+          if (pos === len - 1) {
+            this.bMarks.push(start);
+            this.eMarks.push(pos + 1);
+            this.tShift.push(indent);
+            this.sCount.push(offset);
+            this.bsCount.push(0);
+          }
+
           continue;
         } else {
           indentFound = true;
@@ -343,17 +352,21 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
     return token;
   }
 
-  isEmpty(line: number) {
-    return this.bMarks[line] + this.tShift[line] >= this.eMarks[line];
-  }
-
-  skipEmptyLines(from: number) {
-    for (let max = this.lineMax; from < max; from++) {
+  eatBlankLines(from: number, to = this.lineMax) {
+    for (; from < to; from++) {
       if (!this.isEmpty(from)) {
         break;
       }
+      this.push("blank", 0).content = this.src.slice(
+        this.bMarks[from],
+        this.eMarks[from]
+      );
     }
     return from;
+  }
+
+  isEmpty(line: number) {
+    return this.bMarks[line] + this.tShift[line] >= this.eMarks[line];
   }
 
   // Skip spaces from given position.
@@ -491,7 +504,7 @@ class BlockParser<T extends { options: Options }, P> extends Parser<
     let hasEmptyLines = false;
 
     while (line < endLine) {
-      state.line = line = state.skipEmptyLines(line);
+      state.line = line = state.eatBlankLines(line);
       if (line >= endLine) {
         break;
       }
@@ -534,7 +547,7 @@ class BlockParser<T extends { options: Options }, P> extends Parser<
 
       line = state.line;
 
-      if (line < endLine && state.isEmpty(line)) {
+      if (line < endLine && state.eatBlankLines(line, line + 1) > line) {
         hasEmptyLines = true;
         state.line = ++line;
       }

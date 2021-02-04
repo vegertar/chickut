@@ -13,26 +13,10 @@ const handle: BlockRuleHandle = function blockquote(
   }
 
   let pos = state.bMarks[startLine] + state.tShift[startLine];
+
   // check the block quote marker
   if (state.src.charCodeAt(pos++) !== 0x3e /* > */) {
     return false;
-  }
-
-  let max = state.eMarks[startLine];
-
-  if (state.env.typing) {
-    // the commonmark spec(so did original markdown-it -code) allows the spaces after '>' can be omited, which makes little friendly typing
-    for (let i = pos; i <= max; ++i) {
-      if (i === max) {
-        return false;
-      }
-
-      const ch = state.src.charCodeAt(i);
-      // check the immediate space
-      if (isSpace(ch) && state.src.charCodeAt(i - 1) === 0x3e /* > */) {
-        break;
-      }
-    }
   }
 
   // we know that it's going to be a valid blockquote,
@@ -40,6 +24,8 @@ const handle: BlockRuleHandle = function blockquote(
   if (silent) {
     return true;
   }
+
+  let max = state.eMarks[startLine];
 
   // set offset past spaces and ">"
   let offset = state.sCount[startLine] + 1;

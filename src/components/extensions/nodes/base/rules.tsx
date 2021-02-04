@@ -89,11 +89,7 @@ export const paragraph: BlockRuleHandle = function paragraph(
     }
   }
 
-  // we don't trim content for friendly typing, however
-  let content = state.getLines(startLine, nextLine, state.blkIndent, false);
-  if (!state.env.typing) {
-    content = content.trim();
-  }
+  const content = state.getLines(startLine, nextLine, state.blkIndent, false); // TODO: .trim();
 
   state.line = nextLine;
 
