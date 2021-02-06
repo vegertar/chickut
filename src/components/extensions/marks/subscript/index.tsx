@@ -12,11 +12,13 @@ import {
 const UNESCAPE_RE = /\\([ \\!"#$%&'()*+,./:;<=>?@[\]^_`{|}~-])/g;
 const UNESCAPED_SPACES_RE = /(^|[^\\])(\\\\)*\s/;
 
+type Transform = (tokens: Token[]) => void;
+
 export function useSubscript(marker: number): { handle: InlineRuleHandle };
 export function useSubscript(
   marker: number,
   tag: string,
-  transform?: (s: Token) => void
+  transform?: Transform
 ): {
   handle: InlineRuleHandle;
   extension: RuleMarkExtension;
@@ -24,12 +26,12 @@ export function useSubscript(
 export function useSubscript(
   marker: number,
   tag: string | undefined,
-  transform: (s: Token) => void
+  transform: Transform
 ): { handle: InlineRuleHandle; extension?: RuleMarkExtension };
 export function useSubscript(
   marker: number,
   tag?: string,
-  transform?: (s: Token) => void
+  transform?: Transform
 ) {
   return useMemo(() => {
     const markup = String.fromCharCode(marker);
@@ -78,11 +80,19 @@ export function useSubscript(
       state.posMax = state.pos;
       state.pos = start + 1;
 
-      const token = state.push(this.name, 0);
-      token.markup = markup;
+      const openToken = state.push(this.name, 1);
+      const openMarkup = state.push("markup", 0);
+      openMarkup.content = markup;
+
+      const token = state.push("text", 0);
+      token.code = true;
       token.content = content.replace(UNESCAPE_RE, "$1");
 
-      transform?.(token);
+      const closeMarkup = state.push("markup", 0);
+      closeMarkup.content = markup;
+      const closeToken = state.push(this.name, -1);
+
+      transform?.([openToken, openMarkup, token, closeMarkup, closeToken]);
 
       state.pos = state.posMax + 1;
       state.posMax = max;

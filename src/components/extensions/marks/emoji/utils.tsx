@@ -66,7 +66,10 @@ export function createOptions({ definitions, aliases, enabled }: Options) {
   };
 }
 
-export function transform(token: Token, definitions: Record<string, string>) {
+export function transform(
+  definitions: Record<string, string>,
+  [openToken, openMarkup, token, closeMarkup]: Token[]
+) {
   if (!token.content) {
     return;
   }
@@ -74,18 +77,16 @@ export function transform(token: Token, definitions: Record<string, string>) {
   const definition = token.content;
   const content = definitions[definition];
 
-  if (!token.attrs) {
-    token.attrs = {};
+  if (!openToken.attrs) {
+    openToken.attrs = {};
   }
-  token.attrs["data-definition"] = definition;
+  openToken.attrs["data-definition"] = definition;
   if (content === undefined) {
-    token.attrs["data-missing"] = true;
+    openToken.attrs["data-missing"] = true;
   } else {
     token.content = content;
-    token.attrs.markupPosition = -1;
-    token.markup =
-      token.attrs["data-alias"] ||
-      `${token.markup}${definition}${token.markup}`;
+    closeMarkup.content = `${openMarkup.content}${definition}${closeMarkup.content}`;
+    openMarkup.content = "";
   }
 }
 
@@ -102,6 +103,7 @@ export function createHandle({
     text.replace(replaceRE, (match, offset, src) => {
       // replace alias with full name
       const definition = aliases[match];
+      const content = definitions[definition];
 
       // Don't allow letters before any shortcut (as in no ":/" in http://)
       if (offset > 0 && !ZPCc.test(src[offset - 1])) {
@@ -123,11 +125,22 @@ export function createHandle({
         nodes.push(token);
       }
 
-      const token = new Token(name, 0, { "data-alias": match });
-      token.content = definition;
+      const token = new Token("text", 0);
+      token.code = true;
+      token.content = content;
 
-      transform(token, definitions);
-      nodes.push(token);
+      const markup = new Token("markup", 0);
+      markup.content = match;
+
+      nodes.push(
+        new Token(name, 1, {
+          "data-alias": match,
+          "data-definition": definition,
+        }),
+        token,
+        markup, // only close markup
+        new Token(name, -1)
+      );
 
       lastPos = offset + match.length;
 
@@ -157,6 +170,7 @@ export function createHandle({
 
         if (
           token.name === "text" &&
+          !token.code &&
           token.content &&
           scanRE.test(token.content)
         ) {

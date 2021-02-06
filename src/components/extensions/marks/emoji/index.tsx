@@ -35,7 +35,7 @@ function useOptions(options?: Partial<Options>) {
 }
 
 function useTransform({ definitions }: Pick<Options, "definitions">) {
-  return useCallback((token: Token) => transform(token, definitions), [
+  return useCallback((tokens: Token[]) => transform(definitions, tokens), [
     definitions,
   ]);
 }

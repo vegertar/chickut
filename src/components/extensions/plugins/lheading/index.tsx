@@ -90,7 +90,7 @@ const extension: PluginExtension = {
 
       state.line = nextLine + 1;
 
-      state.push(type.name, 1, { level }).markup = String.fromCharCode(marker);
+      state.push(type.name, 1, { level }); // .markup = String.fromCharCode(marker);
 
       const inlineToken = state.push("", 0);
       inlineToken.content = content;

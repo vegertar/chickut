@@ -182,7 +182,7 @@ const handle: BlockRuleHandle = function list(
   if (isOrdered && markerValue !== 1) {
     openToken.attrs = { start: markerValue };
   }
-  openToken.markup = String.fromCharCode(markerCharCode);
+  // openToken.markup = String.fromCharCode(markerCharCode);
 
   //
   // Iterate list items
@@ -241,7 +241,7 @@ const handle: BlockRuleHandle = function list(
 
     // Run subparser & write tokens
     const openToken = state.push(names.item, 1);
-    openToken.markup = String.fromCharCode(markerCharCode);
+    // openToken.markup = String.fromCharCode(markerCharCode);
 
     // change current state, then restore it after parser subcall
     const oldTight = state.tight;
@@ -340,10 +340,7 @@ const handle: BlockRuleHandle = function list(
   }
 
   // Finalize list
-  state.push(
-    isOrdered ? names.numbered : names.bulleted,
-    -1
-  ).markup = String.fromCharCode(markerCharCode);
+  state.push(isOrdered ? names.numbered : names.bulleted, -1); // .markup = String.fromCharCode(markerCharCode);
 
   state.line = nextLine;
   state.parent = oldParent;

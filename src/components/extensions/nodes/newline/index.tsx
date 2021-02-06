@@ -25,7 +25,7 @@ const handle: InlineRuleHandle = function newline(state, silent) {
     if (pmax >= 0 && state.pending.charCodeAt(pmax) === 0x20) {
       if (pmax >= 1 && state.pending.charCodeAt(pmax - 1) === 0x20) {
         state.pending = state.pending.replace(SPACES_RE, "");
-        state.push(this.name, 0).markup = "hardbreak";
+        state.push(this.name, 0); //.markup = "hardbreak";
       } else {
         state.pending = state.pending.slice(0, -1);
         softbreak = true;
@@ -37,7 +37,7 @@ const handle: InlineRuleHandle = function newline(state, silent) {
     if (softbreak) {
       const token = state.push("text", 0);
       token.content = "\n";
-      token.markup = "softbreak";
+      // token.markup = "softbreak";
     }
   }
 

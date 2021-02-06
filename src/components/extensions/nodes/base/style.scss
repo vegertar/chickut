@@ -2,15 +2,15 @@
   p {
     position: relative;
     margin: 0;
+  }
 
-    &.marker,
-    &.marker + p {
-      display: inline;
-    }
+  div.markup,
+  div.markup + p {
+    display: inline;
+  }
 
-    &.marker + p::after {
-      content: "\A";
-      white-space: pre;
-    }
+  div.markup + p::after {
+    content: "\A";
+    white-space: pre;
   }
 }

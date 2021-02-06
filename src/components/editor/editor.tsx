@@ -49,6 +49,10 @@ function flatFragment(children: React.ReactNode) {
 }
 
 function applyText(view: EditorView, text: string) {
+  if (!text) {
+    view.dispatch(view.state.tr.deleteSelection());
+    return true;
+  }
   const fragment = Fragment.from(view.state.schema.text(text));
   const slice = new Slice(fragment, 0, 0) as Slice<ExtensionSchema>;
 

@@ -11,9 +11,10 @@ const extension: NodeExtension = {
   },
 
   node: {
+    content: "text*",
     group: "block",
     parseDOM: [{ tag: "hr" }],
-    toDOM: () => ["hr"],
+    toDOM: () => ["hr", 0],
   },
 };
 

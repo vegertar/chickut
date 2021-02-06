@@ -280,9 +280,13 @@ export const textCollapse: PostInlineRuleHandle = function (state) {
   for (curr = last = 0; curr < max; curr++) {
     // re-calculate levels after emphasis/strikethrough turns some text nodes
     // into opening/closing tags
-    if (tokens[curr].nesting < 0) level--; // closing tag
+    if (tokens[curr].nesting < 0) {
+      level--; // closing tag
+    }
     tokens[curr].level = level;
-    if (tokens[curr].nesting > 0) level++; // opening tag
+    if (tokens[curr].nesting > 0) {
+      level++; // opening tag
+    }
 
     if (
       tokens[curr].name === this.name &&
@@ -293,6 +297,7 @@ export const textCollapse: PostInlineRuleHandle = function (state) {
       tokens[curr + 1].content =
         (tokens[curr].content || "") + (tokens[curr + 1].content || "");
     } else {
+      // copy backward
       if (curr !== last) {
         tokens[last] = tokens[curr];
       }

@@ -194,15 +194,15 @@ const handle: InlineRuleHandle = function link(state: State, silent) {
     state.posMax = labelEnd;
 
     const openToken = state.push(this.name, 1, { href });
-    openToken.markup = state.src.slice(oldPos, labelStart);
     if (title) {
       openToken.attrs.title = title;
     }
 
+    state.push("markup", 0).content = state.src.slice(oldPos, labelStart);
     state.engine.inline.tokenize(state);
+    state.push("markup", 0).content = state.src.slice(labelStart, pos);
 
-    const closeToken = state.push(this.name, -1);
-    closeToken.markup = state.src.slice(labelStart, pos);
+    state.push(this.name, -1);
   }
 
   state.pos = pos;

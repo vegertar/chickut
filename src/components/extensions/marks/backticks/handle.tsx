@@ -59,12 +59,18 @@ const handle: InlineRuleHandle<Env, BackticksStateEnv> = function backticks(
     if (closerLength === openerLength) {
       // Found matching closer length.
       if (!silent) {
-        const token = state.push(this.name, 0);
-        token.markup = marker;
+        state.push(this.name, 1);
+        state.push("markup", 0).content = marker;
+
+        const token = state.push("text", 0);
+        token.code = true;
         token.content = state.src
           .slice(pos, matchStart)
           .replace(/\n/g, " ")
           .replace(/^ (.+) $/, "$1");
+
+        state.push("markup", 0).content = marker;
+        state.push(this.name, -1);
       }
       state.pos = matchEnd;
       return true;

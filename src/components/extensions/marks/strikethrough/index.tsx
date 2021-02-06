@@ -67,7 +67,9 @@ export function useStrikethrough(marker: number, tag?: string) {
       delimiters: Delimiter[]
     ) {
       const loneMarkers: number[] = [];
+      const pairs: number[] = [];
 
+      // iterating from outer to inner
       for (const startDelim of delimiters) {
         if (startDelim.marker !== marker || startDelim.end === -1) {
           continue;
@@ -78,14 +80,14 @@ export function useStrikethrough(marker: number, tag?: string) {
         const openToken = tokens[startDelim.token];
         openToken.nesting = 1;
         openToken.name = name;
-        openToken.markup = markup + markup;
-        openToken.content = "";
+        openToken.content = markup + markup; // save markup temporarily
 
         const closeToken = tokens[endDelim.token];
         closeToken.nesting = -1;
         closeToken.name = openToken.name;
-        closeToken.markup = openToken.markup;
-        closeToken.content = openToken.content;
+        closeToken.content = "";
+
+        pairs.push(startDelim.token, endDelim.token);
 
         const i = endDelim.token - 1;
         if (tokens[i].name === "text" && tokens[i].content === markup) {
@@ -98,9 +100,8 @@ export function useStrikethrough(marker: number, tag?: string) {
       // start of the sequence.
       //
       // So, we have to move all those markers after subsequent s_close tags.
-      //
-      while (loneMarkers.length) {
-        const i = loneMarkers.pop()!;
+      for (let n = 0; n < loneMarkers.length; n++) {
+        const i = loneMarkers[loneMarkers.length - n - 1];
         let j = i + 1;
 
         while (
@@ -117,7 +118,37 @@ export function useStrikethrough(marker: number, tag?: string) {
           const token = tokens[j];
           tokens[j] = tokens[i];
           tokens[i] = token;
+
+          for (let k = n * 2; k < pairs.length; k += 2) {
+            let m = k + 1;
+            if (pairs[m] === j) {
+              while (m < pairs.length && pairs[m] > i) {
+                --pairs[m];
+                m += 2;
+              }
+
+              break;
+            }
+          }
         }
+      }
+
+      for (let i = 0; i < pairs.length; i += 2) {
+        const openIndex = pairs[pairs.length - i - 2];
+        const closeIndex = pairs[pairs.length - i - 1] + i;
+
+        const openToken = tokens[openIndex];
+
+        const openMarkup = new Token("markup", 0);
+        openMarkup.content = openToken.content;
+
+        const closeMarkup = new Token("markup", 0);
+        closeMarkup.content = openToken.content;
+
+        openToken.content = "";
+
+        tokens.splice(openIndex + 1, 0, openMarkup);
+        tokens.splice(closeIndex + 1, 0, closeMarkup);
       }
     }
 

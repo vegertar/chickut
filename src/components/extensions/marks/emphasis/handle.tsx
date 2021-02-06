@@ -3,6 +3,7 @@ import {
   InlineRuleHandle,
   InlineState,
   PostInlineRuleHandle,
+  Token,
 } from "../../../editor";
 
 export const handle: InlineRuleHandle = function emphasis(state, silent) {
@@ -15,10 +16,11 @@ export const handle: InlineRuleHandle = function emphasis(state, silent) {
     return false;
   }
 
+  const markup = String.fromCharCode(marker);
   const scanned = state.scanDelims(state.pos, marker === 0x2a);
   for (let i = 0; i < scanned.length; i++) {
-    const token = state.push("text", 0);
-    token.content = String.fromCharCode(marker);
+    state.push("text", 0).content = markup;
+
     state.delimiters.push({
       ...scanned,
       end: -1,
@@ -36,6 +38,9 @@ function postProcess(
   state: InlineState,
   delimiters: Delimiter[]
 ) {
+  const pairs: number[] = [];
+
+  // iterating from inner to outer
   for (let i = delimiters.length - 1; i >= 0; i--) {
     const startDelim = delimiters[i];
 
@@ -70,22 +75,40 @@ function postProcess(
     const openToken = state.tokens[startDelim.token];
     openToken.nesting = 1;
     openToken.name = name;
-    openToken.markup = markup;
-    openToken.content = "";
-    openToken.attrs = { isStrong, markup };
+    openToken.content = markup; // save markup temporarily
+    openToken.attrs = { isStrong };
 
     const closeToken = state.tokens[endDelim.token];
     closeToken.nesting = -1;
     closeToken.name = openToken.name;
-    closeToken.markup = openToken.markup;
-    closeToken.content = openToken.content;
+    closeToken.content = "";
     closeToken.attrs = openToken.attrs;
+
+    pairs.push(startDelim.token, endDelim.token);
 
     if (isStrong) {
       state.tokens[delimiters[i - 1].token].content = "";
       state.tokens[delimiters[startDelim.end + 1].token].content = "";
       i--;
     }
+  }
+
+  for (let i = 0; i < pairs.length; i += 2) {
+    const openIndex = pairs[i];
+    const closeIndex = pairs[i + 1] + i;
+
+    const openToken = state.tokens[openIndex];
+
+    const openMarkup = new Token("markup", 0);
+    openMarkup.content = openToken.content;
+
+    const closeMarkup = new Token("markup", 0);
+    closeMarkup.content = openToken.content;
+
+    openToken.content = "";
+
+    state.tokens.splice(openIndex + 1, 0, openMarkup);
+    state.tokens.splice(closeIndex + 1, 0, closeMarkup);
   }
 }
 

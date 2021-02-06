@@ -28,33 +28,30 @@ export interface StateEnv {
 // 1: opening, 0: self closing, -1: clsoing
 type Nesting = 1 | 0 | -1;
 
+type Attrs = { [name: string]: any };
+type AttrsToken = Token & { attrs: Attrs };
+
 export class Token {
-  // nesting level, the same as `state.level`
+  // Nesting level, the same as `state.level`
   level?: number;
   // An array of child nodes
   children?: Token[];
   // Text content of this tag.
   content?: string;
-  // '*' or '_' for emphasis, fence string for fence, etc.
-  markup?: string;
+  // Indicating if text content contains code
+  code?: boolean;
   // If it's true, ignore this element when rendering. Used for tight lists hide paragraphs.
-  hidden = false;
+  hidden?: boolean;
 
   constructor(
-    // the preserve names:
-    //   "": the root of inline token, which contains actual inline children with name, e.g. "text", "link", etc.
-    //   "text": the final leaf token without marks and children.
-    //   "blank": the leaf block for a blank line
+    // Preserve names:
+    //   "": the root of inline token, which contains actual inline children with name, e.g. "text"
+    //   "text": the leaf token contains the text content
+    //   "blank": the leaf token contains the blank line
+    //   "markup": the leaf token contains the markup
     public name: string,
-    // In case of
-    //   root inline token,
-    //   leaf text,
-    //   and whatever self-closed tags (e.g. <br>, <hr>),
-    //   leaf blocks (e.g. code, fence, HTML),
-    // the nesting is 0
     public nesting: Nesting,
-    // Token attributes, e.g. html attributes, heading level, fence info, etc.
-    public attrs?: Record<string, any>
+    public attrs?: Attrs
   ) {}
 }
 
@@ -265,11 +262,15 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
   constructor(props: StateProps<T, P>) {
     super(props);
 
+    let blankEnding = false;
     let indentFound = false;
     let start = 0;
     let indent = 0;
     let offset = 0;
-    for (let pos = 0, len = this.src.length; pos < len; pos++) {
+    let pos = 0;
+
+    const len = this.src.length;
+    for (; pos < len; pos++) {
       const ch = this.src.charCodeAt(pos);
 
       if (!indentFound) {
@@ -284,11 +285,7 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
           }
 
           if (pos === len - 1) {
-            this.bMarks.push(start);
-            this.eMarks.push(pos + 1);
-            this.tShift.push(indent);
-            this.sCount.push(offset);
-            this.bsCount.push(0);
+            blankEnding = true;
           }
 
           continue;
@@ -302,38 +299,43 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
         if (ch !== 0x0a) {
           pos++;
         }
-        this.bMarks.push(start);
-        this.eMarks.push(pos);
-        this.tShift.push(indent);
-        this.sCount.push(offset);
-        this.bsCount.push(0);
+        this.add(start, pos, indent, offset, 0);
 
         // set a new line
         indentFound = false;
         indent = 0;
         offset = 0;
         start = pos + 1;
+
+        if (pos === len - 1 && ch === 0x0a) {
+          blankEnding = true;
+        }
       }
     }
 
+    if (blankEnding) {
+      // add the last blank line
+      this.add(start, pos + 1, indent, offset, 0);
+    }
+
     // Push fake entry to simplify cache bounds checks
-    this.bMarks.push(this.src.length);
-    this.eMarks.push(this.src.length);
-    this.tShift.push(0);
-    this.sCount.push(0);
-    this.bsCount.push(0);
+    this.add(len, len, 0, 0, 0);
 
     this.lineMax = this.bMarks.length - 1; // don't count last fake line
   }
 
+  add(b: number, e: number, t: number, s: number, bs: number) {
+    this.bMarks.push(b);
+    this.eMarks.push(e);
+    this.tShift.push(t);
+    this.sCount.push(s);
+    this.bsCount.push(bs);
+  }
+
   // Push new token to "stream".
   push(name: string, nesting: Nesting): Token;
-  push(
-    name: string,
-    nesting: Nesting,
-    attrs: Record<string, any>
-  ): Token & { attrs: Record<string, any> };
-  push(name: string, nesting: Nesting, attrs?: Record<string, any>) {
+  push(name: string, nesting: Nesting, attrs: Attrs): AttrsToken;
+  push(name: string, nesting: Nesting, attrs?: Attrs) {
     const token = new Token(name, nesting, attrs);
 
     // closing tag
@@ -357,10 +359,8 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
       if (!this.isEmpty(from)) {
         break;
       }
-      this.push("blank", 0).content = this.src.slice(
-        this.bMarks[from],
-        this.eMarks[from]
-      );
+      const blank = this.src.slice(this.bMarks[from], this.eMarks[from]);
+      this.push("blank", 0).content = blank;
     }
     return from;
   }
@@ -622,12 +622,8 @@ export class InlineState<T = {}, P = {}, L = {}> extends State<T, P, L> {
 
   // Push new token to "stream". If pending text exists - flush it as text token
   push(name: string, nesting: Nesting): Token;
-  push(
-    name: string,
-    nesting: Nesting,
-    attrs: Record<string, any>
-  ): Token & { attrs: Record<string, any> };
-  push(name: string, nesting: Nesting, attrs?: Record<string, any>) {
+  push(name: string, nesting: Nesting, attrs: Attrs): AttrsToken;
+  push(name: string, nesting: Nesting, attrs?: Attrs) {
     if (this.pending) {
       this.pushPending();
     }

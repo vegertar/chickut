@@ -111,7 +111,7 @@ const extension: PluginExtension = {
 
       const token = state.push(type.name, 0, { info: params });
       token.content = state.getLines(startLine + 1, nextLine, len, true);
-      token.markup = markup;
+      // token.markup = markup;
 
       return true;
     };

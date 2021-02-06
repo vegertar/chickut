@@ -19,7 +19,14 @@ import { keydownHandler } from "prosemirror-keymap";
 import { Token, ExtensionSchema } from "../../../editor";
 
 import { balancePairs, setup, text, textCollapse } from "./rules";
-import { textBetween } from "./utils";
+import {
+  unwrap,
+  textBetween,
+  wrap,
+  turn,
+  mergeBlockMarkup,
+  sourceNode,
+} from "./utils";
 
 type ParseContext = {
   type: NodeType | null;
@@ -198,14 +205,14 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
         )
       : state.tr.delete(from, to);
 
-    const start = tr.mapping.map(from);
-    const end = tr.mapping.map(to);
-    const $node = tr.doc.resolve(
-      tr.doc.resolve(start === 0 ? 1 : start).start()
-    );
+    const $node = sourceNode(tr, tr.mapping.map(from), tr.mapping.map(to));
+    if (!$node) {
+      return null;
+    }
 
     const node = $node.parent;
     const source = textBetween(node, 0, node.content.size);
+    console.log("\n", source);
 
     const tokens = this.engine.parse(source);
     if (!tokens.length) {
@@ -222,17 +229,34 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     }
 
     const [head, ...tail] = content;
+
+    let wrapped = false;
+    let unwrapped = false;
+
     if (!node.sameMarkup(head)) {
-      // rather node position than content position
-      tr.setNodeMarkup($node.pos - 1, head.type, head.attrs, head.marks);
+      if (head.type.validContent(node.content)) {
+        turn(tr, $node, head);
+      } else if (head.type.validContent(Fragment.from(node))) {
+        wrapped = !!wrap(tr, $node, head);
+      } else if (node.type.validContent(Fragment.from(head))) {
+        unwrapped = !!unwrap(tr, $node, head);
+      } else {
+        throw new Error(`TODO: ${node.toString}, ${head.toString()}`);
+      }
     }
-    tr.replaceWith($node.pos, $node.pos + node.content.size, head.content);
+
+    tr.replaceWith(
+      $node.pos,
+      $node.pos + node.content.size + (wrapped ? 1 : 0) + (unwrapped ? -1 : 0),
+      head.content
+    );
 
     if (tail.length) {
-      tr.insert($node.pos + head.content.size, tail);
+      tr.insert($node.pos + head.content.size + 1, tail);
     }
 
-    return tr.setSelection(Selection.near(tr.doc.resolve(end)));
+    // return tr.setSelection(Selection.near(tr.doc.resolve(cursor)));
+    return tr;
   }
 
   private parse(tokens: Token[], context: ParseContext) {
@@ -269,18 +293,17 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
 
         case -1: {
           const { type, content, marks, token: openToken } = stack.pop()!;
-          const marked = [
-            ...this.createNodes(openToken!, marks),
-            ...content,
-            ...this.createNodes(token, marks),
-          ];
           const last = stack[stack.length - 1];
           if (type) {
             last.content.push(
-              type.createAndFill(openToken!.attrs, marked, marks)!
+              type.createAndFill(
+                openToken!.attrs,
+                mergeBlockMarkup(content),
+                marks
+              )!
             );
           } else {
-            last.content.push(...marked);
+            last.content.push(...content);
           }
           break;
         }
@@ -292,72 +315,37 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
 
   private createNodes(token: Token, marks: Mark[]): ProsemirrorNode[] {
     // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
-    const { name, attrs, nesting, content, markup } = token;
+    const { name, attrs, content } = token;
     const nodes: ProsemirrorNode[] = [];
     const nodeType = this.schema.nodes[name];
-    const { markupPosition = nesting } = attrs || {};
 
-    switch (nesting) {
-      case 0:
-        if (name !== "text") {
-          if (nodeType) {
-            nodes.push(
-              nodeType.createChecked(
-                attrs,
-                content ? this.schema.text(content) : undefined,
-                marks
-              )
-            );
-          } else {
-            marks = this.schema.marks[name].create(attrs).addToSet(marks);
-            const marker = markup && this.createMarkup(markup, marks);
+    if (name !== "text") {
+      if (!nodeType) {
+        marks = this.schema.marks[name].create(attrs).addToSet(marks);
+      }
 
-            if (marker && markupPosition >= 0) {
-              nodes.push(marker);
-            }
-            if (content) {
-              nodes.push(this.schema.text(content, marks));
-            }
-            if (marker && markupPosition <= 0) {
-              nodes.push(marker);
-            }
-          }
-        } else if (content) {
-          nodes.push(this.schema.text(content, marks));
-        }
-        break;
+      if (content) {
+        nodes.push(this.schema.text(content, marks));
+      }
 
-      case 1:
-      case -1:
-        if (markup && markupPosition === nesting) {
-          const marker = this.schema.text(
-            markup,
-            this.schema.marks.markup.create().addToSet(marks)
-          );
-          if (!nodeType || nodeType.isTextblock) {
-            nodes.push(marker);
-          } else if (nodeType.isBlock) {
-            const p = this.createMarkedParagraph(marker);
-            if (nodeType.validContent(Fragment.from(p))) {
-              nodes.push(p);
-            }
-          }
-        }
-        break;
+      if (nodeType) {
+        nodes.push(nodeType.createChecked(attrs, nodes.splice(0), marks));
+      }
+    } else if (content) {
+      nodes.push(this.schema.text(content, marks));
     }
 
     return nodes;
   }
 
-  private createMarkup(markup: string, marks: Mark[]) {
-    return this.schema.text(
+  private createMarkup(markup: string, marks: Mark[], block = false) {
+    const marker = this.schema.text(
       markup,
-      this.schema.marks.markup.create().addToSet(marks)
+      this.schema.marks.markup.create({ block }).addToSet(marks)
     );
-  }
-
-  private createMarkedParagraph(marker: ProsemirrorNode) {
-    return this.type.create({ marker: true }, marker);
+    return block
+      ? this.schema.nodes.blockmarkup.create(undefined, marker)
+      : marker;
   }
 }
 

@@ -1,4 +1,4 @@
-import { ExtensionPack, useExtension } from "../../../editor";
+import { ExtensionPack, toDataAttrs, useExtension } from "../../../editor";
 
 import { paragraph } from "./rules";
 import { docPlugins, paragraphPlugins } from "./plugins";
@@ -30,21 +30,39 @@ const pack: ExtensionPack = [
   {
     name: "markup",
     mark: {
+      attrs: { block: { default: false } },
       inclusive: false,
       rank: Infinity,
-      parseDOM: [{ tag: "span.markup" }],
-      toDOM: () => ["span", { class: "markup" }],
+      parseDOM: [
+        {
+          tag: "span.markup",
+          getAttrs: (node) => (node as HTMLElement).dataset,
+        },
+      ],
+      toDOM: ({ attrs }) => [
+        "span",
+        { class: "markup", ...toDataAttrs(attrs) },
+      ],
+    },
+  },
+
+  {
+    name: "blockmarkup",
+    node: {
+      content: "text*",
+      group: "block",
+      parseDOM: [{ tag: "div.markup" }],
+      toDOM: () => ["div", { class: "markup" }, 0],
     },
   },
 
   {
     name: "paragraph",
     node: {
-      attrs: { marker: { default: false } },
       content: "inline*",
       group: "block",
       parseDOM: [{ tag: "p" }],
-      toDOM: ({ attrs }) => ["p", attrs.marker ? { class: "marker" } : {}, 0],
+      toDOM: () => ["p", 0],
     },
     rule: { handle: paragraph },
     plugins: paragraphPlugins,

@@ -6,7 +6,8 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
     return false;
   }
 
-  let pos = state.bMarks[startLine] + state.tShift[startLine];
+  const start = state.bMarks[startLine];
+  let pos = start + state.tShift[startLine];
   const marker = state.src.charCodeAt(pos++);
 
   // Check hr marker
@@ -42,8 +43,8 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
 
   state.line = startLine + 1;
 
-  const token = state.push(this.name, 0);
-  token.markup = Array(cnt + 1).join(String.fromCharCode(marker));
+  const token = state.push(this.name, 0, { markupPosition: 1 });
+  // token.markup = state.src.slice(start, pos);
 
   return true;
 };
