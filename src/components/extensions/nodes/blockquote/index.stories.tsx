@@ -13,4 +13,14 @@ Default.args = {
   //   >> ...by using additional greater-than signs right next to each other...
   //   > > > ...or with spaces between arrows.
   // `,
+  //   text: `>
+  // `,
+};
+
+export const Heading = Template.bind({});
+Heading.args = {
+  addon: ["Heading"],
+  text: `> ## hello
+> world
+> haha`,
 };

@@ -236,19 +236,10 @@ const handle: BlockRuleHandle = function blockquote(
   const oldIndent = state.blkIndent;
   state.blkIndent = 0;
 
-  const markup = state.src.slice(
-    state.eMarks[startLine - 1] + 1,
-    state.bMarks[startLine]
-  );
-
-  state.push(this.name, 1, { markupPosition: 1 });
-  const openMarkup = state.push("markup", 0);
-  const i = state.tokens.length;
+  state.push(this.name, 1);
 
   state.engine.block.tokenize(state, startLine, nextLine);
-  if (!state.tokens[i] || state.tokens[i].name !== this.name) {
-    openMarkup.content = markup;
-  }
+  console.log(state.tokens);
 
   state.push(this.name, -1);
 

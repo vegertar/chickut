@@ -3,7 +3,6 @@ import {
   InlineRuleHandle,
   PostInlineRuleHandle,
   CoreRuleHandle,
-  Token,
   Delimiter,
 } from "../../../editor";
 
@@ -15,25 +14,24 @@ export const normalize: CoreRuleHandle = function (state) {
 };
 
 export const block: CoreRuleHandle = function (state) {
-  if (state.inlineMode) {
-    const token = new Token("", 0);
-    token.content = state.src;
-    token.children = [];
-    state.tokens.push(token);
-  } else {
-    state.engine.block.parse(state);
-  }
+  state.engine.block.parse(state);
 };
 
 export const inline: CoreRuleHandle = function (state) {
   const { inline, postInline } = state.engine;
-  for (const { name, content: src, children: tokens } of state.tokens) {
+  for (const {
+    name,
+    lines,
+    content: src = lines?.toString(),
+    children: tokens,
+  } of state.tokens) {
     if (name === "" && src && tokens) {
       postInline.parse(
         inline.parse({
           ...state,
           src,
           tokens,
+          lines,
         })
       );
     }
@@ -89,20 +87,15 @@ export const paragraph: BlockRuleHandle = function paragraph(
     }
   }
 
-  const content = state.getLines(startLine, nextLine, state.blkIndent, false); // TODO: .trim();
-
+  const lines = state.getLines(startLine, nextLine, state.blkIndent);
   state.line = nextLine;
-
-  // open token
   state.push(name, 1);
 
   const inlineToken = state.push("", 0);
-  inlineToken.content = content;
+  inlineToken.lines = lines;
   inlineToken.children = [];
 
-  // close token
   state.push(name, -1);
-
   state.parent = oldParent;
 
   return true;

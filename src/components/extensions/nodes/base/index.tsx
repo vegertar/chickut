@@ -27,6 +27,14 @@ const pack: ExtensionPack = [
     },
   },
 
+  // {
+  //   name: "indent",
+  //   mark: {
+  //     attrs: { size: {} },
+  //     inclusive: false,
+  //   },
+  // },
+
   {
     name: "markup",
     mark: {
@@ -59,10 +67,13 @@ const pack: ExtensionPack = [
   {
     name: "paragraph",
     node: {
+      attrs: { tight: { default: false } },
       content: "inline*",
       group: "block",
-      parseDOM: [{ tag: "p" }],
-      toDOM: () => ["p", 0],
+      parseDOM: [
+        { tag: "p", getAttrs: (node) => (node as HTMLElement).dataset },
+      ],
+      toDOM: ({ attrs }) => ["p", toDataAttrs(attrs), 0],
     },
     rule: { handle: paragraph },
     plugins: paragraphPlugins,

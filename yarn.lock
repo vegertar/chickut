@@ -2922,6 +2922,13 @@
   dependencies:
     "@types/lodash" "*"
 
+"@types/lodash.sortedindex@^4.1.6":
+  version "4.1.6"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/@types/lodash.sortedindex/-/lodash.sortedindex-4.1.6.tgz#4dfb25be59db28d7f8f61fd07b7133ef834f2c40"
+  integrity sha512-4ZTb8Zrc5/5CEoiNilXA0tUXh+hg+FDfUd5Vm4MtH/vfo3YCNGRhr2wedirCGHdHJZ7JI92OAAD87Ji2ipOyKQ==
+  dependencies:
+    "@types/lodash" "*"
+
 "@types/lodash.union@^4.6.6":
   version "4.6.6"
   resolved "https://mirrors.huaweicloud.com/repository/npm/@types/lodash.union/-/lodash.union-4.6.6.tgz#2f77f2088326ed147819e9e384182b99aae8d4b0"
@@ -9874,6 +9881,11 @@ lodash.sortby@^4.7.0:
   version "4.7.0"
   resolved "https://mirrors.huaweicloud.com/repository/npm/lodash.sortby/-/lodash.sortby-4.7.0.tgz#edd14c824e2cc9c1e0b0a1b42bb5210516a42438"
   integrity sha1-7dFMgk4sycHgsKG0K7UhBRakJDg=
+
+lodash.sortedindex@^4.1.0:
+  version "4.1.0"
+  resolved "https://mirrors.huaweicloud.com/repository/npm/lodash.sortedindex/-/lodash.sortedindex-4.1.0.tgz#3f6417ee20e8b22416ab005bfa16344a0446b448"
+  integrity sha1-P2QX7iDosiQWqwBb+hY0SgRGtEg=
 
 lodash.template@^4.5.0:
   version "4.5.0"

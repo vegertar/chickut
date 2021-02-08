@@ -34,13 +34,7 @@ aaa
 
 export const Blank = Template.bind({});
 Blank.args = {
-  addon: ["Heading"],
-  text: `  
+  text: `
 
-aaa
-  
-
-# aaa
-
-  `,
+`,
 };

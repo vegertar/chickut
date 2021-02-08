@@ -1,11 +1,11 @@
 import {
   Fragment,
   Node as ProsemirrorNode,
+  NodeType,
   ResolvedPos,
-  Slice,
 } from "prosemirror-model";
 import { findWrapping, liftTarget } from "prosemirror-transform";
-import { NodeSelection, Transaction } from "prosemirror-state";
+import { Transaction } from "prosemirror-state";
 import { ExtensionSchema } from "../../../editor";
 
 export function textBetween(
@@ -101,36 +101,15 @@ export function sourceNode(tr: Transaction, head: number, cursor: number) {
   return $head;
 }
 
-function mergeMarkup(node: ProsemirrorNode, markup: Fragment, right = false) {
-  const i = right ? node.content.size : 0;
-  if (node.type.isTextblock) {
-    node = node.replace(i, i, new Slice(markup, 0, 0));
-  } else if (node.type.isBlock) {
-    const child = node.nodeAt(i);
-    if (child) {
-      node = node.replace(
-        right ? i - child.content.size : 0,
-        right ? i : child.content.size,
-        new Slice(Fragment.from(mergeMarkup(child, markup, right)), 0, 0)
-      );
+export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {
+  if (type.isBlock && !type.isTextblock) {
+    for (let i = 0; i < nodes.length; ++i) {
+      if (nodes[i].type.isText && !type.validContent(Fragment.from(nodes[i]))) {
+        const schema = type.schema as ExtensionSchema;
+        nodes[i] = schema.nodes.blockmarkup.create(undefined, nodes[i]);
+      }
     }
-  } else {
-    throw new Error(`Unexpected Node Type: ${node.type.name}`);
   }
-
-  return node;
-}
-
-export function mergeBlockMarkup(nodes: ProsemirrorNode[]) {
-  if (nodes.length > 1 && nodes[0].type.name === "blockmarkup") {
-    nodes.splice(0, 2, mergeMarkup(nodes[1], nodes[0].content));
-  }
-
-  const j = nodes.length - 1;
-  if (nodes.length > 1 && nodes[j].type.name === "blockmarkup") {
-    nodes.splice(j - 1, 2, mergeMarkup(nodes[j - 1], nodes[j].content, true));
-  }
-
   return nodes;
 }
 

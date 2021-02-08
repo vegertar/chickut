@@ -23,7 +23,7 @@ const pack: ExtensionPack<NonRuleNodeExtension> = [
   },
 
   {
-    name: names.numbered,
+    name: names.ordered,
     node: {
       attrs: { start: { default: 1 } },
       content: `${names.item}+`,

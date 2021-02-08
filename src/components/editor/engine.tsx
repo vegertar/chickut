@@ -1,6 +1,7 @@
 // Text engine pruning from markdown-it
 
 import merge from "lodash.merge";
+import sortedIndex from "lodash.sortedindex";
 
 import {
   expandTab,
@@ -31,6 +32,47 @@ type Nesting = 1 | 0 | -1;
 type Attrs = { [name: string]: any };
 type AttrsToken = Token & { attrs: Attrs };
 
+type Line = {
+  markup: string;
+  indent: number;
+  index: number;
+  content: string;
+};
+
+export class Lines {
+  private readonly lines: Line[] = [];
+  private readonly lineEnds: number[] = [];
+
+  append(line: Line) {
+    this.lines.push(line);
+    this.lineEnds.push(
+      (this.lineEnds[this.lineEnds.length - 1] || 0) +
+        line.indent +
+        (line.content.length - line.index)
+    );
+  }
+
+  at(pos: number) {
+    if (pos === 0) {
+      return 0;
+    }
+    const i = sortedIndex(this.lineEnds, pos);
+    return this.lineEnds[i] === pos ? i + 1 : -1;
+  }
+
+  markup(line: number) {
+    return this.lines[line].markup;
+  }
+
+  toString() {
+    // partially expanding tabs in code blocks, e.g '\t\tfoobar'
+    // with indent=2 becomes '  \tfoobar'
+    return this.lines
+      .map((line) => " ".repeat(line.indent) + line.content.slice(line.index))
+      .join("");
+  }
+}
+
 export class Token {
   // Nesting level, the same as `state.level`
   level?: number;
@@ -42,6 +84,9 @@ export class Token {
   code?: boolean;
   // If it's true, ignore this element when rendering. Used for tight lists hide paragraphs.
   hidden?: boolean;
+  // For inline token content acrossing multiple lines this field carries content
+  // TODO: combine lines with content
+  lines?: Lines;
 
   constructor(
     // Preserve names:
@@ -67,16 +112,14 @@ interface StateProps<T, P> {
 }
 
 class State<T, P, L extends StateEnv> {
-  inlineMode = false;
-
   engine: T;
   src: string;
   tokens: Token[];
 
   // arbitary data bound to the user passing env at init
-  env: P;
+  readonly env: P;
   // arbitary data bound to specific parsing phase, e.g. core, block, inline, and so on
-  local: L;
+  readonly local: L;
 
   constructor({ src, engine, tokens, env }: StateProps<T, P>) {
     this.src = src;
@@ -315,7 +358,7 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
 
     if (blankEnding) {
       // add the last blank line
-      this.add(start, pos + 1, indent, offset, 0);
+      this.add(start, len, indent, offset, 0);
     }
 
     // Push fake entry to simplify cache bounds checks
@@ -354,13 +397,30 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
     return token;
   }
 
+  pushMarkup(line: number) {
+    const markup = this.src.slice(this.eMarks[line - 1] + 1, this.bMarks[line]);
+    if (markup) {
+      const token = this.push("markup", 0, { block: true });
+      token.content = markup;
+      return token;
+    }
+  }
+
+  pushBlank(line: number) {
+    const blank = this.src.slice(this.bMarks[line], this.eMarks[line]);
+    this.push("blank", 0).content = blank;
+    return blank;
+  }
+
   eatBlankLines(from: number, to = this.lineMax) {
     for (; from < to; from++) {
       if (!this.isEmpty(from)) {
         break;
       }
-      const blank = this.src.slice(this.bMarks[from], this.eMarks[from]);
-      this.push("blank", 0).content = blank;
+      if (!this.pushMarkup(from)) {
+        // if has markup then this line is not an actual blank
+        this.pushBlank(from);
+      }
     }
     return from;
   }
@@ -419,13 +479,9 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
 
   // Cut lines range from source.
   getLines(begin: number, end: number, indent: number, keepLastLF?: boolean) {
-    if (begin >= end) {
-      return "";
-    }
+    const lines = new Lines();
 
-    const queue = new Array(end - begin);
-
-    for (let i = 0, line = begin; line < end; line++, i++) {
+    for (let line = begin; line < end; line++) {
       const lineStart = this.bMarks[line];
       let lineIndent = 0;
       let first = lineStart;
@@ -458,17 +514,18 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
         first++;
       }
 
-      if (lineIndent > indent) {
-        // partially expanding tabs in code blocks, e.g '\t\tfoobar'
-        // with indent=2 becomes '  \tfoobar'
-        queue[i] =
-          " ".repeat(lineIndent - indent) + this.src.slice(first, last);
-      } else {
-        queue[i] = this.src.slice(first, last);
-      }
+      lines.append({
+        markup:
+          line > begin
+            ? this.src.slice(this.eMarks[line - 1] + 1, this.bMarks[line])
+            : "",
+        indent: lineIndent > indent ? lineIndent - indent : 0,
+        content: this.src.slice(lineStart, last),
+        index: first - lineStart,
+      });
     }
 
-    return queue.join("");
+    return lines;
   }
 }
 
@@ -522,6 +579,7 @@ class BlockParser<T extends { options: Options }, P> extends Parser<
         break;
       }
 
+      state.pushMarkup(line);
       const lineBefore = line;
 
       // Try all possible rules.
@@ -609,6 +667,13 @@ export class InlineState<T = {}, P = {}, L = {}> extends State<T, P, L> {
   delimiters: Delimiter[] = [];
   // Stack of delimiter lists for upper level tags
   prevDelimiters: Delimiter[][] = [];
+  // Additional lines info retrieved from block getLines
+  lines?: Lines;
+
+  constructor({ lines, ...props }: StateProps<T, P> & { lines?: Lines }) {
+    super(props);
+    this.lines = lines;
+  }
 
   // Flush pending text
   pushPending() {
@@ -618,6 +683,14 @@ export class InlineState<T = {}, P = {}, L = {}> extends State<T, P, L> {
     this.tokens.push(token);
     this.pending = "";
     return token;
+  }
+
+  pushMarkup(markup: string) {
+    if (markup) {
+      const token = this.push("markup", 0, { block: true });
+      token.content = markup;
+      return token;
+    }
   }
 
   // Push new token to "stream". If pending text exists - flush it as text token
@@ -725,7 +798,7 @@ class InlineParser<T extends { options: Options }, P> extends Parser<
   P,
   InlineHandle<T, P>
 > {
-  parse(props: StateProps<T, P>) {
+  parse(props: StateProps<T, P> & { lines?: Lines }) {
     const state = new InlineState(props);
     this.tokenize(state);
     return state;
@@ -742,6 +815,13 @@ class InlineParser<T extends { options: Options }, P> extends Parser<
       // - update `state.pos`
       // - update `state.tokens`
       // - return true
+
+      if (state.lines) {
+        const line = state.lines.at(state.pos);
+        if (line !== -1) {
+          state.pushMarkup(state.lines.markup(line));
+        }
+      }
 
       let ok = false;
       if (state.level < maxNesting) {

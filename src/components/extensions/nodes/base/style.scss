@@ -5,11 +5,11 @@
   }
 
   div.markup,
-  div.markup + p {
+  div.markup + * {
     display: inline;
   }
 
-  div.markup + p::after {
+  div.markup + *::after {
     content: "\A";
     white-space: pre;
   }

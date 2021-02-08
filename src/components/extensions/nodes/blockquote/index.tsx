@@ -4,7 +4,6 @@ import handle from "./handle";
 
 import "./style.scss";
 
-const name = "blockquote";
 const extension: NodeExtension = {
   rule: {
     handle,
@@ -15,12 +14,12 @@ const extension: NodeExtension = {
     content: "block+",
     group: "block",
     defining: true,
-    parseDOM: [{ tag: name }],
-    toDOM: () => [name, 0],
+    parseDOM: [{ tag: "blockquote" }],
+    toDOM: () => ["blockquote", 0],
   },
 };
 
 export default function Blockquote() {
-  useExtension(extension, name);
+  useExtension(extension, "blockquote");
   return null;
 }

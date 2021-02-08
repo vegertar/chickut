@@ -1,4 +1,5 @@
 import { BlockRuleHandle, BlockState, Env, isSpace } from "../../../editor";
+
 import names from "./names";
 
 // Search `[-+*][\n ]`, returns next pos after marker on success
@@ -75,8 +76,6 @@ function skipOrderedListMarker<T>(
     // " 1.test " - is not a list item
     return -1;
   }
-
-  // if (state.env)
 
   return pos;
 }
@@ -178,7 +177,7 @@ const handle: BlockRuleHandle = function list(
   // Start list
   const listTokIdx = state.tokens.length;
 
-  const openToken = state.push(isOrdered ? names.numbered : names.bulleted, 1);
+  const openToken = state.push(isOrdered ? names.ordered : names.bulleted, 1);
   if (isOrdered && markerValue !== 1) {
     openToken.attrs = { start: markerValue };
   }
@@ -240,7 +239,7 @@ const handle: BlockRuleHandle = function list(
     const indent = initial + indentAfterMarker;
 
     // Run subparser & write tokens
-    const openToken = state.push(names.item, 1);
+    state.push(names.item, 1);
     // openToken.markup = String.fromCharCode(markerCharCode);
 
     // change current state, then restore it after parser subcall
@@ -340,7 +339,7 @@ const handle: BlockRuleHandle = function list(
   }
 
   // Finalize list
-  state.push(isOrdered ? names.numbered : names.bulleted, -1); // .markup = String.fromCharCode(markerCharCode);
+  state.push(isOrdered ? names.ordered : names.bulleted, -1); // .markup = String.fromCharCode(markerCharCode);
 
   state.line = nextLine;
   state.parent = oldParent;

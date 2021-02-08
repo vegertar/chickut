@@ -24,7 +24,7 @@ import {
   textBetween,
   wrap,
   turn,
-  mergeBlockMarkup,
+  setBlockMarkup,
   sourceNode,
 } from "./utils";
 
@@ -296,9 +296,9 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
           const last = stack[stack.length - 1];
           if (type) {
             last.content.push(
-              type.createAndFill(
+              type.createChecked(
                 openToken!.attrs,
-                mergeBlockMarkup(content),
+                setBlockMarkup(type, content),
                 marks
               )!
             );
@@ -336,16 +336,6 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     }
 
     return nodes;
-  }
-
-  private createMarkup(markup: string, marks: Mark[], block = false) {
-    const marker = this.schema.text(
-      markup,
-      this.schema.marks.markup.create({ block }).addToSet(marks)
-    );
-    return block
-      ? this.schema.nodes.blockmarkup.create(undefined, marker)
-      : marker;
   }
 }
 

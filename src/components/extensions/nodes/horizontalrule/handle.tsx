@@ -43,7 +43,7 @@ const handle: BlockRuleHandle = function (state, silent, startLine) {
 
   state.line = startLine + 1;
 
-  const token = state.push(this.name, 0, { markupPosition: 1 });
+  const token = state.push(this.name, 0);
   // token.markup = state.src.slice(start, pos);
 
   return true;

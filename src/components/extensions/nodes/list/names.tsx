@@ -1,6 +1,6 @@
 const names = {
   bulleted: "bulletedlist",
-  numbered: "numberedlist",
+  ordered: "orderedlist",
   item: "listitem",
   list: "list",
 };
