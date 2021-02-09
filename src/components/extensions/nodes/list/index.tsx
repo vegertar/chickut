@@ -37,7 +37,7 @@ const pack: ExtensionPack<NonRuleNodeExtension> = [
   {
     name: names.item,
     node: {
-      content: "paragraph block*",
+      content: "block+",
       defining: true,
       draggable: true,
       parseDOM: [{ tag: "li" }],

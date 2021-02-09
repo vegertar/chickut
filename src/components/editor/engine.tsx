@@ -60,8 +60,8 @@ export class Lines {
     return this.lineEnds[i] === pos ? i + 1 : -1;
   }
 
-  markup(line: number) {
-    return this.lines[line].markup;
+  get(line: number) {
+    return this.lines[line];
   }
 
   toString() {
@@ -82,8 +82,6 @@ export class Token {
   content?: string;
   // Indicating if text content contains code
   code?: boolean;
-  // If it's true, ignore this element when rendering. Used for tight lists hide paragraphs.
-  hidden?: boolean;
   // For inline token content acrossing multiple lines this field carries content
   // TODO: combine lines with content
   lines?: Lines;
@@ -293,10 +291,6 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
   lineMax = 0;
   // loose/tight mode for lists
   tight = false;
-  // indent of the current dd block (-1 if there isn't any)
-  ddIndent = -1;
-  // indent of the current list block (-1 if there isn't any)
-  listIndent = -1;
   // used in lists to determine if they interrupt a paragraph
   parent = "";
   // nesting level
@@ -357,7 +351,7 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
     }
 
     if (blankEnding) {
-      // add the last blank line
+      // add the last blank line(s which might be acrossing multiple rows)
       this.add(start, len, indent, offset, 0);
     }
 
@@ -685,10 +679,16 @@ export class InlineState<T = {}, P = {}, L = {}> extends State<T, P, L> {
     return token;
   }
 
-  pushMarkup(markup: string) {
-    if (markup) {
+  pushMarkup(line: number) {
+    if (line < 0 || !this.lines) {
+      return;
+    }
+
+    const { markup, index, content } = this.lines.get(line);
+    const s = `${markup}${content.slice(markup.length, index)}`;
+    if (s) {
       const token = this.push("markup", 0, { block: true });
-      token.content = markup;
+      token.content = s;
       return token;
     }
   }
@@ -817,10 +817,7 @@ class InlineParser<T extends { options: Options }, P> extends Parser<
       // - return true
 
       if (state.lines) {
-        const line = state.lines.at(state.pos);
-        if (line !== -1) {
-          state.pushMarkup(state.lines.markup(line));
-        }
+        state.pushMarkup(state.lines.at(state.pos));
       }
 
       let ok = false;

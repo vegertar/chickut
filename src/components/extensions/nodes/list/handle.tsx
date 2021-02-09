@@ -1,11 +1,21 @@
-import { BlockRuleHandle, BlockState, Env, isSpace } from "../../../editor";
+import {
+  BlockRuleHandle,
+  Env,
+  expandTab,
+  isSpace,
+  StateEnv,
+} from "../../../editor";
 
 import names from "./names";
 
-// Search `[-+*][\n ]`, returns next pos after marker on success
-// or -1 on fail.
-function skipBulletListMarker<T>(state: BlockState<T, Env>, startLine: number) {
-  const max = state.eMarks[startLine];
+type BlockState = Parameters<BlockRuleHandle>[0];
+
+type ListStateEnv = StateEnv & {
+  listIndent?: number;
+};
+
+// Search `[-+*][\n ]`, returns next pos after marker on success or -1 on fail.
+function skipBulletListMarker(state: BlockState, startLine: number) {
   let pos = state.bMarks[startLine] + state.tShift[startLine];
   const marker = state.src.charCodeAt(pos++);
 
@@ -18,7 +28,7 @@ function skipBulletListMarker<T>(state: BlockState<T, Env>, startLine: number) {
     return -1;
   }
 
-  if (pos < max && !isSpace(state.src.charCodeAt(pos))) {
+  if (pos < state.eMarks[startLine] && !isSpace(state.src.charCodeAt(pos))) {
     // " -test " - is not a list item
     return -1;
   }
@@ -26,12 +36,8 @@ function skipBulletListMarker<T>(state: BlockState<T, Env>, startLine: number) {
   return pos;
 }
 
-// Search `\d+[.)][\n ]`, returns next pos after marker on success
-// or -1 on fail.
-function skipOrderedListMarker<T>(
-  state: BlockState<T, Env>,
-  startLine: number
-) {
+// Search `\d+[.)][\n ]`, returns next pos after marker on success or -1 on fail.
+function skipOrderedListMarker(state: BlockState, startLine: number) {
   const start = state.bMarks[startLine] + state.tShift[startLine];
   const max = state.eMarks[startLine];
   let pos = start;
@@ -55,8 +61,7 @@ function skipOrderedListMarker<T>(
     ch = state.src.charCodeAt(pos++);
 
     if (ch >= 0x30 /* 0 */ && ch <= 0x39 /* 9 */) {
-      // List marker should have no more than 9 digits
-      // (prevents integer overflow in browsers)
+      // List marker should have no more than 9 digits (prevents integer overflow in browsers)
       if (pos - start >= 10) {
         return -1;
       }
@@ -83,18 +88,18 @@ function skipOrderedListMarker<T>(
 function markTightParagraphs(state: BlockState, idx: number) {
   const level = state.level + 2;
   for (let i = idx + 2, l = state.tokens.length - 2; i < l; i++) {
-    if (
-      state.tokens[i].level === level &&
-      state.tokens[i].name === "paragraph"
-    ) {
-      state.tokens[i + 2].hidden = true;
-      state.tokens[i].hidden = true;
+    const token = state.tokens[i];
+    if (token.level === level && token.name === "paragraph") {
+      if (!token.attrs) {
+        token.attrs = {};
+      }
+      token.attrs.tight = true;
       i += 2;
     }
   }
 }
 
-const handle: BlockRuleHandle = function list(
+const handle: BlockRuleHandle<Env, ListStateEnv> = function list(
   state,
   silent,
   startLine,
@@ -107,6 +112,8 @@ const handle: BlockRuleHandle = function list(
     return false;
   }
 
+  const { listIndent = -1 } = state.local;
+
   // Special case:
   //  - item 1
   //   - item 2
@@ -114,8 +121,8 @@ const handle: BlockRuleHandle = function list(
   //     - item 4
   //      - this one is a paragraph continuation
   if (
-    state.listIndent >= 0 &&
-    state.sCount[startLine] - state.listIndent >= 4 &&
+    listIndent !== undefined &&
+    state.sCount[startLine] - listIndent >= 4 &&
     state.sCount[startLine] < state.blkIndent
   ) {
     return false;
@@ -127,10 +134,7 @@ const handle: BlockRuleHandle = function list(
   // a paragraph (validation mode only)
   if (silent && state.parent === "paragraph") {
     // Next list item should still terminate previous list item;
-    //
-    // This code can fail if plugins use blkIndent as well as lists,
-    // but I hope the spec gets fixed long before that happens.
-    //
+    // This code can fail if plugins use blkIndent as well as lists, but I hope the spec gets fixed long before that happens.
     if (state.tShift[startLine] >= state.blkIndent) {
       isTerminatingParagraph = true;
     }
@@ -146,8 +150,7 @@ const handle: BlockRuleHandle = function list(
     const start = state.bMarks[startLine] + state.tShift[startLine];
     markerValue = Number(state.src.substr(start, posAfterMarker - start - 1));
 
-    // If we're starting a new ordered list right after
-    // a paragraph, it should start with 1.
+    // If we're starting a new ordered list right after a paragraph, it should start with 1.
     if (isTerminatingParagraph && markerValue !== 1) {
       return false;
     }
@@ -157,8 +160,7 @@ const handle: BlockRuleHandle = function list(
     return false;
   }
 
-  // If we're starting a new unordered list right after
-  // a paragraph, first line should not be empty.
+  // If we're starting a new unordered list right after a paragraph, first line should not be empty.
   if (
     isTerminatingParagraph &&
     state.skipSpaces(posAfterMarker) >= state.eMarks[startLine]
@@ -175,13 +177,13 @@ const handle: BlockRuleHandle = function list(
   }
 
   // Start list
-  const listTokIdx = state.tokens.length;
+  const listTokenIndex = state.tokens.length;
+  const listName = isOrdered ? names.ordered : names.bulleted;
 
-  const openToken = state.push(isOrdered ? names.ordered : names.bulleted, 1);
+  const openToken = state.push(listName, 1);
   if (isOrdered && markerValue !== 1) {
     openToken.attrs = { start: markerValue };
   }
-  // openToken.markup = String.fromCharCode(markerCharCode);
 
   //
   // Iterate list items
@@ -207,9 +209,9 @@ const handle: BlockRuleHandle = function list(
     while (pos < max) {
       const ch = state.src.charCodeAt(pos);
 
-      if (ch === 0x09) {
-        offset += 4 - ((offset + state.bsCount[nextLine]) % 4);
-      } else if (ch === 0x20) {
+      if (ch === 0x09 /* tab */) {
+        offset += expandTab(offset + state.bsCount[nextLine]);
+      } else if (ch === 0x20 /* space */) {
         offset++;
       } else {
         break;
@@ -228,8 +230,7 @@ const handle: BlockRuleHandle = function list(
       indentAfterMarker = offset - initial;
     }
 
-    // If we have more than 4 spaces, the indent is 1
-    // (the rest is just indented code block)
+    // If we have more than 4 spaces, the indent is 1 (the rest is just indented code block)
     if (indentAfterMarker > 4) {
       indentAfterMarker = 1;
     }
@@ -240,7 +241,6 @@ const handle: BlockRuleHandle = function list(
 
     // Run subparser & write tokens
     state.push(names.item, 1);
-    // openToken.markup = String.fromCharCode(markerCharCode);
 
     // change current state, then restore it after parser subcall
     const oldTight = state.tight;
@@ -251,8 +251,8 @@ const handle: BlockRuleHandle = function list(
     // ^ listIndent position will be here
     //   ^ blkIndent position will be here
     //
-    const oldListIndent = state.listIndent;
-    state.listIndent = state.blkIndent;
+    const { oldListIndent = -1 } = state.local;
+    state.local.listIndent = state.blkIndent;
     state.blkIndent = indent;
 
     state.tight = true;
@@ -267,6 +267,7 @@ const handle: BlockRuleHandle = function list(
       //
       //     foo
       // ~~~~~~~~
+      // TODO: add a blank
       state.line = Math.min(state.line + 2, endLine);
     } else {
       state.engine.block.tokenize(state, startLine, endLine);
@@ -280,25 +281,20 @@ const handle: BlockRuleHandle = function list(
     // but we should filter last element, because it means list finish
     prevEmptyEnd = state.line - startLine > 1 && state.isEmpty(state.line - 1);
 
-    state.blkIndent = state.listIndent;
-    state.listIndent = oldListIndent;
+    state.blkIndent = state.local.listIndent;
+    state.local.listIndent = oldListIndent;
     state.tShift[startLine] = oldTShift;
     state.sCount[startLine] = oldSCount;
     state.tight = oldTight;
 
-    // close token
     state.push(names.item, -1);
 
     nextLine = startLine = state.line;
-    contentStart = state.bMarks[startLine];
-
     if (nextLine >= endLine) {
       break;
     }
 
-    //
     // Try to check if list is terminated or continued.
-    //
     if (state.sCount[nextLine] < state.blkIndent) {
       break;
     }
@@ -321,33 +317,25 @@ const handle: BlockRuleHandle = function list(
     }
 
     // fail if list has another type
-    if (isOrdered) {
-      posAfterMarker = skipOrderedListMarker(state, nextLine);
-      if (posAfterMarker < 0) {
-        break;
-      }
-    } else {
-      posAfterMarker = skipBulletListMarker(state, nextLine);
-      if (posAfterMarker < 0) {
-        break;
-      }
-    }
-
-    if (markerCharCode !== state.src.charCodeAt(posAfterMarker - 1)) {
+    posAfterMarker = isOrdered
+      ? skipOrderedListMarker(state, nextLine)
+      : skipBulletListMarker(state, nextLine);
+    if (
+      posAfterMarker < 0 ||
+      markerCharCode !== state.src.charCodeAt(posAfterMarker - 1)
+    ) {
       break;
     }
   }
 
   // Finalize list
-  state.push(isOrdered ? names.ordered : names.bulleted, -1); // .markup = String.fromCharCode(markerCharCode);
+  state.push(listName, -1);
 
   state.line = nextLine;
   state.parent = oldParent;
 
   // mark paragraphs tight if needed
-  if (tight) {
-    markTightParagraphs(state, listTokIdx);
-  }
+  tight && markTightParagraphs(state, listTokenIndex);
 
   return true;
 };

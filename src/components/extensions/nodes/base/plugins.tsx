@@ -232,6 +232,7 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
 
     let wrapped = false;
     let unwrapped = false;
+    let reranged = false;
 
     if (!node.sameMarkup(head)) {
       if (head.type.validContent(node.content)) {
@@ -241,15 +242,22 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       } else if (node.type.validContent(Fragment.from(head))) {
         unwrapped = !!unwrap(tr, $node, head);
       } else {
-        throw new Error(`TODO: ${node.toString}, ${head.toString()}`);
+        reranged = true;
       }
     }
 
-    tr.replaceWith(
-      $node.pos,
-      $node.pos + node.content.size + (wrapped ? 1 : 0) + (unwrapped ? -1 : 0),
-      head.content
-    );
+    if (reranged) {
+      tr.replaceRangeWith($node.pos, $node.pos + node.content.size, head);
+    } else {
+      tr.replaceWith(
+        $node.pos,
+        $node.pos +
+          node.content.size +
+          (wrapped ? 1 : 0) +
+          (unwrapped ? -1 : 0),
+        head.content
+      );
+    }
 
     if (tail.length) {
       tr.insert($node.pos + head.content.size + 1, tail);
