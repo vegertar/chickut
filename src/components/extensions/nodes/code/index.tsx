@@ -13,12 +13,11 @@ import { useScript } from "./script";
 import "./style.scss";
 
 const extension: NodeExtension = {
-  plugins,
+  // plugins,
   rule: { handle },
   node: {
     attrs: { info: { default: "" } },
     content: "text*",
-    marks: "", // disallow marks
     group: "block",
     code: true,
     defining: true,

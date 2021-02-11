@@ -67,28 +67,41 @@ function isMarkup(node: ProsemirrorNode) {
   return markup.attrs.block ? 2 : 1;
 }
 
-export function sourceNode(tr: Transaction, head: number, cursor: number) {
-  if (head < 1) {
-    return tr.doc.resolve(1);
-  }
+export function sourceNode(
+  tr: Transaction,
+  head: number,
+  cursor: number,
+  deletion: boolean
+) {
+  const res: { $node?: ResolvedPos; cursor: number } = { cursor };
 
-  const headNode = tr.doc.nodeAt(head);
-  if (!headNode) {
-    return null;
+  if (head < 1) {
+    res.$node = tr.doc.resolve(1);
+    return res;
   }
 
   // TODO: optimize: source if and only if markup letters appear between [head, cursor)
 
   let $head = tr.doc.resolve(head);
+  const headNode = tr.doc.nodeAt(head) || $head.parent;
   const markupType = isMarkup(headNode);
   if (markupType === 0 || markupType === 1) {
-    return headNode.isText ? tr.doc.resolve($head.start()) : $head;
+    res.$node = headNode.isText ? tr.doc.resolve($head.start()) : $head;
+    return res;
   }
+
+  // if (!deletion) {
+  //   if (!$head.nodeAfter || $head.nodeAfter.textContent.startsWith(" ")) {
+  //     res.cursor += 2; // jump out of blockmarkup from right
+  //   } else if (!$head.nodeBefore || $head.nodeBefore.marks.length === 0) {
+  //     res.cursor += 1; // jump into blockmarkup from left
+  //   }
+  // }
 
   while (true) {
     const node = $head.parent;
     if (!node.isBlock) {
-      return null;
+      return res;
     }
 
     if (!node.isTextblock) {
@@ -98,8 +111,106 @@ export function sourceNode(tr: Transaction, head: number, cursor: number) {
     $head = tr.doc.resolve($head.before());
   }
 
-  return $head;
+  res.$node = $head;
+  return res;
 }
+
+function isContainer({ type }: ProsemirrorNode) {
+  return type.isBlock && !type.isTextblock && !type.isLeaf;
+}
+
+function joinNextParagraph(
+  tr: Transaction,
+  $curr: ResolvedPos,
+  next: ProsemirrorNode
+) {
+  const a = $curr.parent.lastChild;
+  if (!a || a.type.name !== "paragraph" || next.childCount < 2) {
+    return false;
+  }
+
+  const b = next.child(0);
+  const c = next.child(1);
+  if (b.type.name !== "blockmarkup" || c.type !== a.type) {
+    return false;
+  }
+
+  const schema = a.type.schema as ExtensionSchema;
+  let index = $curr.pos + $curr.parent.content.size;
+  tr.insert(index - 1, schema.text("\n"));
+  next.forEach((node, offset, i) => {
+    if (i < 2) {
+      tr.insert(index, node.content);
+      index += node.content.size;
+    } else {
+      tr.insert(index, node);
+      index += node.nodeSize;
+    }
+  });
+  return true;
+}
+
+export function joinContainer(tr: Transaction, pos: number, cursor: number) {
+  const $curr = tr.doc.resolve(pos);
+  if (!isContainer($curr.parent)) {
+    return cursor;
+  }
+
+  const after = $curr.after();
+  const next = tr.doc.nodeAt(after);
+  if (next && next.type === $curr.parent.type) {
+    tr.deleteRange(after, after + next.content.size);
+    if (!joinNextParagraph(tr, $curr, next)) {
+      tr.insert($curr.pos + $curr.parent.content.size, next.content);
+    }
+  }
+
+  const start = $curr.start();
+  const $before = start <= 1 ? null : tr.doc.resolve(start - 2);
+  if (!$before || $before.parent.type !== $curr.parent.type) {
+    return cursor;
+  }
+
+  const before = $before.parent;
+  tr.deleteRange($before.start(), $before.end()).insert(
+    start - before.nodeSize,
+    before.content
+  );
+
+  return cursor - 2;
+}
+
+// function mergeMarkup(node: ProsemirrorNode, markup: Fragment, right = false) {
+//   const i = right ? node.content.size : 0;
+//   if (node.type.isTextblock) {
+//     node = node.replace(i, i, new Slice(markup, 0, 0));
+//   } else if (node.type.isBlock) {
+//     const child = node.nodeAt(i);
+//     if (child) {
+//       node = node.replace(
+//         right ? i - child.content.size : 0,
+//         right ? i : child.content.size,
+//         new Slice(Fragment.from(mergeMarkup(child, markup, right)), 0, 0)
+//       );
+//     }
+//   } else {
+//     throw new Error(`Unexpected Node Type: ${node.type.name}`);
+//   }
+
+//   return node;
+// }
+
+// export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {
+//   if (type.isBlock && !type.isTextblock) {
+//     for (let i = 0; i < nodes.length; ++i) {
+//       if (nodes[i].type.isText && !type.validContent(Fragment.from(nodes[i]))) {
+//         const schema = type.schema as ExtensionSchema;
+//         nodes[i] = schema.nodes.blockmarkup.create(undefined, nodes[i]);
+//       }
+//     }
+//   }
+//   return nodes;
+// }
 
 export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {
   if (type.isBlock && !type.isTextblock) {

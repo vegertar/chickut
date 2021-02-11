@@ -6,11 +6,11 @@
 
   div.markup,
   div.markup + * {
-    display: inline;
+    // display: inline;
   }
 
-  div.markup + *::after {
-    content: "\A";
-    white-space: pre;
-  }
+  // div.markup + *::after {
+  //   content: "\A";
+  //   white-space: pre;
+  // }
 }

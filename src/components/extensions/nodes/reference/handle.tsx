@@ -83,7 +83,7 @@ const handle: BlockRuleHandle<ReferenceEnv> = function reference(
 
   const str = state
     .getLines(startLine, nextLine, state.blkIndent, false)
-    .trim();
+    .toString();
   max = str.length;
 
   let labelEnd = -1;

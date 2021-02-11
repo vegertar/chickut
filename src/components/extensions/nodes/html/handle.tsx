@@ -74,8 +74,12 @@ const handle: BlockRuleHandle = function html(
 
   state.line = nextLine;
 
-  const token = state.push(this.name, 0);
-  token.content = state.getLines(startLine, nextLine, state.blkIndent, true);
+  state.push(this.name, 1);
+  const inline = state.push("", 0);
+  inline.code = true;
+  inline.lines = state.getLines(startLine, nextLine, state.blkIndent, true);
+  inline.children = [];
+  state.push(this.name, -1);
 
   return true;
 };

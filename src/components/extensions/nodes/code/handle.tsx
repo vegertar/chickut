@@ -30,8 +30,12 @@ const handle: BlockRuleHandle = function code(
 
   state.line = last;
 
-  const token = state.push(this.name, 0);
-  token.content = state.getLines(startLine, last, 4 + state.blkIndent, true);
+  state.push(this.name, 1);
+  const inline = state.push("", 0);
+  inline.code = true;
+  inline.lines = state.getLines(startLine, last, 4 + state.blkIndent);
+  inline.children = [];
+  state.push(this.name, -1);
 
   return true;
 };

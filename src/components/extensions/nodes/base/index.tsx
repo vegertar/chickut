@@ -27,14 +27,6 @@ const pack: ExtensionPack = [
     },
   },
 
-  // {
-  //   name: "indent",
-  //   mark: {
-  //     attrs: { size: {} },
-  //     inclusive: false,
-  //   },
-  // },
-
   {
     name: "markup",
     mark: {
@@ -70,8 +62,12 @@ const pack: ExtensionPack = [
       attrs: { tight: { default: false } },
       content: "inline*",
       group: "block",
+      code: true,
       parseDOM: [
-        { tag: "p", getAttrs: (node) => (node as HTMLElement).dataset },
+        {
+          tag: "p",
+          getAttrs: (node) => (node as HTMLElement).dataset,
+        },
       ],
       toDOM: ({ attrs }) => ["p", toDataAttrs(attrs), 0],
     },

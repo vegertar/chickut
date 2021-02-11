@@ -5,22 +5,11 @@ export default meta("Nodes", "Blockquote");
 
 const Template = template(Extension);
 
-export const Default = Template.bind({});
-Default.args = {
-  text: `> x
-  > y`,
-  //   text: `> Blockquotes can also be nested...
-  //   >> ...by using additional greater-than signs right next to each other...
-  //   > > > ...or with spaces between arrows.
-  // `,
-  //   text: `>
-  // `,
-};
-
-export const Heading = Template.bind({});
-Heading.args = {
+export const Example198 = Template.bind({});
+Example198.args = {
   addon: ["Heading"],
-  text: `> ## hello
-> world
-> haha`,
+  text: `> # Foo
+> bar
+> baz
+> # Bar`,
 };

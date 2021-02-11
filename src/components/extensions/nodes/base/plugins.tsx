@@ -26,6 +26,7 @@ import {
   turn,
   setBlockMarkup,
   sourceNode,
+  joinContainer,
 } from "./utils";
 
 type ParseContext = {
@@ -205,7 +206,12 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
         )
       : state.tr.delete(from, to);
 
-    const $node = sourceNode(tr, tr.mapping.map(from), tr.mapping.map(to));
+    const { $node, cursor } = sourceNode(
+      tr,
+      tr.mapping.map(from),
+      tr.mapping.map(to),
+      !text
+    );
     if (!$node) {
       return null;
     }
@@ -233,6 +239,7 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     let wrapped = false;
     let unwrapped = false;
     let reranged = false;
+    let mutated = 0;
 
     if (!node.sameMarkup(head)) {
       if (head.type.validContent(node.content)) {
@@ -244,27 +251,38 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       } else {
         reranged = true;
       }
+    } else {
+      // mutated = head.childCount - node.childCount;
+      // if (mutated) {
+      //   mutated++;
+      // }
+      console.log(node.childCount, head.childCount);
     }
 
+    const start = $node.start();
+    const end = $node.end();
+
     if (reranged) {
-      tr.replaceRangeWith($node.pos, $node.pos + node.content.size, head);
+      tr.replaceRangeWith(start, end, head);
     } else {
       tr.replaceWith(
-        $node.pos,
-        $node.pos +
-          node.content.size +
-          (wrapped ? 1 : 0) +
-          (unwrapped ? -1 : 0),
+        start,
+        end + (wrapped ? 1 : 0) + (unwrapped ? -1 : 0),
         head.content
       );
     }
 
     if (tail.length) {
-      tr.insert($node.pos + head.content.size + 1, tail);
+      tr.insert(start + head.content.size + 1, tail);
     }
 
-    // return tr.setSelection(Selection.near(tr.doc.resolve(cursor)));
-    return tr;
+    const pos =
+      joinContainer(tr, start, cursor) +
+      (wrapped ? 1 : 0) +
+      (unwrapped ? -1 : 0) +
+      mutated;
+
+    return tr.setSelection(Selection.near(tr.doc.resolve(pos)));
   }
 
   private parse(tokens: Token[], context: ParseContext) {
