@@ -156,8 +156,12 @@ function isContainer({ type }: ProsemirrorNode) {
   return type.isBlock && !type.isTextblock && !type.isLeaf;
 }
 
-function canJoinNextParagraph($curr: ResolvedPos, next: ProsemirrorNode) {
-  const a = $curr.parent.lastChild;
+function canJoinNextParagraph({ parent }: ResolvedPos, next: ProsemirrorNode) {
+  if (parent.type !== next.type) {
+    return false;
+  }
+
+  const a = parent.lastChild;
   if (!a || a.type.name !== "paragraph" || next.childCount < 2) {
     return false;
   }
@@ -199,7 +203,7 @@ function joinParagraph(tr: Transaction, $curr: ResolvedPos) {
 
   const $container = tr.doc.resolve($curr.start(-1));
   const container = $container.parent;
-  const next = container.childAfter($curr.after());
+  const next = container.childAfter($curr.after() - $container.start());
   if (!next.node) {
     return;
   }
