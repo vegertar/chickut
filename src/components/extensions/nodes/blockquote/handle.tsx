@@ -237,10 +237,7 @@ const handle: BlockRuleHandle = function blockquote(
   state.blkIndent = 0;
 
   state.push(this.name, 1);
-
   state.engine.block.tokenize(state, startLine, nextLine);
-  console.log(state.tokens);
-
   state.push(this.name, -1);
 
   state.lineMax = context.lineMax;

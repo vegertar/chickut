@@ -521,6 +521,25 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
 
     return lines;
   }
+
+  mergeMarkup(target: string, from: number, to = this.tokens.length) {
+    for (let j = to - 2; j > from; --j) {
+      const { name, nesting } = this.tokens[j];
+      if (name === target && nesting === 1) {
+        const prev = this.tokens[j - 1];
+        const next = this.tokens[j + 1];
+        if (
+          prev.name === "markup" &&
+          prev.name === next.name &&
+          prev.attrs!.block &&
+          next.attrs!.block
+        ) {
+          next.content = next.content!.slice(prev.content!.length);
+          --j;
+        }
+      }
+    }
+  }
 }
 
 type BlockHandle<T, P, L = StateEnv> = (
@@ -553,6 +572,8 @@ class BlockParser<T extends { options: Options }, P> extends Parser<
     const { maxNesting, ignoreError } = state.engine.options;
     let line = startLine;
     let hasEmptyLines = false;
+
+    const i = state.tokens.length;
 
     while (line < endLine) {
       state.line = line = state.eatBlankLines(line);
@@ -614,6 +635,10 @@ class BlockParser<T extends { options: Options }, P> extends Parser<
           `proper parsers are not available for line<${line}>: ${src}`
         );
       }
+    }
+
+    if (state.parent) {
+      state.mergeMarkup(state.parent, i);
     }
   }
 }

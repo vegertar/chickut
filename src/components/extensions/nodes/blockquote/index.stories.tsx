@@ -9,7 +9,7 @@ export const Example198 = Template.bind({});
 Example198.args = {
   addon: ["Heading"],
   text: `> # Foo
-> bar
+>  bar
 > baz
-> # Bar`,
+> Bar`,
 };

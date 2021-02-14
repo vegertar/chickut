@@ -27,6 +27,8 @@ import {
   setBlockMarkup,
   sourceNode,
   joinContainer,
+  textIndex,
+  docCursor,
 } from "./utils";
 
 type ParseContext = {
@@ -206,19 +208,13 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
         )
       : state.tr.delete(from, to);
 
-    const { $node, cursor } = sourceNode(
-      tr,
-      tr.mapping.map(from),
-      tr.mapping.map(to),
-      !text
-    );
+    const $node = sourceNode(tr, tr.mapping.map(from));
     if (!$node) {
       return null;
     }
 
     const node = $node.parent;
     const source = textBetween(node, 0, node.content.size);
-    console.log("\n", source);
 
     const tokens = this.engine.parse(source);
     if (!tokens.length) {
@@ -235,11 +231,11 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     }
 
     const [head, ...tail] = content;
+    const index = textIndex(tr.doc, tr.mapping.map(to));
 
     let wrapped = false;
     let unwrapped = false;
     let reranged = false;
-    let mutated = 0;
 
     if (!node.sameMarkup(head)) {
       if (head.type.validContent(node.content)) {
@@ -251,12 +247,6 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       } else {
         reranged = true;
       }
-    } else {
-      // mutated = head.childCount - node.childCount;
-      // if (mutated) {
-      //   mutated++;
-      // }
-      console.log(node.childCount, head.childCount);
     }
 
     const start = $node.start();
@@ -273,16 +263,19 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     }
 
     if (tail.length) {
-      tr.insert(start + head.content.size + 1, tail);
+      const grandType = tr.doc.resolve($node.start(-1)).parent.type;
+      let i = start + head.content.size + 1;
+      for (const item of tail) {
+        const combinable = item.type === grandType;
+        tr.insert(i, combinable ? item.content : item);
+        i += item.content.size + (combinable ? 0 : 1);
+      }
     }
 
-    const pos =
-      joinContainer(tr, start, cursor) +
-      (wrapped ? 1 : 0) +
-      (unwrapped ? -1 : 0) +
-      mutated;
+    joinContainer(tr, start);
 
-    return tr.setSelection(Selection.near(tr.doc.resolve(pos)));
+    const $cursor = tr.doc.resolve(docCursor(tr.doc, index));
+    return tr.setSelection(Selection.near($cursor));
   }
 
   private parse(tokens: Token[], context: ParseContext) {
