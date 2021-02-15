@@ -181,7 +181,9 @@ const handle: BlockRuleHandle<Env, ListStateEnv> = function list(
   const listName = isOrdered ? names.ordered : names.bulleted;
 
   const openToken = state.push(listName, 1);
-  if (isOrdered && markerValue !== 1) {
+  if (!isOrdered) {
+    openToken.attrs = { marker: String.fromCharCode(markerCharCode) };
+  } else if (markerValue !== 1) {
     openToken.attrs = { start: markerValue };
   }
 

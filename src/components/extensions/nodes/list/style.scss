@@ -1,40 +1,40 @@
 .editor {
-  ul {
-    margin: 0 0.1em;
-    padding: 0 0 0 1em;
+  // ul {
+  //   margin: 0 0.1em;
+  //   padding: 0 0 0 1em;
 
-    ul {
-      margin: 0;
-    }
-  }
+  //   ul {
+  //     margin: 0;
+  //   }
+  // }
 
-  ol {
-    margin: 0 0.1em;
-    padding: 0 0 0 1em;
+  // ol {
+  //   margin: 0 0.1em;
+  //   padding: 0 0 0 1em;
 
-    ol {
-      margin: 0;
-      list-style: lower-alpha;
+  //   ol {
+  //     margin: 0;
+  //     list-style: lower-alpha;
 
-      ol {
-        list-style: lower-roman;
-      }
-    }
-  }
+  //     ol {
+  //       list-style: lower-roman;
+  //     }
+  //   }
+  // }
 
-  @-moz-document url-prefix() {
-    .listitem.extension-content {
-      // fix the alignment between marker and list item in Firefox
-      display: inline-table;
-    }
-  }
+  // @-moz-document url-prefix() {
+  //   .listitem.extension-content {
+  //     // fix the alignment between marker and list item in Firefox
+  //     display: inline-table;
+  //   }
+  // }
 
-  li {
-    position: relative;
-    margin-bottom: 0;
-  }
+  // li {
+  //   position: relative;
+  //   margin-bottom: 0;
+  // }
 
-  li p:first-child {
-    margin: 0;
-  }
+  // li p:first-child {
+  //   margin: 0;
+  // }
 }

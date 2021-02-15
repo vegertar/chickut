@@ -30,11 +30,14 @@ Default.args = {
 
   // 57. foo
   // 1. bar`,
-  text: `- a
- - b
-  - c
-   - d
-    - e`,
-  // text: `  - foo
-  // 	  bar`,
+  //   text: `- a
+  //  - b
+  //   - c
+  //    - d
+  //     - e`,
+  //   // text: `  - foo
+  //   // 	  bar`,
+  text: `- foo
+- bar
++ baz`,
 };

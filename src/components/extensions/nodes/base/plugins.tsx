@@ -26,7 +26,8 @@ import {
   turn,
   setBlockMarkup,
   sourceNode,
-  joinContainer,
+  joinBlock,
+  get$Container,
   textIndex,
   docCursor,
 } from "./utils";
@@ -262,17 +263,23 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       );
     }
 
+    let $block = tr.doc.resolve(start);
+    let $container = get$Container(tr, $block);
+
     if (tail.length) {
-      const grandType = tr.doc.resolve($node.start(-1)).parent.type;
       let i = start + head.content.size + 1;
+      const container = $container.parent;
       for (const item of tail) {
-        const combinable = item.type === grandType;
-        tr.insert(i, combinable ? item.content : item);
-        i += item.content.size + (combinable ? 0 : 1);
+        const mergeable = item.sameMarkup(container);
+        tr.insert(i, mergeable ? item.content : item);
+        i += item.content.size + (mergeable ? 0 : 1);
       }
+
+      tr.doc.resolve(start);
+      $container = get$Container(tr, $block);
     }
 
-    joinContainer(tr, start);
+    joinBlock(tr, $block, $container);
 
     const $cursor = tr.doc.resolve(docCursor(tr.doc, index));
     return tr.setSelection(Selection.near($cursor));

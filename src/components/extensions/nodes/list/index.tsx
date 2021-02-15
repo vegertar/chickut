@@ -14,6 +14,7 @@ const pack: ExtensionPack<NonRuleNodeExtension> = [
   {
     name: names.bulleted,
     node: {
+      attrs: { marker: {} },
       content: `${names.item}+`,
       group: "block",
       parseDOM: [{ tag: "ul" }],

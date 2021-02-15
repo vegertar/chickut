@@ -143,7 +143,7 @@ export function sourceNode(tr: Transaction, pos: number) {
     if (!node.isBlock) {
       return null;
     }
-    if (!node.isTextblock) {
+    if (!node.isTextblock && node.type.spec.group === "block") {
       break;
     }
     $node = tr.doc.resolve($node.before());
@@ -156,121 +156,216 @@ function isContainer({ type }: ProsemirrorNode) {
   return type.isBlock && !type.isTextblock && !type.isLeaf;
 }
 
-function canJoinNextParagraph({ parent }: ResolvedPos, next: ProsemirrorNode) {
-  if (parent.type !== next.type) {
-    return false;
+function isJoinable({ type }: ProsemirrorNode) {
+  return type.name === "blockmarkup" || type.name === "paragraph";
+}
+
+function canJoinBlock(block: ProsemirrorNode, next: ProsemirrorNode) {
+  if (block.type.name !== "paragraph") {
+    const a = block.lastChild;
+    if (!a || a.type.name !== "paragraph") {
+      return false;
+    }
+
+    return !!next.firstChild && isJoinable(next.firstChild);
   }
 
-  const a = parent.lastChild;
-  if (!a || a.type.name !== "paragraph" || next.childCount < 2) {
-    return false;
+  for (let i = 0; i < next.childCount; ++i) {
+    if (!isJoinable(next.child(i))) {
+      return false;
+    }
   }
-
-  const b = next.child(0);
-  const c = next.child(1);
-  if (b.type.name !== "blockmarkup" || c.type !== a.type) {
-    return false;
-  }
-
   return true;
 }
 
-function joinNextParagraph(
+function joinNextBlock(
   tr: Transaction,
-  $curr: ResolvedPos,
+  $block: ResolvedPos,
   next: ProsemirrorNode
 ) {
-  const { node, offset } = $curr.parent.childBefore($curr.parent.content.size);
-  let index = $curr.start() + offset + (node ? node.nodeSize : 0);
+  let index = $block.start();
+  const block = $block.parent;
+  if (block.type.name === "paragraph") {
+    index += block.content.size + 1;
+  } else {
+    // get the last child position
+    const { node, offset } = block.childBefore(block.content.size);
+    index += offset + (node ? node.nodeSize : 0);
+  }
+
   tr.insertText("\n", index - 1);
 
+  let joinContent = true;
   for (let i = 0; i < next.childCount; ++i) {
     const node = next.child(i);
-    if (i < 2) {
+    if (joinContent && isJoinable(node)) {
+      if (i > 0 && next.child(i - 1).type.name !== "blockmarkup") {
+        tr.insertText("\n", index++);
+      }
       tr.insert(index, node.content);
       index += node.content.size;
     } else {
+      joinContent = false;
       tr.insert(index, node);
       index += node.nodeSize;
     }
   }
 }
 
-function joinParagraph(tr: Transaction, $curr: ResolvedPos) {
-  if ($curr.parent.type.name !== "paragraph") {
+function joinParagraph(
+  tr: Transaction,
+  $paragraph: ResolvedPos,
+  $container: ResolvedPos
+) {
+  if (
+    $paragraph.parent.type.name !== "paragraph" ||
+    $paragraph.depth - 1 !== $container.depth
+  ) {
     return;
   }
 
-  const $container = tr.doc.resolve($curr.start(-1));
   const container = $container.parent;
-  const next = container.childAfter($curr.after() - $container.start());
-  if (!next.node) {
-    return;
-  }
-
-  let j = next.index;
-  let size = 0;
-  for (; j < container.childCount; ++j) {
-    const child = container.child(j);
-    if (child.type.name !== "blockmarkup" && child.type.name !== "paragraph") {
-      break;
-    }
-    size += child.nodeSize;
-  }
-
-  if (!size) {
-    return;
-  }
-
   const start = $container.start();
-  let pos = start + next.offset;
-  tr.delete(pos, pos + size);
 
-  pos = $curr.end();
-  tr.insertText("\n", pos);
-  ++pos;
-  for (let i = next.index; i < j; ++i) {
-    const child = container.child(i);
-    tr.insert(pos, child.content);
-    pos += child.content.size;
+  const next = container.childAfter($paragraph.after() - start);
+  if (next.node) {
+    let j = next.index;
+    let size = 0;
+    for (; j < container.childCount; ++j) {
+      const child = container.child(j);
+      if (!isJoinable(child)) {
+        break;
+      }
+      size += child.nodeSize;
+    }
+
+    const last = container.child(j - 1);
+    if (size && last.type.name === "blockmarkup") {
+      // remain the last blockmarkup alone
+      --j;
+      size -= last.nodeSize;
+    }
+
+    if (size) {
+      let pos = start + next.offset;
+      tr.delete(pos, pos + size);
+
+      pos = $paragraph.end();
+      tr.insertText("\n", pos);
+      ++pos;
+      for (let i = next.index; i < j; ++i) {
+        const child = container.child(i);
+        tr.insert(pos, child.content);
+        pos += child.content.size;
+      }
+    }
+  }
+
+  const prev = container.childBefore($paragraph.before() - start);
+  if (prev.node) {
+    let j = prev.index;
+    let size = 0;
+    for (; j >= 0; --j) {
+      const child = container.child(j);
+      if (!isJoinable(child)) {
+        break;
+      }
+      size += child.nodeSize;
+    }
+
+    const first = container.child(j + 1);
+    if (size && first.type.name === "blockmarkup") {
+      // remain the first blockmarkup alone
+      ++j;
+      size -= first.nodeSize;
+    }
+
+    if (size) {
+      const curr = start + prev.offset + prev.node.nodeSize;
+      for (let m = j + 1, n = next.index - 1, pos = curr + 1; m < n; ++m) {
+        const child = container.child(m);
+        tr.insert(pos, child.content);
+        pos += child.content.size;
+        if (child.type.name !== "blockmarkup") {
+          tr.insertText("\n", pos++);
+        }
+      }
+      tr.delete(curr - size, curr);
+    }
   }
 }
 
-export function joinContainer(tr: Transaction, pos: number) {
-  const $curr = tr.doc.resolve(pos);
-  if (!isContainer($curr.parent)) {
-    joinParagraph(tr, $curr);
+export function joinBlock(
+  tr: Transaction,
+  $block: ResolvedPos,
+  $container: ResolvedPos
+) {
+  if (!$block.depth) {
     return;
   }
 
-  const start = $curr.start();
-  const after = $curr.after();
-  const next = tr.doc.nodeAt(after);
-  if (next && next.type === $curr.parent.type) {
+  let node = $block.parent;
+  if (!isContainer(node)) {
+    joinParagraph(tr, $block, $container);
+    return;
+  }
+
+  const container = $container.parent;
+  const containerStart = $container.start();
+
+  const start = $block.start();
+  const after = $block.after();
+  const { node: next } = container.childAfter(after - containerStart);
+
+  if (next && next.sameMarkup(node)) {
     tr.deleteRange(after, after + next.content.size);
-    if (canJoinNextParagraph($curr, next)) {
-      joinNextParagraph(tr, $curr, next);
+    if (canJoinBlock(node, next)) {
+      joinNextBlock(tr, $block, next);
     } else {
-      tr.insert(start + $curr.parent.content.size, next.content);
+      tr.insert(start + node.content.size, next.content);
+    }
+    node = tr.doc.resolve(start).parent;
+  }
+
+  const { node: prev, offset } = container.childBefore(
+    $block.before() - containerStart
+  );
+
+  if (!prev) {
+    return;
+  }
+
+  const $prev = tr.doc.resolve(containerStart + offset + 1);
+  let joinable = false;
+  if ($prev.depth === $block.depth - 1) {
+    console.log(node.toString());
+  } else if (prev.sameMarkup(node)) {
+    if (canJoinBlock(prev, node)) {
+      joinable = true;
+    } else {
+      const before = $prev.parent;
+      tr.insert(start, before.content).deleteRange($prev.start(), $prev.end());
+    }
+  } else if (container.sameMarkup(node) && canJoinBlock(prev, node)) {
+    // e.g. turn 2nd blockquote to 1st blockquote within 1st blockquote container
+    joinable = true;
+  }
+
+  if (joinable) {
+    tr.deleteRange(start, start + node.content.size);
+    joinNextBlock(tr, $prev, node);
+  }
+}
+
+export function get$Container(tr: Transaction, $node: ResolvedPos) {
+  while ($node.parent !== $node.doc) {
+    $node = tr.doc.resolve($node.start(-1));
+    if ($node.parent.type.spec.group === "block") {
+      break;
     }
   }
 
-  const $before = start <= 1 ? null : tr.doc.resolve(start - 2);
-  if (!$before || $before.parent.type !== $curr.parent.type) {
-    return;
-  }
-
-  const node = tr.doc.resolve(start).parent;
-  if (canJoinNextParagraph($before, node)) {
-    tr.deleteRange(start, start + node.content.size);
-    joinNextParagraph(tr, $before, node);
-  } else {
-    const before = $before.parent;
-    tr.deleteRange($before.start(), $before.end()).insert(
-      start - before.nodeSize,
-      before.content
-    );
-  }
+  return $node;
 }
 
 export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {

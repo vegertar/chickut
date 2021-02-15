@@ -17,11 +17,11 @@ export class ListItemPlugin extends Plugin {
     super({
       key: new PluginKey(type.name),
       props: {
-        handleKeyDown: keydownHandler({
-          Enter: splitListItem(type),
-          Tab: sinkListItem(type),
-          "Shift-Tab": liftListItem(type),
-        }),
+        // handleKeyDown: keydownHandler({
+        //   Enter: splitListItem(type),
+        //   Tab: sinkListItem(type),
+        //   "Shift-Tab": liftListItem(type),
+        // }),
       },
     });
   }
