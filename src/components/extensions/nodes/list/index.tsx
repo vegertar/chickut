@@ -14,10 +14,10 @@ const pack: ExtensionPack<NonRuleNodeExtension> = [
   {
     name: names.bulleted,
     node: {
-      attrs: { marker: {} },
+      attrs: { indent: { default: -1 }, marker: { default: "-" } },
       content: `${names.item}+`,
       group: "block",
-      parseDOM: [{ tag: "ul" }],
+      parseDOM: [{ tag: "ul" }], // TODO: parse marker, indent attributes
       toDOM: () => ["ul", 0],
     },
     plugins,
@@ -26,10 +26,10 @@ const pack: ExtensionPack<NonRuleNodeExtension> = [
   {
     name: names.ordered,
     node: {
-      attrs: { start: { default: 1 } },
+      attrs: { indent: { default: -1 }, start: { default: 1 } },
       content: `${names.item}+`,
       group: "block",
-      parseDOM: [{ tag: "ol", getAttrs: (node) => getAttrs(node as Element) }],
+      parseDOM: [{ tag: "ol", getAttrs: (node) => getAttrs(node as Element) }], // TODO: parse indent attributes
       toDOM: ({ attrs }) => (attrs.start === 1 ? ["ol", 0] : ["ol", attrs, 0]),
     },
     plugins,
@@ -38,10 +38,11 @@ const pack: ExtensionPack<NonRuleNodeExtension> = [
   {
     name: names.item,
     node: {
+      attrs: { indent: { default: 2 } },
       content: "block+",
       defining: true,
       draggable: true,
-      parseDOM: [{ tag: "li" }],
+      parseDOM: [{ tag: "li" }], // TODO: parse indent attribute
       toDOM: () => ["li", 0],
     },
     plugins: (type) => [new ListItemPlugin(type)],

@@ -133,13 +133,14 @@ export function sourceNode(tr: Transaction, pos: number) {
   // TODO: optimize: source if and only if markup letters appear between [head, cursor)
 
   let $node = tr.doc.resolve(pos);
-  const markupType = checkMarkup(tr.doc.nodeAt(pos) || $node.parent);
+  let node = $node.parent;
+
+  const markupType = checkMarkup(node.nodeAt($node.parentOffset) || node);
   if (markupType !== 2) {
     return $node;
   }
 
   while (true) {
-    const node = $node.parent;
     if (!node.isBlock) {
       return null;
     }
@@ -147,6 +148,7 @@ export function sourceNode(tr: Transaction, pos: number) {
       break;
     }
     $node = tr.doc.resolve($node.before());
+    node = $node.parent;
   }
 
   return $node;
@@ -221,6 +223,7 @@ function joinParagraph(
     $paragraph.parent.type.name !== "paragraph" ||
     $paragraph.depth - 1 !== $container.depth
   ) {
+    console.warn("TODO:", $container.parent.toString());
     return;
   }
 
@@ -295,7 +298,7 @@ function joinParagraph(
   }
 }
 
-export function joinBlock(
+export function join(
   tr: Transaction,
   $block: ResolvedPos,
   $container: ResolvedPos
@@ -313,46 +316,51 @@ export function joinBlock(
   const container = $container.parent;
   const containerStart = $container.start();
 
-  const start = $block.start();
-  const after = $block.after();
-  const { node: next } = container.childAfter(after - containerStart);
+  const blockStart = $block.start();
+  const blockAfter = $block.after();
+  const { node: next } = container.childAfter(blockAfter - containerStart);
 
   if (next && next.sameMarkup(node)) {
-    tr.deleteRange(after, after + next.content.size);
+    tr.deleteRange(blockAfter, blockAfter + next.content.size);
     if (canJoinBlock(node, next)) {
       joinNextBlock(tr, $block, next);
     } else {
-      tr.insert(start + node.content.size, next.content);
+      tr.insert(blockStart + node.content.size, next.content);
     }
-    node = tr.doc.resolve(start).parent;
+    node = tr.doc.resolve(blockStart).parent;
   }
 
+  const blockBefore = $block.before();
   const { node: prev, offset } = container.childBefore(
-    $block.before() - containerStart
+    blockBefore - containerStart
   );
-
   if (!prev) {
     return;
   }
 
-  const $prev = tr.doc.resolve(containerStart + offset + 1);
   let joinable = false;
-  if ($prev.depth === $block.depth - 1) {
-    console.log(node.toString());
+  const $prev = tr.doc.resolve(containerStart + offset + 1);
+
+  if ($prev.depth < $block.depth) {
+    tr.setMeta("join", { $container, $prev, $block });
   } else if (prev.sameMarkup(node)) {
     if (canJoinBlock(prev, node)) {
       joinable = true;
     } else {
-      const before = $prev.parent;
-      tr.insert(start, before.content).deleteRange($prev.start(), $prev.end());
+      tr.insert(blockStart, prev.content).deleteRange(
+        $prev.start(),
+        $prev.end()
+      );
     }
-  } else if (container.sameMarkup(node) && canJoinBlock(prev, node)) {
-    // e.g. turn 2nd blockquote to 1st blockquote within 1st blockquote container
-    joinable = true;
+  } else if (container.sameMarkup(node)) {
+    // e.g. merge 2nd blockquote to parent 1st blockquote
+    if (canJoinBlock(prev, node)) {
+      joinable = true;
+    }
   }
 
   if (joinable) {
-    tr.deleteRange(start, start + node.content.size);
+    tr.deleteRange(blockStart, blockStart + node.content.size);
     joinNextBlock(tr, $prev, node);
   }
 }

@@ -531,8 +531,9 @@ export class BlockState<T = {}, P = {}, L = {}> extends State<T, P, L> {
         if (
           prev.name === "markup" &&
           prev.name === next.name &&
-          prev.attrs!.block &&
-          next.attrs!.block
+          prev.attrs?.block &&
+          next.attrs?.block &&
+          next.content!.startsWith(prev.content!)
         ) {
           next.content = next.content!.slice(prev.content!.length);
           --j;
@@ -957,7 +958,7 @@ export class Engine<P extends Record<string, any> = Env> {
     return this;
   }
 
-  parse(src: string, env = {} as P): Token[] {
+  parse(src: string, env: P): Token[] {
     const props = { engine: this, src, env, tokens: [] };
     this.core.parse(props);
     return props.tokens;

@@ -121,7 +121,7 @@ const handle: BlockRuleHandle<Env, ListStateEnv> = function list(
   //     - item 4
   //      - this one is a paragraph continuation
   if (
-    listIndent !== undefined &&
+    listIndent >= 0 &&
     state.sCount[startLine] - listIndent >= 4 &&
     state.sCount[startLine] < state.blkIndent
   ) {
@@ -180,11 +180,11 @@ const handle: BlockRuleHandle<Env, ListStateEnv> = function list(
   const listTokenIndex = state.tokens.length;
   const listName = isOrdered ? names.ordered : names.bulleted;
 
-  const openToken = state.push(listName, 1);
+  const openToken = state.push(listName, 1, { indent: listIndent });
   if (!isOrdered) {
-    openToken.attrs = { marker: String.fromCharCode(markerCharCode) };
+    openToken.attrs.marker = String.fromCharCode(markerCharCode);
   } else if (markerValue !== 1) {
-    openToken.attrs = { start: markerValue };
+    openToken.attrs.start = markerValue;
   }
 
   //
@@ -242,7 +242,7 @@ const handle: BlockRuleHandle<Env, ListStateEnv> = function list(
     const indent = initial + indentAfterMarker;
 
     // Run subparser & write tokens
-    state.push(names.item, 1);
+    state.push(names.item, 1, { indent });
 
     // change current state, then restore it after parser subcall
     const oldTight = state.tight;
@@ -253,7 +253,7 @@ const handle: BlockRuleHandle<Env, ListStateEnv> = function list(
     // ^ listIndent position will be here
     //   ^ blkIndent position will be here
     //
-    const { oldListIndent = -1 } = state.local;
+    const { listIndent: oldListIndent = -1 } = state.local;
     state.local.listIndent = state.blkIndent;
     state.blkIndent = indent;
 

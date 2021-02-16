@@ -74,126 +74,126 @@ export class NodeView implements INodeView<S> {
   }
 }
 
-export class ProsedNodeView extends NodeView implements INodeView {
-  prose?: EditorView | null;
+// export class ProsedNodeView extends NodeView implements INodeView {
+//   prose?: EditorView | null;
 
-  constructor(
-    node: ProsemirrorNode,
-    view: EditorView,
-    getPos: () => number,
-    tag?: string
-  ) {
-    super(node, view, getPos, tag);
+//   constructor(
+//     node: ProsemirrorNode,
+//     view: EditorView,
+//     getPos: () => number,
+//     tag?: string
+//   ) {
+//     super(node, view, getPos, tag);
 
-    if (node.attrs.prosing) {
-      const prose = new EditorView(this.dom, {
-        state: EditorState.create({
-          doc: node,
-          schema: new Schema({
-            nodes: {
-              text: {},
-              doc: { content: "text*" },
-            },
-          }),
-        }),
-        dispatchTransaction: (tr) => {
-          prose.updateState(prose.state.apply(tr));
-          if (tr.docChanged) {
-            const tr = this.changes(prose);
-            tr && this.view.dispatch(tr);
-          }
-        },
-      });
+//     if (node.attrs.prosing) {
+//       const prose = new EditorView(this.dom, {
+//         state: EditorState.create({
+//           doc: node,
+//           schema: new Schema({
+//             nodes: {
+//               text: {},
+//               doc: { content: "text*" },
+//             },
+//           }),
+//         }),
+//         dispatchTransaction: (tr) => {
+//           prose.updateState(prose.state.apply(tr));
+//           if (tr.docChanged) {
+//             const tr = this.changes(prose);
+//             tr && this.view.dispatch(tr);
+//           }
+//         },
+//       });
 
-      this.prose = prose;
-      this.contentDOM = null;
-    }
-  }
+//       this.prose = prose;
+//       this.contentDOM = null;
+//     }
+//   }
 
-  destroy() {
-    if (this.prose) {
-      this.prose.destroy();
-      this.prose = null;
-    }
-    super.destroy();
-  }
+//   destroy() {
+//     if (this.prose) {
+//       this.prose.destroy();
+//       this.prose = null;
+//     }
+//     super.destroy();
+//   }
 
-  render(oldNode?: ProsemirrorNode): boolean | void {
-    if (oldNode && oldNode.attrs.prosing !== this.node.attrs.prosing) {
-      return false;
-    }
-    if (this.prose) {
-      const tr = this.changes(this.prose, true);
-      tr && this.prose.dispatch(tr);
-    }
-    return super.render(oldNode);
-  }
+//   render(oldNode?: ProsemirrorNode): boolean | void {
+//     if (oldNode && oldNode.attrs.prosing !== this.node.attrs.prosing) {
+//       return false;
+//     }
+//     if (this.prose) {
+//       const tr = this.changes(this.prose, true);
+//       tr && this.prose.dispatch(tr);
+//     }
+//     return super.render(oldNode);
+//   }
 
-  selectNode() {
-    this.view.dispatch(
-      this.view.state.tr.setNodeMarkup(this.getPos(), undefined, {
-        ...this.node.attrs,
-        prosing: true,
-      })
-    );
-  }
+//   selectNode() {
+//     this.view.dispatch(
+//       this.view.state.tr.setNodeMarkup(this.getPos(), undefined, {
+//         ...this.node.attrs,
+//         prosing: true,
+//       })
+//     );
+//   }
 
-  deselectNode() {
-    this.view.dispatch(
-      this.view.state.tr.setNodeMarkup(this.getPos(), undefined, {
-        ...this.node.attrs,
-        prosing: false,
-      })
-    );
-  }
+//   deselectNode() {
+//     this.view.dispatch(
+//       this.view.state.tr.setNodeMarkup(this.getPos(), undefined, {
+//         ...this.node.attrs,
+//         prosing: false,
+//       })
+//     );
+//   }
 
-  keymaps(): Record<string, Command> {
-    return {
-      "Ctrl-Enter": () => {
-        if (exitCode(this.view.state, this.view.dispatch)) {
-          this.view.focus();
-        }
-        return true;
-      },
-    };
-  }
+//   keymaps(): Record<string, Command> {
+//     return {
+//       "Ctrl-Enter": () => {
+//         if (exitCode(this.view.state, this.view.dispatch)) {
+//           this.view.focus();
+//         }
+//         return true;
+//       },
+//     };
+//   }
 
-  changes(prose: EditorView, downward = false) {
-    let oldOne = this.node.textContent;
-    let newOne = prose.state.doc.textContent;
+//   changes(prose: EditorView, downward = false) {
+//     let oldOne = this.node.textContent;
+//     let newOne = prose.state.doc.textContent;
 
-    if (downward) {
-      const t = oldOne;
-      oldOne = newOne;
-      newOne = t;
-    }
+//     if (downward) {
+//       const t = oldOne;
+//       oldOne = newOne;
+//       newOne = t;
+//     }
 
-    const diffs = dmp.diff_main(oldOne, newOne);
-    if (diffs.length) {
-      return null;
-    }
+//     const diffs = dmp.diff_main(oldOne, newOne);
+//     if (diffs.length) {
+//       return null;
+//     }
 
-    const tr = downward ? prose.state.tr : this.view.state.tr;
+//     const tr = downward ? prose.state.tr : this.view.state.tr;
 
-    let index = this.getPos() + 1;
-    for (const [op, text] of diffs) {
-      switch (op) {
-        case 1: // insert
-          tr.insertText(text, index);
-          break;
-        case 0: // equal
-          index += text.length;
-          break;
-        case -1: // delete
-          tr.delete(index, index + text.length);
-          index += text.length;
-          break;
-      }
-    }
+//     let index = this.getPos() + 1;
+//     for (const [op, text] of diffs) {
+//       switch (op) {
+//         case 1: // insert
+//           tr.insertText(text, index);
+//           break;
+//         case 0: // equal
+//           index += text.length;
+//           break;
+//         case -1: // delete
+//           tr.delete(index, index + text.length);
+//           index += text.length;
+//           break;
+//       }
+//     }
 
-    return tr;
-  }
-}
+//     return tr;
+//   }
+// }
 
 export class NodeViewPlugin<
   T extends NodeType | MarkType,

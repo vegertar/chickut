@@ -26,7 +26,7 @@ import {
   turn,
   setBlockMarkup,
   sourceNode,
-  joinBlock,
+  join,
   get$Container,
   textIndex,
   docCursor,
@@ -69,6 +69,15 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
           const self = this as ParagraphPlugin;
           return self.handleKeyDown(view, event) || false;
         },
+      },
+      appendTransaction(trs, _, state) {
+        for (let i = trs.length - 1; i >= 0; --i) {
+          const index: number | undefined = trs[i].getMeta("index");
+          if (index !== undefined) {
+            const $cursor = state.doc.resolve(docCursor(state.doc, index));
+            return state.tr.setSelection(Selection.near($cursor));
+          }
+        }
       },
     });
   }
@@ -216,8 +225,7 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
 
     const node = $node.parent;
     const source = textBetween(node, 0, node.content.size);
-
-    const tokens = this.engine.parse(source);
+    const tokens = this.engine.parse(source, { tr });
     if (!tokens.length) {
       return null;
     }
@@ -272,17 +280,15 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       for (const item of tail) {
         const mergeable = item.sameMarkup(container);
         tr.insert(i, mergeable ? item.content : item);
-        i += item.content.size + (mergeable ? 0 : 1);
+        i += mergeable ? item.content.size : item.nodeSize;
       }
 
-      tr.doc.resolve(start);
+      $block = tr.doc.resolve(start);
       $container = get$Container(tr, $block);
     }
 
-    joinBlock(tr, $block, $container);
-
-    const $cursor = tr.doc.resolve(docCursor(tr.doc, index));
-    return tr.setSelection(Selection.near($cursor));
+    join(tr, $block, $container);
+    return tr.setMeta("index", index);
   }
 
   private parse(tokens: Token[], context: ParseContext) {
