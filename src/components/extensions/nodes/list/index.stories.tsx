@@ -67,3 +67,15 @@ Example277.args = {
 
       bim`,
 };
+
+export const Foo = Template.bind({});
+Foo.args = {
+  text: `- foo
+  - bar
+    - baz
+
+
+      bim
+  - xyz
+  - hhh`,
+};

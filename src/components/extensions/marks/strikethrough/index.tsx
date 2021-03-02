@@ -149,6 +149,24 @@ export function useStrikethrough(marker: number, tag?: string) {
 
         tokens.splice(openIndex + 1, 0, openMarkup);
         tokens.splice(closeIndex + 1, 0, closeMarkup);
+
+        // fix after delimiters
+        for (const startDelim of delimiters) {
+          if (startDelim.marker !== marker && startDelim.end !== -1) {
+            if (startDelim.token > closeIndex) {
+              startDelim.token += 2;
+            } else if (startDelim.token > openIndex) {
+              startDelim.token += 1;
+            }
+
+            const endDelim = delimiters[startDelim.end];
+            if (endDelim.token > closeIndex) {
+              endDelim.token += 2;
+            } else if (endDelim.token > openIndex) {
+              endDelim.token += 1;
+            }
+          }
+        }
       }
     }
 

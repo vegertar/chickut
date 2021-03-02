@@ -1,13 +1,23 @@
 import {
   Fragment,
+  Mark,
   Node as ProsemirrorNode,
   NodeType,
   ResolvedPos,
+  Slice,
 } from "prosemirror-model";
-import { findWrapping, liftTarget } from "prosemirror-transform";
+import {
+  findWrapping,
+  liftTarget,
+  ReplaceStep,
+  Step,
+} from "prosemirror-transform";
 import { Transaction } from "prosemirror-state";
-import { ExtensionSchema } from "../../../editor";
 
+import { dmp, Env, ExtensionSchema, Token } from "../../../editor";
+import diff from "./diff";
+
+// when f returns true, the texts iterating aborts
 export function textsBetween(
   node: ProsemirrorNode | Fragment,
   from: number,
@@ -109,7 +119,7 @@ export function docCursor(doc: ProsemirrorNode, index: number) {
 
 type MARKUP_TYPE = 0 | 1 | 2; // 0: no markup; 1: inline markup; 2: block markup
 
-function checkMarkup(node: ProsemirrorNode): MARKUP_TYPE {
+export function checkMarkup(node: ProsemirrorNode): MARKUP_TYPE {
   if (node.type.name === "blockmarkup") {
     return 2;
   }
@@ -154,217 +164,6 @@ export function sourceNode(tr: Transaction, pos: number) {
   return $node;
 }
 
-function isContainer({ type }: ProsemirrorNode) {
-  return type.isBlock && !type.isTextblock && !type.isLeaf;
-}
-
-function isJoinable({ type }: ProsemirrorNode) {
-  return type.name === "blockmarkup" || type.name === "paragraph";
-}
-
-function canJoinBlock(block: ProsemirrorNode, next: ProsemirrorNode) {
-  if (block.type.name !== "paragraph") {
-    const a = block.lastChild;
-    if (!a || a.type.name !== "paragraph") {
-      return false;
-    }
-
-    return !!next.firstChild && isJoinable(next.firstChild);
-  }
-
-  for (let i = 0; i < next.childCount; ++i) {
-    if (!isJoinable(next.child(i))) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function joinNextBlock(
-  tr: Transaction,
-  $block: ResolvedPos,
-  next: ProsemirrorNode
-) {
-  let index = $block.start();
-  const block = $block.parent;
-  if (block.type.name === "paragraph") {
-    index += block.content.size + 1;
-  } else {
-    // get the last child position
-    const { node, offset } = block.childBefore(block.content.size);
-    index += offset + (node ? node.nodeSize : 0);
-  }
-
-  tr.insertText("\n", index - 1);
-
-  let joinContent = true;
-  for (let i = 0; i < next.childCount; ++i) {
-    const node = next.child(i);
-    if (joinContent && isJoinable(node)) {
-      if (i > 0 && next.child(i - 1).type.name !== "blockmarkup") {
-        tr.insertText("\n", index++);
-      }
-      tr.insert(index, node.content);
-      index += node.content.size;
-    } else {
-      joinContent = false;
-      tr.insert(index, node);
-      index += node.nodeSize;
-    }
-  }
-}
-
-function joinParagraph(
-  tr: Transaction,
-  $paragraph: ResolvedPos,
-  $container: ResolvedPos
-) {
-  if (
-    $paragraph.parent.type.name !== "paragraph" ||
-    $paragraph.depth - 1 !== $container.depth
-  ) {
-    console.warn("TODO:", $container.parent.toString());
-    return;
-  }
-
-  const container = $container.parent;
-  const start = $container.start();
-
-  const next = container.childAfter($paragraph.after() - start);
-  if (next.node) {
-    let j = next.index;
-    let size = 0;
-    for (; j < container.childCount; ++j) {
-      const child = container.child(j);
-      if (!isJoinable(child)) {
-        break;
-      }
-      size += child.nodeSize;
-    }
-
-    const last = container.child(j - 1);
-    if (size && last.type.name === "blockmarkup") {
-      // remain the last blockmarkup alone
-      --j;
-      size -= last.nodeSize;
-    }
-
-    if (size) {
-      let pos = start + next.offset;
-      tr.delete(pos, pos + size);
-
-      pos = $paragraph.end();
-      tr.insertText("\n", pos);
-      ++pos;
-      for (let i = next.index; i < j; ++i) {
-        const child = container.child(i);
-        tr.insert(pos, child.content);
-        pos += child.content.size;
-      }
-    }
-  }
-
-  const prev = container.childBefore($paragraph.before() - start);
-  if (prev.node) {
-    let j = prev.index;
-    let size = 0;
-    for (; j >= 0; --j) {
-      const child = container.child(j);
-      if (!isJoinable(child)) {
-        break;
-      }
-      size += child.nodeSize;
-    }
-
-    const first = container.child(j + 1);
-    if (size && first.type.name === "blockmarkup") {
-      // remain the first blockmarkup alone
-      ++j;
-      size -= first.nodeSize;
-    }
-
-    if (size) {
-      const curr = start + prev.offset + prev.node.nodeSize;
-      for (let m = j + 1, n = next.index - 1, pos = curr + 1; m < n; ++m) {
-        const child = container.child(m);
-        tr.insert(pos, child.content);
-        pos += child.content.size;
-        if (child.type.name !== "blockmarkup") {
-          tr.insertText("\n", pos++);
-        }
-      }
-      tr.delete(curr - size, curr);
-    }
-  }
-}
-
-export function join(
-  tr: Transaction,
-  $block: ResolvedPos,
-  $container: ResolvedPos
-) {
-  if (!$block.depth) {
-    return;
-  }
-
-  let node = $block.parent;
-  if (!isContainer(node)) {
-    joinParagraph(tr, $block, $container);
-    return;
-  }
-
-  const container = $container.parent;
-  const containerStart = $container.start();
-
-  const blockStart = $block.start();
-  const blockAfter = $block.after();
-  const { node: next } = container.childAfter(blockAfter - containerStart);
-
-  if (next && next.sameMarkup(node)) {
-    tr.deleteRange(blockAfter, blockAfter + next.content.size);
-    if (canJoinBlock(node, next)) {
-      joinNextBlock(tr, $block, next);
-    } else {
-      tr.insert(blockStart + node.content.size, next.content);
-    }
-    node = tr.doc.resolve(blockStart).parent;
-  }
-
-  const blockBefore = $block.before();
-  const { node: prev, offset } = container.childBefore(
-    blockBefore - containerStart
-  );
-  if (!prev) {
-    return;
-  }
-
-  let joinable = false;
-  const $prev = tr.doc.resolve(containerStart + offset + 1);
-
-  if ($prev.depth < $block.depth) {
-    tr.setMeta("join", { $container, $prev, $block });
-  } else if (prev.sameMarkup(node)) {
-    if (canJoinBlock(prev, node)) {
-      joinable = true;
-    } else {
-      tr.insert(blockStart, prev.content).deleteRange(
-        $prev.start(),
-        $prev.end()
-      );
-    }
-  } else if (container.sameMarkup(node)) {
-    // e.g. merge 2nd blockquote to parent 1st blockquote
-    if (canJoinBlock(prev, node)) {
-      joinable = true;
-    }
-  }
-
-  if (joinable) {
-    tr.deleteRange(blockStart, blockStart + node.content.size);
-    joinNextBlock(tr, $prev, node);
-  }
-}
-
 export function get$Container(tr: Transaction, $node: ResolvedPos) {
   while ($node.parent !== $node.doc) {
     $node = tr.doc.resolve($node.start(-1));
@@ -391,21 +190,41 @@ export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {
 export function turn(
   tr: Transaction,
   $node: ResolvedPos,
-  node: ProsemirrorNode
+  {
+    type,
+    attrs,
+    marks,
+  }: { type?: NodeType; attrs?: Record<string, any>; marks?: Mark[] }
 ) {
-  return tr.setNodeMarkup($node.before(), node.type, node.attrs, node.marks);
+  return tr.setNodeMarkup($node.before(), type, attrs, marks);
 }
 
 export function wrap(
   tr: Transaction,
   $node: ResolvedPos,
-  node: ProsemirrorNode
+  { type, attrs }: { type: NodeType; attrs?: Record<string, any> }
 ) {
   const range = $node.blockRange();
   if (range) {
-    const wrapping = findWrapping(range, node.type, node.attrs);
+    const wrapping = findWrapping(range, type, attrs);
     if (wrapping) {
       return tr.wrap(range, wrapping);
+    }
+  }
+}
+
+export function lift(tr: Transaction, $node: ResolvedPos) {
+  const start = $node.start();
+  const first = $node.parent.childAfter(0);
+  const last = $node.parent.childBefore($node.parent.content.size);
+  const $first = tr.doc.resolve(start + first.offset + 1);
+  const $last = tr.doc.resolve(start + last.offset + 1);
+
+  const range = $first.blockRange($last);
+  if (range) {
+    const target = liftTarget(range);
+    if (target !== undefined && target !== null) {
+      return tr.lift(range, target);
     }
   }
 }
@@ -413,19 +232,198 @@ export function wrap(
 export function unwrap(
   tr: Transaction,
   $node: ResolvedPos,
-  node: ProsemirrorNode
+  to?: { type?: NodeType; attrs?: Record<string, any>; marks?: Mark[] }
 ) {
-  const start = $node.start();
-  const first = $node.parent.childAfter(0);
-  const last = $node.parent.childBefore($node.parent.content.size);
-  const $first = tr.doc.resolve(start + first.offset);
-  const $last = tr.doc.resolve(start + last.offset);
-
-  const range = $first.blockRange($last);
-  if (range) {
-    const target = liftTarget(range);
-    if (target !== undefined && target !== null) {
-      return turn(tr.lift(range, target), $node, node);
+  let fragment = $node.parent.content;
+  if (to) {
+    const nodes: ProsemirrorNode[] = [];
+    fragment.forEach((node) => {
+      const type = to.type || node.type;
+      nodes.push(type.createChecked(to.attrs, node.content, to.marks));
+    });
+    if (nodes.length) {
+      fragment = Fragment.from(nodes);
     }
   }
+
+  return tr.step(
+    new ReplaceStep(
+      $node.before(),
+      $node.after(),
+      new Slice(fragment, $node.depth - 1, $node.depth - 1)
+    )
+  );
+}
+
+type ParseContext = {
+  type: NodeType | null;
+  content: ProsemirrorNode[];
+  marks: Mark[];
+  token?: Token;
+};
+
+function createNodes(
+  schema: ExtensionSchema,
+  token: Token,
+  marks: Mark[]
+): ProsemirrorNode[] {
+  // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
+  const { name, attrs, content } = token;
+  const nodes: ProsemirrorNode[] = [];
+  const nodeType = schema.nodes[name];
+
+  if (name !== "text") {
+    if (!nodeType) {
+      marks = schema.marks[name].create(attrs).addToSet(marks);
+    }
+
+    if (content) {
+      nodes.push(schema.text(content, marks));
+    }
+
+    if (nodeType) {
+      nodes.push(nodeType.createChecked(attrs, nodes.splice(0), marks));
+    }
+  } else if (content) {
+    nodes.push(schema.text(content, marks));
+  }
+
+  return nodes;
+}
+
+function parseTokens(
+  schema: ExtensionSchema,
+  tokens: Token[],
+  context: ParseContext
+) {
+  const stack = [context];
+
+  for (const token of tokens) {
+    const current = stack[stack.length - 1];
+
+    switch (token.nesting) {
+      case 1: {
+        const newItem: ParseContext = {
+          type: schema.nodes[token.name] || null,
+          content: [],
+          marks: current.marks,
+          token,
+        };
+        if (!newItem.type) {
+          newItem.marks = schema.marks[token.name]
+            .create(token.attrs)
+            .addToSet(current.marks);
+        }
+        stack.push(newItem);
+        break;
+      }
+
+      case 0: {
+        if (token.name === "") {
+          token.children && parseTokens(schema, token.children, current);
+        } else {
+          current.content.push(...createNodes(schema, token, current.marks));
+        }
+        break;
+      }
+
+      case -1: {
+        const { type, content, marks, token: openToken } = stack.pop()!;
+        const last = stack[stack.length - 1];
+        if (type) {
+          last.content.push(
+            type.createChecked(
+              openToken!.attrs,
+              setBlockMarkup(type, content),
+              marks
+            )!
+          );
+        } else {
+          last.content.push(...content);
+        }
+        break;
+      }
+    }
+  }
+
+  return context;
+}
+
+export function parseNode(node: ProsemirrorNode, env: Env = {}) {
+  const schema = node.type.schema as ExtensionSchema;
+  const source = textBetween(node, 0, node.content.size);
+  const tokens = schema.cached.engine.parse(source, env);
+  if (!tokens.length) {
+    return null;
+  }
+
+  const { content } = parseTokens(schema, tokens, {
+    type: node.type,
+    content: [],
+    marks: Mark.none,
+  });
+
+  return content.length ? content : null;
+}
+
+export function udpateNode(tr: Transaction, $node: ResolvedPos) {
+  const node = $node.parent;
+  const content = parseNode(node);
+  if (!content) {
+    return null;
+  }
+
+  const [head, ...tail] = content;
+
+  let wrapped = false;
+  let unwrapped = false;
+  let reranged = false;
+
+  if (!node.sameMarkup(head)) {
+    if (head.type.validContent(node.content)) {
+      turn(tr, $node, head);
+    } else if (head.type.validContent(Fragment.from(node))) {
+      wrapped = !!wrap(tr, $node, head);
+    } else if (node.type.validContent(Fragment.from(head))) {
+      unwrapped = !!unwrap(tr, $node, head);
+    } else {
+      reranged = true;
+    }
+  }
+
+  const start = $node.start();
+  const end = $node.end();
+
+  if (reranged) {
+    tr.replaceRangeWith(start, end, head);
+  } else {
+    tr.replaceWith(
+      start,
+      end + (wrapped ? 1 : 0) + (unwrapped ? -1 : 0),
+      head.content
+    );
+  }
+
+  let $container = get$Container(tr, tr.doc.resolve(start));
+  if (tail.length) {
+    let i = start + head.content.size + 1;
+    const container = $container.parent;
+    for (const item of tail) {
+      const mergeable = item.sameMarkup(container);
+      tr.insert(i, mergeable ? item.content : item);
+      i += mergeable ? item.content.size : item.nodeSize;
+    }
+
+    $container = get$Container(tr, tr.doc.resolve(start));
+  }
+
+  if ($container.depth) {
+    const container = $container.parent;
+    const final = parseNode(container);
+    if (final && final.length === 1) {
+      diff(container, final[0]);
+    }
+  }
+
+  return tr;
 }

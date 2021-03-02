@@ -1,7 +1,5 @@
 import {
   Schema as ProsemirrorSchema,
-  Node as ProsemirrorNode,
-  Mark,
   NodeSpec,
   MarkSpec,
   NodeType as ProsemirrorNodeType,

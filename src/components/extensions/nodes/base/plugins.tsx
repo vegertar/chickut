@@ -16,28 +16,16 @@ import { EditorView } from "prosemirror-view";
 import { baseKeymap, Command } from "prosemirror-commands";
 import { keydownHandler } from "prosemirror-keymap";
 
-import { Token, ExtensionSchema } from "../../../editor";
+import { ExtensionSchema } from "../../../editor";
 
 import { balancePairs, setup, text, textCollapse } from "./rules";
 import {
-  unwrap,
   textBetween,
-  wrap,
-  turn,
-  setBlockMarkup,
   sourceNode,
-  join,
-  get$Container,
   textIndex,
   docCursor,
+  udpateNode,
 } from "./utils";
-
-type ParseContext = {
-  type: NodeType | null;
-  content: ProsemirrorNode[];
-  marks: Mark[];
-  token?: Token;
-};
 
 type State = {
   tr: Transaction;
@@ -48,7 +36,6 @@ type State = {
 
 export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
   readonly name = this.type.name;
-  readonly engine = this.type.schema.cached.engine;
   readonly schema = this.type.schema;
 
   constructor(public readonly type: NodeType<ExtensionSchema>) {
@@ -70,15 +57,15 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
           return self.handleKeyDown(view, event) || false;
         },
       },
-      appendTransaction(trs, _, state) {
-        for (let i = trs.length - 1; i >= 0; --i) {
-          const index: number | undefined = trs[i].getMeta("index");
-          if (index !== undefined) {
-            const $cursor = state.doc.resolve(docCursor(state.doc, index));
-            return state.tr.setSelection(Selection.near($cursor));
-          }
-        }
-      },
+      // appendTransaction(trs, _, state) {
+      //   for (let i = trs.length - 1; i >= 0; --i) {
+      //     const index: number | undefined = trs[i].getMeta("index");
+      //     if (index !== undefined) {
+      //       const $cursor = state.doc.resolve(docCursor(state.doc, index));
+      //       return state.tr.setSelection(Selection.near($cursor));
+      //     }
+      //   }
+      // },
     });
   }
 
@@ -223,151 +210,13 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
       return null;
     }
 
-    const node = $node.parent;
-    const source = textBetween(node, 0, node.content.size);
-    const tokens = this.engine.parse(source, { tr });
-    if (!tokens.length) {
-      return null;
-    }
-
-    const { content } = this.parse(tokens, {
-      type: node.type,
-      content: [],
-      marks: Mark.none,
-    });
-    if (!content.length) {
-      return null;
-    }
-
-    const [head, ...tail] = content;
     const index = textIndex(tr.doc, tr.mapping.map(to));
-
-    let wrapped = false;
-    let unwrapped = false;
-    let reranged = false;
-
-    if (!node.sameMarkup(head)) {
-      if (head.type.validContent(node.content)) {
-        turn(tr, $node, head);
-      } else if (head.type.validContent(Fragment.from(node))) {
-        wrapped = !!wrap(tr, $node, head);
-      } else if (node.type.validContent(Fragment.from(head))) {
-        unwrapped = !!unwrap(tr, $node, head);
-      } else {
-        reranged = true;
-      }
+    if (!udpateNode(tr, $node)) {
+      return null;
     }
 
-    const start = $node.start();
-    const end = $node.end();
-
-    if (reranged) {
-      tr.replaceRangeWith(start, end, head);
-    } else {
-      tr.replaceWith(
-        start,
-        end + (wrapped ? 1 : 0) + (unwrapped ? -1 : 0),
-        head.content
-      );
-    }
-
-    let $block = tr.doc.resolve(start);
-    let $container = get$Container(tr, $block);
-
-    if (tail.length) {
-      let i = start + head.content.size + 1;
-      const container = $container.parent;
-      for (const item of tail) {
-        const mergeable = item.sameMarkup(container);
-        tr.insert(i, mergeable ? item.content : item);
-        i += mergeable ? item.content.size : item.nodeSize;
-      }
-
-      $block = tr.doc.resolve(start);
-      $container = get$Container(tr, $block);
-    }
-
-    join(tr, $block, $container);
-    return tr.setMeta("index", index);
-  }
-
-  private parse(tokens: Token[], context: ParseContext) {
-    const stack = [context];
-
-    for (const token of tokens) {
-      const current = stack[stack.length - 1];
-
-      switch (token.nesting) {
-        case 1: {
-          const newItem: ParseContext = {
-            type: this.schema.nodes[token.name] || null,
-            content: [],
-            marks: current.marks,
-            token,
-          };
-          if (!newItem.type) {
-            newItem.marks = this.schema.marks[token.name]
-              .create(token.attrs)
-              .addToSet(current.marks);
-          }
-          stack.push(newItem);
-          break;
-        }
-
-        case 0: {
-          if (token.name === "") {
-            token.children && this.parse(token.children, current);
-          } else {
-            current.content.push(...this.createNodes(token, current.marks));
-          }
-          break;
-        }
-
-        case -1: {
-          const { type, content, marks, token: openToken } = stack.pop()!;
-          const last = stack[stack.length - 1];
-          if (type) {
-            last.content.push(
-              type.createChecked(
-                openToken!.attrs,
-                setBlockMarkup(type, content),
-                marks
-              )!
-            );
-          } else {
-            last.content.push(...content);
-          }
-          break;
-        }
-      }
-    }
-
-    return context;
-  }
-
-  private createNodes(token: Token, marks: Mark[]): ProsemirrorNode[] {
-    // TODO: image has nested alt field, e.g. ![foo ![bar](/url)](/url2)
-    const { name, attrs, content } = token;
-    const nodes: ProsemirrorNode[] = [];
-    const nodeType = this.schema.nodes[name];
-
-    if (name !== "text") {
-      if (!nodeType) {
-        marks = this.schema.marks[name].create(attrs).addToSet(marks);
-      }
-
-      if (content) {
-        nodes.push(this.schema.text(content, marks));
-      }
-
-      if (nodeType) {
-        nodes.push(nodeType.createChecked(attrs, nodes.splice(0), marks));
-      }
-    } else if (content) {
-      nodes.push(this.schema.text(content, marks));
-    }
-
-    return nodes;
+    const $cursor = tr.doc.resolve(docCursor(tr.doc, index));
+    return tr.setSelection(Selection.near($cursor));
   }
 }
 
