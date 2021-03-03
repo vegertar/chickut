@@ -10,13 +10,19 @@ import { Transaction } from "prosemirror-state";
 import lcs from "diff-sequences";
 
 import { dmp } from "../../../editor";
+import sortedIndex from "lodash.sortedindex";
 
 // when f returns true, the nodes iterating aborts
 function nodesBetween(
   node: ProsemirrorNode | Fragment,
   from: number,
   to: number,
-  f: (node: ProsemirrorNode, pos: number, parent: number) => boolean | void,
+  f: (
+    node: ProsemirrorNode,
+    pos: number,
+    parent: number,
+    index: number
+  ) => boolean | void,
   nodeStart = 0,
   parent = -1
 ) {
@@ -24,7 +30,7 @@ function nodesBetween(
     const child = node.child(i);
     const end = pos + child.nodeSize;
     if (end > from) {
-      if (f(child, nodeStart + pos, parent)) {
+      if (f(child, nodeStart + pos, parent, i)) {
         return true;
       }
 
@@ -47,6 +53,11 @@ function nodesBetween(
 
     pos = end;
   }
+}
+
+function binarySearch(array: number[], value: number) {
+  const i = sortedIndex(array, value);
+  return array[i] === value ? i : -1;
 }
 
 class Match {
@@ -98,6 +109,7 @@ type MOV = {
   from: number;
   parent: number;
   index: number;
+  depth: number;
 };
 
 type INS = {
@@ -105,6 +117,7 @@ type INS = {
   from: number;
   parent: number;
   index: number;
+  depth: number;
   to: number;
 };
 
@@ -132,67 +145,112 @@ class Order {
 }
 
 class Node {
+  delta?: ReturnType<typeof dmp["diff_main"]>;
+
   constructor(
     readonly tree: Tree,
     readonly id: number,
     readonly node: ProsemirrorNode,
     readonly parent: number,
+    readonly index: number,
     readonly depth: number,
-    readonly children: number[] = [],
-    readonly leaves: Set<number> = new Set()
+    readonly children: number[] = [] // the content will be following the diff process
   ) {}
 
   equal(other: Node, matched: Match) {
-    const { node: n1, leaves: l1 } = this;
-    const { node: n2, leaves: l2 } = other;
+    const { node: n1 } = this;
+    const { node: n2 } = other;
 
     if (n1.type !== n2.type) {
       return false;
     }
 
+    const size1 = this.leavesSize();
+    const size2 = other.leavesSize();
+
     // internal nodes
-    if (l1.size && l2.size) {
+    if (size1 && size2) {
       let common = 0;
       matched.each((x, y) => {
-        if (l1.has(x) && l2.has(y)) {
+        if (this.containsLeaf(x) && other.containsLeaf(y)) {
           ++common;
         }
       });
-      return common / Math.max(l1.size, l2.size) > 0.5;
+      return common / Math.max(size1, size2) > 0.5;
     }
 
     // leaf nodes
-    if (!l1.size && !l2.size && n1.sameMarkup(n2)) {
+    if (!size1 && !size2 && n1.sameMarkup(n2)) {
       if (!n1.isText || !n1.text || !n2.text) {
         return true;
       }
 
-      return (
-        dmp
-          .diff_main(n1.text, n2.text)
-          .reduce((sum, [op]) => sum + Math.abs(op), 0) < 2
-      );
+      const delta = dmp.diff_main(n1.text, n2.text);
+      if (delta.reduce((sum, [op]) => sum + Math.abs(op), 0) < 2) {
+        this.delta = delta;
+        return true;
+      }
     }
 
     return false;
+  }
+
+  containsLeaf(id: number) {
+    return (
+      this.id < id &&
+      id < this.id + this.node.nodeSize &&
+      binarySearch(this.tree.leaves, id) !== -1
+    );
+  }
+
+  leavesSize() {
+    const leaves = this.tree.leaves;
+    const lowerBound = sortedIndex(leaves, this.id);
+    if (leaves[lowerBound] === this.id) {
+      // the node itself is a leaf
+      return 0;
+    }
+    const upperBound = sortedIndex(leaves, this.id + this.node.nodeSize);
+    return upperBound - lowerBound;
+  }
+
+  isLeaf() {
+    // this examination might not be as precise as node.isLeaf
+    return !this.node.content.size;
   }
 }
 
 class Tree {
   readonly breadth: number[][] = [];
   readonly nodes: Record<number, Node> = {};
+  readonly leaves: number[] = []; // a sorted array
 
   constructor(readonly root: ProsemirrorNode) {
     this.breadth[0] = [0];
-    this.nodes[0] = new Node(this, 0, root, -1, 0);
+    this.nodes[0] = new Node(
+      this,
+      0,
+      root,
+      -1 /* parent */,
+      0 /* index */,
+      0 /* depth */
+    );
     // the dummy root(-1) always match with another tree's
-    this.nodes[-1] = new Node(this, -1, null as any, -1, -1, [0]);
+    this.nodes[-1] = new Node(
+      this,
+      -1,
+      null as any,
+      -1 /* parent */,
+      0 /* index */,
+      -1 /* depth */,
+      [0]
+    );
 
     nodesBetween(
       root.content,
       0,
       root.content.size,
-      (node, id, parent) => {
+      (node, id, parent, index) => {
         const p = this.nodes[parent];
         const depth = p.depth + 1;
         if (!this.breadth[depth]) {
@@ -202,22 +260,15 @@ class Tree {
         }
 
         p.children.push(id);
-        if (!node.content.size) {
-          // this is a leaf
-          p.leaves.add(id);
+        const $node = new Node(this, id, node, parent, index, depth);
+        if ($node.isLeaf()) {
+          this.leaves.push(id);
         }
-
-        this.nodes[id] = new Node(this, id, node, parent, depth, []);
+        this.nodes[id] = $node;
       },
       1,
       0
     );
-
-    this.postOrder((i) => {
-      const n = this.nodes[i];
-      const p = this.nodes[n.parent];
-      n.leaves.forEach((i) => p.leaves.add(i));
-    });
   }
 
   bfs(f: (id: number) => void) {
@@ -232,7 +283,7 @@ class Tree {
   }
 }
 
-class Diff {
+export class Diff {
   readonly ops: OP[] = [];
   readonly ordered = new Order();
   readonly matched: Match;
@@ -269,43 +320,127 @@ class Diff {
     return this.matched.has(0, 0);
   }
 
-  patch(tr: Transaction) {
+  patch(tr: Transaction, start = 0) {
+    const getUpdPos = ({ from }: OP) => tr.mapping.map(from + start);
+    const getInsPos = ({ parent, index }: Pick<INS, "parent" | "index">) => {
+      const $node = tr.doc.resolve(
+        parent >= this.from.root.nodeSize
+          ? getInsPos(this.from.nodes[parent])
+          : tr.mapping.map(parent + start)
+      );
+
+      let pos = $node.start();
+      const node = $node.parent;
+      for (let i = 0; i < node.childCount && i !== index; ++i) {
+        pos += node.child(i).nodeSize;
+      }
+
+      ++pos;
+      return pos;
+    };
+
     this.ops.forEach((op) => {
       switch (op.type) {
-        case 1: // move
+        case 1: {
+          // move
+          const pos = getUpdPos(op) - 1;
+          const { node, id } = this.from.nodes[op.from];
+          if (!this.willBeDeleted(id)) {
+            tr.delete(pos, pos + node.nodeSize);
+            // TODO: mapping doesn't work after deletion
+          }
+          tr.insert(getInsPos(op) - 1, node);
           break;
-        case 2: // insert
+        }
+        case 2: {
+          // insert
+          const pos = getInsPos(op);
+          const { node } = this.to.nodes[op.to];
+          tr.insert(pos - 1, node.isInline ? node : node.copy());
           break;
-        case 3: // update
+        }
+        case 3: {
+          // update
+          const pos = getUpdPos(op);
+          const { delta } = this.from.nodes[op.from];
+          if (delta) {
+            let i = pos - 1;
+            delta.forEach(([code, text]) => {
+              if (code === 0) {
+                i += text.length;
+              } else if (code < 0) {
+                tr.delete(i, i + text.length);
+              } else {
+                tr.insertText(text, i);
+                i += text.length;
+              }
+            });
+          } else {
+            const { node } = this.to.nodes[op.to];
+            tr.setNodeMarkup(pos, node.type, node.attrs, node.marks);
+          }
           break;
-        case 4: // delete
+        }
+        case 4: {
+          // delete
+          const pos = getUpdPos(op);
+          const { node } = this.from.nodes[op.from];
+          tr.delete(
+            pos - 1,
+            node.isInline
+              ? pos - 1 + node.nodeSize
+              : tr.doc.resolve(pos).after()
+          );
           break;
+        }
       }
     });
+
     return tr;
+  }
+
+  private willBeDeleted(id: number) {
+    for (let i = this.ops.length - 1; i >= 0; --i) {
+      if (this.ops[i].type !== 4) {
+        break;
+      }
+      const $del = this.from.nodes[this.ops[i].from];
+      if ($del.id <= id && id < $del.id + $del.node.nodeSize) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private insertPhase(from: number, $to: Node) {
     const { parent, id: to } = $to;
     const $px = this.from.nodes[this.matched.to.get(parent)!];
-    const index = this.findPos($px, $to.tree.nodes[parent], to);
+    const index = this.findIndex($px, $to.tree.nodes[parent], to);
     $px.children.splice(index, 0, from);
-    this.from.nodes[from] = new Node(
+    const $from = (this.from.nodes[from] = new Node(
       this.from,
       from,
       null as any,
       $px.id,
+      index,
       $px.depth + 1
-    );
+    ));
 
+    this.ops.push({
+      type: 2,
+      from,
+      to,
+      index,
+      parent: $from.parent,
+      depth: $from.depth,
+    });
     this.matched.add(from, to);
     this.ordered.mark(from, to);
-    this.insert(from, $px.id, index, to);
   }
 
   private updatePhase($from: Node, $to: Node) {
     if (!$from.node.sameMarkup($to.node) || $from.node.text !== $to.node.text) {
-      this.update($from.id, $to.id);
+      this.ops.push({ type: 3, from: $from.id, to: $to.id });
     }
   }
 
@@ -315,7 +450,7 @@ class Diff {
       const to = $to.id;
       const $px = $from.tree.nodes[this.matched.to.get($to.parent)!];
       const $py = $to.tree.nodes[$to.parent];
-      const index = this.findPos($px, $py, to);
+      const index = this.findIndex($px, $py, to);
       $px.children.splice(index, 0, from);
 
       // cleanup in old parent
@@ -326,7 +461,13 @@ class Diff {
       }
       $p.children.splice(i, 1);
 
-      this.move(from, $px.id, index);
+      this.ops.push({
+        type: 1,
+        from,
+        index,
+        parent: $px.id,
+        depth: $px.depth + 1,
+      });
       this.ordered.mark(from, to);
     }
 
@@ -334,27 +475,17 @@ class Diff {
   }
 
   private deletePhase() {
+    const i = this.ops.length;
     this.from.postOrder((from) => {
       if (!this.matched.from.has(from)) {
-        this.delete(from);
+        // merge leaves deletion into sub-tree deletion
+        let j = this.ops.length;
+        while (j > i && this.from.nodes[this.ops[j - 1].from].parent === from) {
+          --j;
+        }
+        this.ops.splice(j, Infinity, { type: 4, from });
       }
     });
-  }
-
-  private move(from: number, parent: number, index: number) {
-    this.ops.push({ type: 1, from, parent, index });
-  }
-
-  private insert(from: number, parent: number, index: number, to: number) {
-    this.ops.push({ type: 2, from, parent, index, to });
-  }
-
-  private update(from: number, to: number) {
-    this.ops.push({ type: 3, from, to });
-  }
-
-  private delete(from: number) {
-    this.ops.push({ type: 4, from });
   }
 
   private alignChildren($from: Node, $to: Node) {
@@ -384,13 +515,19 @@ class Diff {
     for (const c1 of s1) {
       const c2 = s2.find((c2) => !ordered.to.has(c2) && matched.has(c1, c2));
       if (c2) {
-        this.move(c1, $from.id, this.findPos($from, $to, c2));
+        this.ops.push({
+          type: 1,
+          from: c1,
+          index: this.findIndex($from, $to, c2),
+          parent: $from.id,
+          depth: $from.depth + 1,
+        });
         ordered.mark(c1, c2);
       }
     }
   }
 
-  private findPos($px: Node, $py: Node, y: number) {
+  private findIndex($px: Node, $py: Node, y: number) {
     const { matched, ordered } = this;
 
     // find the last sibling before the child that is in order
