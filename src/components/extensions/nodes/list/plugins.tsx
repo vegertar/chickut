@@ -12,7 +12,7 @@ import {
 import { EditorState, Plugin, PluginKey, Transaction } from "prosemirror-state";
 
 import { BlockRule, ExtensionSchema } from "../../../editor";
-import { parseNode, textBetween } from "../base/utils";
+import { parseContent, textBetween } from "../base/utils";
 
 import handle from "./handle";
 import names from "./names";
@@ -75,7 +75,7 @@ function join(state: EditorState, { $container, $prev, $block }: JoinProps) {
     } else if (isList(container)) {
       // there might be a mistaken continuously paragraph
       const node = container.cut(0, $block.after());
-      const content = parseNode(node);
+      const content = parseContent(node);
       if (content) {
         const newNode = content[0];
         console.log(node.toString(), "\n", newNode.toString());

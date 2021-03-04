@@ -3,19 +3,9 @@ import {
   Mark,
   Node as ProsemirrorNode,
   NodeType,
-  ResolvedPos,
-  Slice,
 } from "prosemirror-model";
-import {
-  findWrapping,
-  liftTarget,
-  ReplaceStep,
-  Step,
-} from "prosemirror-transform";
-import { Transaction } from "prosemirror-state";
 
-import { dmp, Env, ExtensionSchema, Token } from "../../../editor";
-import diff from "./diff";
+import { Env, ExtensionSchema, Token } from "../../../editor";
 
 // when f returns true, the texts iterating aborts
 export function textsBetween(
@@ -117,64 +107,6 @@ export function docCursor(doc: ProsemirrorNode, index: number) {
   return cursor;
 }
 
-type MARKUP_TYPE = 0 | 1 | 2; // 0: no markup; 1: inline markup; 2: block markup
-
-export function checkMarkup(node: ProsemirrorNode): MARKUP_TYPE {
-  if (node.type.name === "blockmarkup") {
-    return 2;
-  }
-
-  if (!node.isText || !node.marks.length) {
-    return 0;
-  }
-
-  const markup = node.marks.find((mark) => mark.type.name === "markup");
-  if (!markup) {
-    return 0;
-  }
-  return markup.attrs.block ? 2 : 1;
-}
-
-export function sourceNode(tr: Transaction, pos: number) {
-  if (pos < 1) {
-    return tr.doc.resolve(1);
-  }
-
-  // TODO: optimize: source if and only if markup letters appear between [head, cursor)
-
-  let $node = tr.doc.resolve(pos);
-  let node = $node.parent;
-
-  const markupType = checkMarkup(node.nodeAt($node.parentOffset) || node);
-  if (markupType !== 2) {
-    return $node;
-  }
-
-  while (true) {
-    if (!node.isBlock) {
-      return null;
-    }
-    if (!node.isTextblock && node.type.spec.group === "block") {
-      break;
-    }
-    $node = tr.doc.resolve($node.before());
-    node = $node.parent;
-  }
-
-  return $node;
-}
-
-export function get$Container(tr: Transaction, $node: ResolvedPos) {
-  while ($node.parent !== $node.doc) {
-    $node = tr.doc.resolve($node.start(-1));
-    if ($node.parent.type.spec.group === "block") {
-      break;
-    }
-  }
-
-  return $node;
-}
-
 export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {
   if (type.isBlock && !type.isTextblock) {
     for (let i = 0; i < nodes.length; ++i) {
@@ -185,74 +117,6 @@ export function setBlockMarkup(type: NodeType, nodes: ProsemirrorNode[]) {
     }
   }
   return nodes;
-}
-
-export function turn(
-  tr: Transaction,
-  $node: ResolvedPos,
-  {
-    type,
-    attrs,
-    marks,
-  }: { type?: NodeType; attrs?: Record<string, any>; marks?: Mark[] }
-) {
-  return tr.setNodeMarkup($node.before(), type, attrs, marks);
-}
-
-export function wrap(
-  tr: Transaction,
-  $node: ResolvedPos,
-  { type, attrs }: { type: NodeType; attrs?: Record<string, any> }
-) {
-  const range = $node.blockRange();
-  if (range) {
-    const wrapping = findWrapping(range, type, attrs);
-    if (wrapping) {
-      return tr.wrap(range, wrapping);
-    }
-  }
-}
-
-export function lift(tr: Transaction, $node: ResolvedPos) {
-  const start = $node.start();
-  const first = $node.parent.childAfter(0);
-  const last = $node.parent.childBefore($node.parent.content.size);
-  const $first = tr.doc.resolve(start + first.offset + 1);
-  const $last = tr.doc.resolve(start + last.offset + 1);
-
-  const range = $first.blockRange($last);
-  if (range) {
-    const target = liftTarget(range);
-    if (target !== undefined && target !== null) {
-      return tr.lift(range, target);
-    }
-  }
-}
-
-export function unwrap(
-  tr: Transaction,
-  $node: ResolvedPos,
-  to?: { type?: NodeType; attrs?: Record<string, any>; marks?: Mark[] }
-) {
-  let fragment = $node.parent.content;
-  if (to) {
-    const nodes: ProsemirrorNode[] = [];
-    fragment.forEach((node) => {
-      const type = to.type || node.type;
-      nodes.push(type.createChecked(to.attrs, node.content, to.marks));
-    });
-    if (nodes.length) {
-      fragment = Fragment.from(nodes);
-    }
-  }
-
-  return tr.step(
-    new ReplaceStep(
-      $node.before(),
-      $node.after(),
-      new Slice(fragment, $node.depth - 1, $node.depth - 1)
-    )
-  );
 }
 
 type ParseContext = {
@@ -349,12 +213,12 @@ function parseTokens(
   return context;
 }
 
-export function parseNode(node: ProsemirrorNode, env: Env = {}) {
+export function parseContent(node: ProsemirrorNode, env: Env = {}) {
   const schema = node.type.schema as ExtensionSchema;
   const source = textBetween(node, 0, node.content.size);
   const tokens = schema.cached.engine.parse(source, env);
   if (!tokens.length) {
-    return null;
+    return;
   }
 
   const { content } = parseTokens(schema, tokens, {
@@ -363,67 +227,5 @@ export function parseNode(node: ProsemirrorNode, env: Env = {}) {
     marks: Mark.none,
   });
 
-  return content.length ? content : null;
-}
-
-export function udpateNode(tr: Transaction, $node: ResolvedPos) {
-  const node = $node.parent;
-  const content = parseNode(node);
-  if (!content) {
-    return null;
-  }
-
-  const [head, ...tail] = content;
-
-  let wrapped = false;
-  let unwrapped = false;
-  let reranged = false;
-
-  if (!node.sameMarkup(head)) {
-    if (head.type.validContent(node.content)) {
-      turn(tr, $node, head);
-    } else if (head.type.validContent(Fragment.from(node))) {
-      wrapped = !!wrap(tr, $node, head);
-    } else if (node.type.validContent(Fragment.from(head))) {
-      unwrapped = !!unwrap(tr, $node, head);
-    } else {
-      reranged = true;
-    }
-  }
-
-  const start = $node.start();
-  const end = $node.end();
-
-  if (reranged) {
-    tr.replaceRangeWith(start, end, head);
-  } else {
-    tr.replaceWith(
-      start,
-      end + (wrapped ? 1 : 0) + (unwrapped ? -1 : 0),
-      head.content
-    );
-  }
-
-  let $container = get$Container(tr, tr.doc.resolve(start));
-  if (tail.length) {
-    let i = start + head.content.size + 1;
-    const container = $container.parent;
-    for (const item of tail) {
-      const mergeable = item.sameMarkup(container);
-      tr.insert(i, mergeable ? item.content : item);
-      i += mergeable ? item.content.size : item.nodeSize;
-    }
-
-    $container = get$Container(tr, tr.doc.resolve(start));
-  }
-
-  if ($container.depth) {
-    const container = $container.parent;
-    const final = parseNode(container);
-    if (final && final.length === 1) {
-      diff(container, final[0]);
-    }
-  }
-
-  return tr;
+  return content;
 }

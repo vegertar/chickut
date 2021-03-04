@@ -1,10 +1,4 @@
-import {
-  NodeType,
-  Node as ProsemirrorNode,
-  Fragment,
-  Slice,
-  Mark,
-} from "prosemirror-model";
+import { NodeType, Fragment, Slice } from "prosemirror-model";
 import {
   Transaction,
   EditorState,
@@ -19,13 +13,8 @@ import { keydownHandler } from "prosemirror-keymap";
 import { ExtensionSchema } from "../../../editor";
 
 import { balancePairs, setup, text, textCollapse } from "./rules";
-import {
-  textBetween,
-  sourceNode,
-  textIndex,
-  docCursor,
-  udpateNode,
-} from "./utils";
+import { textBetween, textIndex, docCursor, parseContent } from "./utils";
+import diff from "./diff";
 
 type State = {
   tr: Transaction;
@@ -57,15 +46,6 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
           return self.handleKeyDown(view, event) || false;
         },
       },
-      // appendTransaction(trs, _, state) {
-      //   for (let i = trs.length - 1; i >= 0; --i) {
-      //     const index: number | undefined = trs[i].getMeta("index");
-      //     if (index !== undefined) {
-      //       const $cursor = state.doc.resolve(docCursor(state.doc, index));
-      //       return state.tr.setSelection(Selection.near($cursor));
-      //     }
-      //   }
-      // },
     });
   }
 
@@ -197,7 +177,7 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
     to: number,
     text?: string
   ) {
-    const tr = text
+    const draft = text
       ? state.tr.replace(
           from,
           to,
@@ -205,18 +185,15 @@ export class ParagraphPlugin extends Plugin<State | null, ExtensionSchema> {
         )
       : state.tr.delete(from, to);
 
-    const $node = sourceNode(tr, tr.mapping.map(from));
-    if (!$node) {
-      return null;
-    }
-
-    const index = textIndex(tr.doc, tr.mapping.map(to));
-    if (!udpateNode(tr, $node)) {
-      return null;
-    }
-
-    const $cursor = tr.doc.resolve(docCursor(tr.doc, index));
-    return tr.setSelection(Selection.near($cursor));
+    const index = textIndex(draft.doc, draft.mapping.map(to));
+    const doc = state.doc.type.create(
+      state.doc.attrs,
+      parseContent(draft.doc),
+      state.doc.marks
+    );
+    const patched = diff(state.doc, doc, true).patch(state.tr);
+    const $cursor = patched.doc.resolve(docCursor(patched.doc, index));
+    return patched.setSelection(Selection.near($cursor));
   }
 }
 

@@ -14,48 +14,83 @@ import { Node as ProsemirrorNode } from "prosemirror-model";
 
 import diff from "./diff";
 
-function createState(doc: ProsemirrorNode) {
-  return EditorState.create({ schema, doc });
-}
-
-function patch(f: () => ReturnType<typeof diff>, start = 0) {
-  const r = f();
-  const state = createState(r.from.root);
+function diffAndPatch(
+  a: ProsemirrorNode,
+  b: ProsemirrorNode,
+  ops?: any,
+  start = 0,
+  force = false
+) {
+  const r = diff(a, b, force);
+  if (ops) {
+    expect(r.ops).toMatchObject(ops);
+  }
+  const state = EditorState.create({ schema, doc: r.from.root });
   const node = r.patch(state.tr, start).doc.resolve(start).parent;
   expect(node).toEqual(r.to.root);
 }
 
-function move1SubTree() {
-  return diff(doc(p("a"), p("b")), doc(p("b"), p("a")));
-}
+it("not good", () => {
+  const v = diff(doc(p("a"), p("b")), doc(br(), p("a"), br(), p("b")));
+  expect(v.good()).toBe(false);
+});
 
-function moveSubTrees() {
-  return diff(
+it("no difference", () => {
+  const v = diff(doc(p("a"), p("b")), doc(p("a"), p("b")));
+  expect(v.good()).toBe(true);
+  expect(v.ops).toMatchObject([]);
+});
+
+it("move 1 sub-tree", () => {
+  diffAndPatch(doc(p("a"), p("b")), doc(p("b"), p("a")), [
+    { type: 1, from: 1, parent: 0, index: 1 },
+  ]);
+});
+
+it("move sub-trees", () => {
+  diffAndPatch(
     doc(blockquote(p("b"), p("c")), blockquote(p("a"))),
-    doc(blockquote(p("a"), blockquote(p("b"), p("c"))))
+    doc(blockquote(p("a"), blockquote(p("b"), p("c")))),
+    [
+      { type: 2, parent: 0, index: 0, to: 1 },
+      { type: 1, from: 10, index: 0 },
+      { type: 1, from: 1, index: 1 },
+      { type: 4, from: 9 },
+    ]
   );
-}
+});
 
-function insert2Leaves() {
-  return diff(
+it("insert 2 leaves", () => {
+  diffAndPatch(
     doc(p("a"), p("b"), p("c")),
-    doc(hr(), p("a"), p("b"), p("c"), hr())
+    doc(hr(), p("a"), p("b"), p("c"), hr()),
+    [
+      { type: 2, index: 0, parent: 0, to: 1 },
+      { type: 2, index: 4, parent: 0, to: 11 },
+    ]
   );
-}
+});
 
-function delete1Leaf() {
-  return diff(doc(p("a", em("b"), "c")), doc(p("a", em("b"))));
-}
+it("delete 1 leaf", () => {
+  diffAndPatch(doc(p("a", em("b"), "c")), doc(p("a", em("b"))), [
+    { type: 4, from: 4 },
+  ]);
+});
 
-function update1Leaf() {
-  return diff(doc(p("a", em("b"), "c")), doc(p("a", em("b"), "cd")));
-}
+it("update 1 leaf", () => {
+  diffAndPatch(doc(p("a", em("b"), "c")), doc(p("a", em("b"), "cd")), [
+    { type: 3, from: 4, to: 4 },
+  ]);
+});
 
-function replace1Leaf() {
-  return diff(doc(p("a", em("b"), "c")), doc(p("a", em("b"), "acb")));
-}
+it("replace 1 leaf", () => {
+  diffAndPatch(doc(p("a", em("b"), "c")), doc(p("a", em("b"), "acb")), [
+    { type: 2, index: 2, parent: 1, to: 4 },
+    { type: 4, from: 4 },
+  ]);
+});
 
-function complex1() {
+it("unwrap a sub-tree", () => {
   const a = doc(
     ul(
       li(
@@ -88,124 +123,93 @@ function complex1() {
     )
   );
 
-  return diff(a, b);
-}
-
-function complex2() {
-  const a = doc(p("a", em("b"), "c"));
-  const b = doc(p("a", em("b"), "c", em("hello")), p("d"));
-  return diff(a, b);
-}
-
-function complex3() {
-  const a = doc(blockquote(p("b"), p("c"), p("d")), p("a"));
-  const b = doc(p("a"), blockquote(p("b"), p("c"), p("dd")));
-  return diff(a, b);
-}
-
-describe("diff", () => {
-  it("not good", () => {
-    const v = diff(doc(p("a"), p("b")), doc(br(), p("a"), br(), p("b")));
-    expect(v.good()).toBe(false);
-  });
-
-  it("no difference", () => {
-    const v = diff(doc(p("a"), p("b")), doc(p("a"), p("b")));
-    expect(v.good()).toBe(true);
-    expect(v.ops).toMatchObject([]);
-  });
-
-  it("move 1 sub-tree", () => {
-    expect(move1SubTree().ops).toMatchObject([
-      { type: 1, from: 1, parent: 0, index: 1 },
-    ]);
-  });
-
-  it("move sub-trees", () => {
-    expect(moveSubTrees().ops).toMatchObject([
-      { type: 2, parent: 0, index: 0, to: 1 },
-      { type: 1, from: 10, index: 0 },
-      { type: 1, from: 1, index: 1 },
-      { type: 4, from: 9 },
-    ]);
-  });
-
-  it("insert 2 leaves", () => {
-    expect(insert2Leaves().ops).toMatchObject([
-      { type: 2, index: 0, parent: 0, to: 1 },
-      { type: 2, index: 4, parent: 0, to: 11 },
-    ]);
-  });
-
-  it("delete 1 leaf", () => {
-    expect(delete1Leaf().ops).toMatchObject([{ type: 4, from: 4 }]);
-  });
-
-  it("update 1 leaf", () => {
-    expect(update1Leaf().ops).toMatchObject([{ type: 3, from: 4, to: 4 }]);
-  });
-
-  it("replace 1 leaf", () => {
-    expect(replace1Leaf().ops).toMatchObject([
-      { type: 2, index: 2, parent: 1, to: 4 },
-      { type: 4, from: 4 },
-    ]);
-  });
-
-  it("complex 1", () => {
-    expect(complex1().ops).toMatchObject([
-      { type: 1, index: 0, depth: 5 },
-      { type: 4, from: 10 },
-    ]);
-  });
-
-  it("complex 2", () => {
-    expect(complex2().ops).toMatchObject([
-      { type: 2, index: 1, parent: 0, depth: 1 },
-      { type: 2, index: 3, parent: 1, depth: 2 },
-      { type: 2, index: 0, depth: 2 },
-    ]);
-  });
-
-  it("complex 3", () => {
-    console.log(complex3().ops);
-  });
+  diffAndPatch(a, b, [
+    { type: 1, index: 0, depth: 5 },
+    { type: 4, from: 10 },
+  ]);
 });
 
-describe("patch", () => {
-  it("move 1 sub-tree", () => {
-    patch(move1SubTree);
-  });
+it("an insertion interfered by another insertion", () => {
+  const a = doc(p("a", em("b"), "c"));
+  const b = doc(p("a", em("b"), "c", em("hello")), p("d"));
 
-  it("move sub-trees", () => {
-    patch(moveSubTrees);
-  });
+  diffAndPatch(a, b, [
+    { type: 2, index: 1, parent: 0, depth: 1 },
+    { type: 2, index: 3, parent: 1, depth: 2 },
+    { type: 2, index: 0, depth: 2 },
+  ]);
+});
 
-  it("insert 2 leaves", () => {
-    patch(insert2Leaves);
-  });
+it("update a intra-moved sub-tree", () => {
+  const a = doc(blockquote(p("b"), p("c"), p("d")), p("a"));
+  const b = doc(p("a"), blockquote(p("b"), p("c"), p("dd")));
 
-  it("delete 1 leaf", () => {
-    patch(delete1Leaf);
-  });
+  diffAndPatch(a, b, [{ type: 1, parent: 0, index: 1 }, { type: 3 }]);
+});
 
-  it("update 1 leaf", () => {
-    patch(update1Leaf);
-  });
+it("insert in a intra-moved sub-tree", () => {
+  const a = doc(blockquote(p("b"), p("c")), p("a"));
+  const b = doc(p("a"), blockquote(p("b"), p("c"), p("dd")));
 
-  it("replace 1 leaf", () => {
-    patch(replace1Leaf);
-  });
+  diffAndPatch(a, b, [
+    { type: 1, parent: 0, index: 1 },
+    { type: 2, depth: 2 },
+    { type: 2, depth: 3 },
+  ]);
+});
 
-  it("complex 1", () => {
-    patch(complex1);
-  });
+it("move in a moved sub-tree", () => {
+  const a = doc(
+    ul(
+      li(
+        p("aaa"),
+        p("xyz"),
+        ul(li(p("bbb"), p("ccc"), p("ddd")), li(p("eee"), p("fff"), p("ggg")))
+      )
+    )
+  );
+  const b = doc(
+    ul(
+      li(
+        p("xyz"),
+        ul(li(p("bbb"), p("ccc"), p("ddd")), li(p("fff"), p("ggg"), p("eee"))),
+        p("aaa")
+      )
+    )
+  );
 
-  it("complex 2", () => {
-    patch(complex2);
-  });
+  diffAndPatch(a, b, [
+    { type: 1, index: 2, depth: 3 },
+    { type: 1, index: 2, depth: 5 },
+  ]);
+});
 
-  it("complex 3", () => {
-    patch(complex3);
-  });
+it("force patch", () => {
+  const a = doc(
+    p("- foo\n  - bar\n    - baz\n\n\n      bim\n  - xyz\n  - hhh")
+  );
+  const b = doc(
+    ul(
+      li(
+        p(em("- "), "foo"),
+        ul(
+          li(
+            p(em("  - "), "bar"),
+            ul(
+              li(
+                p(em("    - "), "baz"),
+                p(br()),
+                p(br()),
+                p(em("      "), "bim")
+              )
+            )
+          ),
+          li(p(em("  - "), "xyz")),
+          li(p(em("  - "), "hhh"))
+        )
+      )
+    )
+  );
+
+  diffAndPatch(a, b, null, 0, true);
 });
