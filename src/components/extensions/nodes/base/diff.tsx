@@ -64,6 +64,7 @@ class Match {
   constructor(t1: Tree, t2: Tree) {
     const unmatched1 = new Set<number>();
     const unmatched2 = new Set<number>();
+    const acyclic = new Map<number, number[]>();
 
     t1.postOrder((i) => unmatched1.add(i));
     t2.postOrder((i) => unmatched2.add(i));
@@ -72,10 +73,28 @@ class Match {
       const $from = t1.nodes[from];
       for (const to of unmatched2) {
         const $to = t2.nodes[to];
-        if ($from.equal($to, this)) {
+        const similary = $from.compare($to, this);
+        if (!similary) {
+          continue;
+        }
+
+        const branches = acyclic.get(from);
+        const hasCycles = branches?.some((x) => $to.contains(x));
+        if (hasCycles) {
+          continue;
+        }
+
+        if (similary > 0.5) {
           unmatched2.delete(to);
+          acyclic.delete(from);
           this.add(from, to);
           break;
+        }
+
+        if (branches) {
+          branches.push(to);
+        } else {
+          acyclic.set(from, [to]);
         }
       }
     }
@@ -114,6 +133,7 @@ type INS = {
   index: number;
   depth: number;
   to: number;
+  tree?: boolean;
 };
 
 type UPD = {
@@ -184,6 +204,46 @@ class Node {
     }
 
     return false;
+  }
+
+  compare(other: Node, matched: Match) {
+    const { node: n1 } = this;
+    const { node: n2 } = other;
+
+    if (n1.type !== n2.type) {
+      // TODO: content might be compatible
+      return 0; // completely different
+    }
+
+    if (!this.isLeaf()) {
+      if (!n1.content.size && !n2.content.size) {
+        return 1; // completely the same
+      }
+
+      let common = 0;
+      matched.each((x, y) => {
+        if (this.containsLeaf(x) && other.containsLeaf(y)) {
+          ++common;
+        }
+      });
+      return common / Math.max(this.leavesSize(), other.leavesSize());
+    }
+
+    if (n1.sameMarkup(n2)) {
+      if (!n1.isText || !n1.text || !n2.text) {
+        return 1;
+      }
+
+      const delta = dmp.diff_main(n1.text, n2.text);
+      const cost = delta.reduce((sum, [op]) => sum + Math.abs(op), 0);
+      const similarity = cost ? 1 / cost : 1;
+      if (similarity > 0.5) {
+        this.delta = delta;
+      }
+      return similarity;
+    }
+
+    return 0.000001; // treated as 1 common leaf in 1e6 ones
   }
 
   containsLeaf(id: number) {
@@ -381,7 +441,7 @@ class Patch {
   insert(op: INS) {
     const pos = this.getChildPos(op.parent, op.index);
     const { node } = this.diff.to.nodes[op.to];
-    this.tr.insert(pos - 1, node.isInline ? node : node.copy());
+    this.tr.insert(pos - 1, op.tree || node.isInline ? node : node.copy());
   }
 
   private updateText(pos: number, delta: NonNullable<Node["delta"]>) {
@@ -422,12 +482,13 @@ class Patch {
   }
 }
 
-export class Diff {
+export class LaDiff {
   readonly ops: OP[] = [];
   readonly ordered = new Order();
   readonly matched: Match;
   readonly from: Tree;
   readonly to: Tree;
+  readonly good: boolean;
 
   constructor(a: ProsemirrorNode, b: ProsemirrorNode, force = false) {
     this.from = new Tree(a);
@@ -439,7 +500,8 @@ export class Diff {
 
     // add match of dummy roots
     this.matched = new Match(this.from, this.to).add(-1, -1);
-    if (!force && !this.good()) {
+    this.good = this.matched.has(0, 0);
+    if (!force && !this.good) {
       return;
     }
 
@@ -459,10 +521,6 @@ export class Diff {
 
     ignoreRootInsertion && this.ops.shift();
     this.deletePhase(ignoreRootInsertion);
-  }
-
-  good() {
-    return this.matched.has(0, 0);
   }
 
   patch(tr: Transaction, start = 0) {
@@ -511,7 +569,11 @@ export class Diff {
     });
     this.matched.add(from, to);
     this.ordered.mark(from, to);
+
+    this.mergeInsertions();
   }
+
+  private mergeInsertions() {}
 
   private updatePhase($from: Node, $to: Node) {
     if (!$from.node.sameMarkup($to.node) || $from.node.text !== $to.node.text) {
@@ -644,5 +706,5 @@ export default function diff(
   to: ProsemirrorNode,
   force = false
 ) {
-  return new Diff(from, to, force);
+  return new LaDiff(from, to, force);
 }

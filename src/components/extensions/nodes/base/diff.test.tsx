@@ -32,12 +32,12 @@ function diffAndPatch(
 describe("ordinary schema", () => {
   it("not good", () => {
     const v = diff(doc(p("a"), p("b")), doc(br(), p("a"), br(), p("b")));
-    expect(v.good()).toBe(false);
+    expect(v.good).toBe(false);
   });
 
   it("no difference", () => {
     const v = diff(doc(p("a"), p("b")), doc(p("a"), p("b")));
-    expect(v.good()).toBe(true);
+    expect(v.good).toBe(true);
     expect(v.ops).toMatchObject([]);
   });
 
@@ -225,6 +225,14 @@ describe("ordinary schema", () => {
       ul(li(p(em("1234567"), "baz"), p(br()), p(br()), p(em("     "), " bim")))
     );
     diffAndPatch(a, b, [{ type: 3 }, { type: 3 }]);
+  });
+
+  it("insert a list", () => {
+    diffAndPatch(
+      doc(p("a"), p("b"), p("c")),
+      doc(p("a"), p("b"), p("c"), ul(li(p(em("1234567"), "baz"))))
+      // [{ type: 2 }]
+    );
   });
 
   it("twist list item", () => {
