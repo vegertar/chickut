@@ -1,4 +1,4 @@
-import { Fragment, Node as ProsemirrorNode } from "prosemirror-model";
+import { Fragment, Node as ProsemirrorNode, Schema } from "prosemirror-model";
 import { Transaction } from "prosemirror-state";
 import lcs from "diff-sequences";
 import sortedIndex from "lodash.sortedindex";
@@ -54,6 +54,7 @@ function binarySearch(array: number[], value: number) {
   return array[i] === value ? i : -1;
 }
 
+// TODO: not satisify acyclic criteria yet
 class Match {
   readonly from = new Map<number, number>();
   readonly to = new Map<number, number>();
@@ -370,9 +371,10 @@ class Patch {
 
     if (!this.willBeDeleted(op.from)) {
       this.tr.delete(start, start + node.nodeSize);
-      this.moved.push(op);
-      this.moved.sort((a, b) => a.from - b.from);
     }
+
+    this.moved.push(op);
+    this.moved.sort((a, b) => a.from - b.from);
     this.tr.insert(this.getChildPos(op.parent, op.index) - 1, node);
   }
 
@@ -383,13 +385,17 @@ class Patch {
   }
 
   private updateText(pos: number, delta: NonNullable<Node["delta"]>) {
+    const $pos = this.tr.doc.resolve(pos);
+    const schema = this.tr.doc.type.schema as Schema;
+    const marks = $pos.parent.child($pos.index()).marks;
+
     delta.forEach(([code, text]) => {
       if (code === 0) {
         pos += text.length;
       } else if (code < 0) {
         this.tr.delete(pos, pos + text.length);
       } else {
-        this.tr.insertText(text, pos);
+        this.tr.replaceRangeWith(pos, pos, schema.text(text, marks));
         pos += text.length;
       }
     });

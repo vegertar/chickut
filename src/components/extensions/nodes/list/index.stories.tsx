@@ -70,12 +70,16 @@ Example277.args = {
 
 export const Foo = Template.bind({});
 Foo.args = {
-  text: `- foo
-  - bar
-    - baz
+  // text: `- foo
+  // - bar
+  //   - baz
 
+  //     bim
+  // - xyz
+  // - hhh`,
+  text: `- bar
+  - baz
 
-      bim
-  - xyz
-  - hhh`,
+    bim
+`,
 };
