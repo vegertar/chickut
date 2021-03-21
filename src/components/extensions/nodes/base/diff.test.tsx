@@ -14,6 +14,7 @@ import { Node as ProsemirrorNode, Schema } from "prosemirror-model";
 import diff, {
   compare,
   selectPath,
+  pathMatch,
   pathLCS,
   matchCriterion1,
   Tree,
@@ -570,24 +571,127 @@ describe("algorithm", () => {
     });
   });
 
+  describe("pathMatch", () => {
+    it("(x) cross (y)", () => {
+      const tx = new Tree(
+        doc(
+          /* 0 */
+          ul(/* 1 */ blockquote(/* 2 */ li(/* 3 */ p(/* 4 */ "A" /* 5 */))))
+        )
+      );
+      const ty = new Tree(
+        doc(
+          /* 0 */
+          ul(
+            /* 1 */
+            li(
+              /* 2 */
+              blockquote(/* 3 */ blockquote(/* 4 */ p(/* 5 */ "A" /* 6 */)))
+            )
+          )
+        )
+      );
+      const matching = new Match();
+      matchLeaves(tx, ty, matching);
+      expect(pathMatch(tx.nodes[5], ty.nodes[6], matching)).toBe(2);
+      expect(matching.has(3, 2)).toBe(true);
+      expect(matching.has(2, 3)).toBe(true);
+    });
+
+    it("(x) many-to-one (y)", () => {
+      const tx = new Tree(
+        doc(
+          /* 0 */
+          ul(
+            /* 1 */
+            li(
+              /* 2 */
+              blockquote(/* 3 */ p(/* 4 */ "A" /* 5 */)),
+              blockquote(/* 8 */ p(/* 9 */ "B" /* 10 */))
+            )
+          )
+        )
+      );
+      const ty = new Tree(
+        doc(
+          /* 0 */
+          ul(
+            /* 1 */
+            li(
+              /* 2 */
+              blockquote(
+                /* 3 */
+                p(/* 4 */ "A" /* 5 */),
+                p(/* 7 */ "B" /* 8 */)
+              )
+            )
+          )
+        )
+      );
+      const matching = new Match();
+      matchLeaves(tx, ty, matching);
+      expect(pathMatch(tx.nodes[5], ty.nodes[5], matching)).toBe(undefined);
+      expect(pathMatch(tx.nodes[10], ty.nodes[8], matching)).toBe(2);
+      expect(matching.has(3, 3)).toBe(true);
+      expect(matching.has(8, 3)).toBe(true);
+    });
+
+    it("(x) one-to-many (y)", () => {
+      const tx = new Tree(
+        doc(
+          /* 0 */
+          ul(
+            /* 1 */
+            li(
+              /* 2 */
+              blockquote(
+                /* 3 */
+                p(/* 4 */ "A" /* 5 */),
+                p(/* 7 */ "B" /* 8 */)
+              )
+            )
+          )
+        )
+      );
+      const ty = new Tree(
+        doc(
+          /* 0 */
+          ul(
+            /* 1 */
+            li(
+              /* 2 */
+              blockquote(/* 3 */ p(/* 4 */ "A" /* 5 */)),
+              blockquote(/* 8 */ p(/* 9 */ "B" /* 10 */))
+            )
+          )
+        )
+      );
+      const matching = new Match();
+      matchLeaves(tx, ty, matching);
+      expect(pathMatch(tx.nodes[5], ty.nodes[5], matching)).toBe(undefined);
+      expect(pathMatch(tx.nodes[8], ty.nodes[10], matching)).toBe(2);
+      expect(matching.has(3, 3)).toBe(true);
+      expect(matching.has(3, 8)).toBe(true);
+    });
+  });
+
   describe("Matching Criterion 3", () => {
     const { tx, ty } = figure10;
-    const m = new Match();
-    matchLeaves(tx, ty, m);
-    matchInteriors1(tx, ty, m);
+    const matching = new Match();
+    matchLeaves(tx, ty, matching);
+    matchInteriors1(tx, ty, matching);
 
     it("one-to-many interior machings are changed to one-to-one", () => {
       const y1 = 2;
-      const ym1 = m.getX(y1);
+      const ym1 = matching.getX(y1);
       expect(ym1).toMatchObject([2, 15]);
-      matchCriterion3(ty.nodes[y1], ym1!, tx, m);
-      expect(m.getX(y1)).toMatchObject([2]);
+      matchCriterion3(ty.nodes[y1], matching, tx);
+      expect(matching.getX(y1)).toMatchObject([2]);
 
       const y2 = 18;
-      const ym2 = m.getX(y2);
-      expect(m.getX(y2)).toMatchObject([2, 15]);
-      matchCriterion3(ty.nodes[y2], ym2!, tx, m);
-      expect(m.getX(y2)).toMatchObject([15]);
+      expect(matching.getX(y2)).toMatchObject([2, 15]);
+      matchCriterion3(ty.nodes[y2], matching, tx);
+      expect(matching.getX(y2)).toMatchObject([15]);
     });
   });
 
@@ -609,7 +713,7 @@ describe("algorithm", () => {
 });
 
 describe("structures", () => {
-  describe("Match", () => {
+  describe("IMatch", () => {
     it("set/add/has", () => {
       const m = new Match();
       m.add(1, 2).add(1, 3);
@@ -641,33 +745,154 @@ describe("structures", () => {
     });
   });
 
-  describe("FOOOOOOOOOO", () => {
+  describe("Fig. 14", () => {
     const schema = new Schema({
       nodes: {
         text: {},
-        note: {
+        inline: {
           content: "text*",
-          toDOM() {
-            return ["note", 0];
-          },
-          parseDOM: [{ tag: "note" }],
         },
-        notegroup: {
-          content: "note+",
-          toDOM() {
-            return ["notegroup", 0];
-          },
-          parseDOM: [{ tag: "notegroup" }],
+        para: {
+          content: "inline+",
+        },
+        section: {
+          content: "(inline | para)+",
+        },
+        chapter: {
+          content: "section+",
         },
         doc: {
-          content: "(note | notegroup)+",
+          content: "chapter+",
         },
       },
     });
 
-    const state = EditorState.create({ schema });
-    const tr = state.tr;
-    tr.replaceRangeWith(0, 1, schema.nodes.notegroup.create());
-    console.log(tr.doc.toString());
+    const { inline, para, section, chapter, doc } = schema.nodes;
+    const tx = new Tree(
+      doc.create(null, [
+        chapter.create(null, [
+          section.create(null, [
+            inline.create(null, schema.text("A")),
+            inline.create(null, schema.text("B")),
+          ]),
+          section.create(null, [
+            para.create(null, [
+              inline.create(null, schema.text("C")),
+              inline.create(null, schema.text("D")),
+            ]),
+            para.create(null, [
+              inline.create(null, schema.text("E")),
+              inline.create(null, schema.text("F")),
+            ]),
+          ]),
+        ]),
+      ])
+    );
+    const ty = new Tree(
+      doc.create(null, [
+        chapter.create(null, [
+          section.create(null, [
+            inline.create(null, schema.text("A")),
+            inline.create(null, schema.text("B")),
+          ]),
+        ]),
+        chapter.create(null, [
+          section.create(null, [
+            para.create(null, [inline.create(null, schema.text("C"))]),
+            para.create(null, [
+              inline.create(null, schema.text("E")),
+              inline.create(null, schema.text("F")),
+            ]),
+          ]),
+        ]),
+        chapter.create(null, [
+          section.create(null, [
+            para.create(null, [
+              inline.create(null, schema.text("C")),
+              inline.create(null, schema.text("D")),
+            ]),
+            para.create(null, [inline.create(null, schema.text("E"))]),
+          ]),
+        ]),
+      ])
+    );
+    /*
+          0
+          |
+          1
+       ___|___
+      /       \
+    2          10
+   / \        /   \
+  3   6     11     19
+  |   |    /  \    / \
+  4   7   12  15  20  23
+          |    |  |    |
+          13  16  21  24
+
+
+               0
+      _________|____________
+     /         |            \
+    1         11             28
+    |          |              |
+    2         12             29
+   / \       /  \           /  \
+  3   6    13    18       30    38
+  |   |    |     / \     /  \    |
+  4   7   14   19   22  31  34  39
+           |    |   |   |    |   |
+          15   20   23  32  35  40
+    */
+
+    const matching = makeMatching(tx, ty);
+
+    it("matching sub-trees: 2 <-> 2", () => {
+      expect(matching.get(4, 4)).toMatchObject({ commons: 0 });
+      expect(matching.get(7, 7)).toMatchObject({ commons: 0 });
+      expect(matching.get(3, 3)).toMatchObject({ commons: 1 });
+      expect(matching.get(6, 6)).toMatchObject({ commons: 1 });
+      expect(matching.get(2, 2)).toMatchObject({ commons: 4 });
+    });
+
+    it("matching sub-trees: 10 <-> 12", () => {
+      expect(matching.get(13, 15)).toMatchObject({ commons: 0 });
+      expect(matching.get(21, 20)).toMatchObject({ commons: 0 });
+      expect(matching.get(24, 23)).toMatchObject({ commons: 0 });
+      expect(matching.get(12, 14)).toMatchObject({ commons: 1 });
+      expect(matching.get(20, 19)).toMatchObject({ commons: 1 });
+      expect(matching.get(23, 22)).toMatchObject({ commons: 1 });
+      expect(matching.get(11, 13)).toMatchObject({ commons: 2 });
+      expect(matching.get(19, 18)).toMatchObject({ commons: 4 });
+      expect(matching.get(10, 12)).toMatchObject({ commons: 8 });
+    });
+
+    it("matching sub-trees: 10 <-> 29", () => {
+      expect(matching.get(13, 32)).toMatchObject({ commons: 0 });
+      expect(matching.get(16, 35)).toMatchObject({ commons: 0 });
+      expect(matching.get(21, 40)).toMatchObject({ commons: 0 });
+      expect(matching.get(12, 31)).toMatchObject({ commons: 1 });
+      expect(matching.get(15, 34)).toMatchObject({ commons: 1 });
+      expect(matching.get(20, 39)).toMatchObject({ commons: 1 });
+      expect(matching.get(11, 30)).toMatchObject({ commons: 4 });
+      expect(matching.get(19, 38)).toMatchObject({ commons: 2 });
+      expect(matching.get(10, 29)).toMatchObject({ commons: 8 });
+    });
+
+    it("matching sub-trees: 1 <-> 1", () => {
+      expect(matching.get(1, 1)).toMatchObject({ commons: 5 });
+    });
+
+    it("matching sub-trees: 1 <-> 11", () => {
+      expect(matching.get(1, 11)).toMatchObject({ commons: 9 });
+    });
+
+    it("matching sub-trees: 1 <-> 28", () => {
+      expect(matching.get(1, 28)).toMatchObject({ commons: 9 });
+    });
+
+    it("matching sub-trees: 0 <-> 0", () => {
+      expect(matching.get(0, 0)).toMatchObject({ commons: 26 });
+    });
   });
 });
