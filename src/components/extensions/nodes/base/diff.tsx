@@ -7,6 +7,7 @@ import sortedIndex from "lodash.sortedindex";
 import sortedIndexBy from "lodash.sortedindexby";
 
 import { dmp } from "../../../editor";
+import { remove } from "lodash";
 
 function dfs(
   node: ProsemirrorNode | Fragment,
@@ -163,41 +164,6 @@ function dfs(
 //   }
 // }
 
-type NIL = {
-  type: 0;
-};
-
-type MOV = {
-  type: 1;
-  from: number;
-  parent: number;
-  index: number;
-  depth: number;
-};
-
-type INS = {
-  type: 2;
-  from: number;
-  parent: number;
-  index: number;
-  depth: number;
-  to: number;
-  tree?: boolean;
-};
-
-type UPD = {
-  type: 3;
-  from: number;
-  to: number;
-};
-
-type DEL = {
-  type: 4;
-  from: number;
-};
-
-type OP = NIL | MOV | INS | UPD | DEL;
-
 // class Order {
 //   readonly from = new Set<number>();
 //   readonly to = new Set<number>();
@@ -224,7 +190,7 @@ interface IMatch<T = any> {
   get(x: number, y: number): T | undefined;
   has(x: number, y: number): boolean;
   add(x: number, y: number, value?: T): IMatch;
-  remove(x: number, y: number): IMatch;
+  set(x: number, y: number, direction?: -1 | 1): IMatch;
   dump(): number[];
 }
 
@@ -233,7 +199,7 @@ interface ITree {
   leaves: number[]; // a sorted array of all leaves id
 
   size(id: number): number;
-  has(id: number, root?: number, exclude?: boolean): boolean;
+  // has(id: number, root?: number, exclude?: boolean): boolean;
   bfs(f: (id: number) => void): void;
   dfs(f: (id: number) => void, root?: number): void;
 }
@@ -424,18 +390,18 @@ export class Tree implements ITree {
     return this.nodes[id].size;
   }
 
-  has(id: number, root = 0, exclude = false) {
-    const $root = this.nodes[root];
-    if (!$root || !this.nodes[id]) {
-      return false;
-    }
+  // has(id: number, root = 0, exclude = false) {
+  //   const $root = this.nodes[root];
+  //   if (!$root || !this.nodes[id]) {
+  //     return false;
+  //   }
 
-    if (exclude && root === id) {
-      return true;
-    }
+  //   if (exclude && root === id) {
+  //     return true;
+  //   }
 
-    return root < id && id < root + $root.node.nodeSize;
-  }
+  //   return root < id && id < root + $root.node.nodeSize;
+  // }
 
   bfs(f: (id: number) => void) {
     this.breadth.forEach((x) => x.forEach(f));
@@ -449,56 +415,75 @@ export class Tree implements ITree {
   }
 }
 
+//type MOV = {
+//  type: 1;
+// from: number;
+// parent: number;
+// index: number;
+// depth: number;
+//};
+
+//type INS = {
+//  type: 2;
+// from: number;
+// parent: number;
+// index: number;
+// depth: number;
+// to: number;
+// tree?: boolean;
+//};
+
+//type UPD = {
+//  type: 3;
+// from: number;
+// to: number;
+//};
+
+//type DEL = {
+//  type: 4;
+// from: number;
+//};
+
+//type CPY = {
+//  type: 5;
+//};
+
+const NIL = 0;
+const MOV = 1;
+const INS = 2;
+const UPD = 3;
+const DEL = 4;
+const CPY = 5;
+
+type OP =
+  | typeof NIL
+  | typeof MOV
+  | typeof INS
+  | typeof UPD
+  | typeof DEL
+  | typeof CPY;
+
 type MatchValue = {
   commons: number;
-  op?: OP["type"];
+  op?: OP;
 };
 
+type Matching = IMatch<MatchValue>;
+
 export class Match implements IMatch<MatchValue> {
-  private readonly xm = new Map<number, number[] | null>();
-  private readonly ym = new Map<number, number[] | null>();
+  private readonly xm = new Map<number, number[]>();
+  private readonly ym = new Map<number, number[]>();
   private readonly vm = new Map<string, MatchValue>();
 
-  private wrapKey(x: number, y: number) {
-    return `${x}-${y}`;
-  }
-
-  private unwrapKey(key: string) {
-    return key.split("-").map((i) => parseInt(i));
-  }
+  private wrapKey = (x: number, y: number) => `${x}-${y}`;
+  private unwrapKey = (key: string) => key.split("-").map((i) => parseInt(i));
 
   getX(y: number): number[] | undefined {
-    let xs = this.ym.get(y);
-    if (xs === null) {
-      // rebuild cache
-      xs = [];
-      for (const [key] of this.vm) {
-        const [a, b] = this.unwrapKey(key);
-        if (b === y) {
-          xs.push(a);
-        }
-      }
-      this.ym.set(y, xs);
-    }
-
-    return xs;
+    return this.ym.get(y);
   }
 
   getY(x: number): number[] | undefined {
-    let ys = this.xm.get(x);
-    if (ys === null) {
-      // rebuild cache
-      ys = [];
-      for (const [key] of this.vm) {
-        const [a, b] = this.unwrapKey(key);
-        if (a === x) {
-          ys.push(b);
-        }
-      }
-      this.xm.set(x, ys);
-    }
-
-    return ys;
+    return this.xm.get(x);
   }
 
   get(x: number, y: number) {
@@ -531,14 +516,35 @@ export class Match implements IMatch<MatchValue> {
     return this;
   }
 
-  remove(x: number, y: number) {
-    const key = this.wrapKey(x, y);
-    if (this.vm.has(key)) {
-      this.vm.delete(key);
+  set(x: number, y: number, direction = -1) {
+    let { xm, ym, wrapKey } = this;
 
-      // clear caches
-      this.xm.set(x, null);
-      this.ym.set(y, null);
+    if (direction > 0) {
+      ym = this.xm;
+      xm = this.ym;
+      wrapKey = (x: number, y: number) => this.wrapKey(y, x);
+
+      const t = x;
+      x = y;
+      y = t;
+    }
+
+    const xs = ym.get(y);
+    if (xs) {
+      const p = (k: number) => k === y;
+      for (const k of xs) {
+        if (k !== x) {
+          const ys = xm.get(k);
+          if (ys) {
+            this.vm.delete(wrapKey(k, y));
+            remove(ys, p);
+            if (!ys.length) {
+              xm.delete(k);
+            }
+          }
+        }
+      }
+      xs.splice(0, Infinity, x);
     }
     return this;
   }
@@ -597,7 +603,7 @@ export function pathHas({ path }: INode, id: number) {
 }
 
 // produce interiors matchings from CP of matched leaves
-export function pathMatch($x: INode, $y: INode, matching: IMatch<MatchValue>) {
+export function pathMatch($x: INode, $y: INode, matching: Matching) {
   const { path: oldPath, tree: tx, size: sx } = $x;
   const { path: newPath, tree: ty, size: sy } = $y;
 
@@ -754,11 +760,7 @@ export function matchCriterion2($y: INode, matches: number[], tx: ITree) {
 }
 
 // change interior (y) one-to-many (x) matchings to one-to-one
-export function matchCriterion3(
-  $y: INode,
-  matching: IMatch<MatchValue>,
-  tx: ITree
-) {
+export function matchCriterion3($y: INode, matching: Matching, tx: ITree) {
   if ($y.size < 2) {
     throw new Error("$y should be an interior");
   }
@@ -797,12 +799,7 @@ export function matchCriterion3(
     throw new Error(`has no match for ${y}`);
   }
 
-  // remove other matches
-  for (const x of matches) {
-    if (x !== one) {
-      matching.remove(x, y);
-    }
-  }
+  return one;
 }
 
 // create (y) one-to-one (x) matchings for all leaf nodes
@@ -834,12 +831,15 @@ export function matchInteriors2(tx: ITree, ty: ITree, matching: IMatch) {
   ty.bfs((y) => {
     const $y = ty.nodes[y];
     if ($y.size > 1) {
-      matchCriterion3($y, matching, tx);
+      const x = matchCriterion3($y, matching, tx);
+      if (x !== undefined) {
+        matching.set(x, $y.id);
+      }
     }
   });
 }
 
-export function makeMatching(tx: ITree, ty: ITree): IMatch {
+export function makeMatching(tx: ITree, ty: ITree): Matching {
   const matching = new Match();
   matchLeaves(tx, ty, matching);
   matchInteriors1(tx, ty, matching);
@@ -847,55 +847,96 @@ export function makeMatching(tx: ITree, ty: ITree): IMatch {
   return matching;
 }
 
-export function nilCriterion($x: INode, matching: IMatch, ty: ITree) {
-  const x = $x.id;
-  const matches = matching.getY(x);
-  if (!matches) {
-    return;
+function getByMaxCommons(x: number, matching: Matching, matches?: number[]) {
+  matches = matches || matching.getY(x);
+  if (!matches || matches.length === 1) {
+    return matches;
   }
 
-  // select the one with highest similarity
-  let max = 0;
+  let max = -1;
   const ones: number[] = [];
-  const descendants = $x.size - 1;
   for (const y of matches) {
     const { commons } = matching.get(x, y)!;
-    const similarity = commons / descendants;
-    if (similarity < max) {
+    if (commons < max) {
       continue;
-    } else if (similarity > max) {
-      max = similarity;
+    } else if (commons > max) {
+      max = commons;
       ones.splice(0);
     }
 
-    ones.push(x);
+    ones.push(y);
   }
-  const px = $x.path[0];
-  const one = ones.find((y) => {
-    const py = ty.nodes[y].path[0];
-    return matching.get(px, py) === 0;
-  });
-  return one === undefined ? ones[0] : one;
+
+  return ones;
 }
 
-export function interMoveCriterion($x: INode, $y: INode, matching: IMatch) {
+export function nilCriterion(
+  $x: INode,
+  matches: number[],
+  ty: ITree,
+  matching: Matching
+) {
+  const ones = getByMaxCommons($x.id, matching, matches);
+  if (!ones) {
+    return;
+  }
+
+  const px = $x.path[0];
+  let one = ones.find((y) => {
+    const py = ty.nodes[y].path[0];
+    const op = matching.get(px, py)?.op || NIL;
+    return op <= MOV;
+  });
+
+  // assign MOV if parent matching is not NIL
+  if (one === undefined) {
+    one = ones[0];
+    matching.get($x.id, one)!.op = MOV;
+  }
+
+  return one;
+}
+
+export function interMoveCriterion($x: INode, $y: INode, matching: Matching) {
+  if (matching.get($x.id, $y.id)!.op) {
+    return;
+  }
+
+  const tx = $x.tree;
   const ty = $y.tree;
+
   $x.children.forEach((c) => {
-    const matches = matching
-      .getY(c)
-      ?.filter((i) => ty.nodes[i].path[0] === $y.id);
+    const matches = matching.getY(c);
     if (!matches) {
+      // will be further handled in deletion phase
       return;
     }
 
-    if (!matches.length) {
-      // c has been moved
+    // examine if has any matching with children of node y
+    for (const k of matches) {
+      if (ty.nodes[k].path[0] === $y.id) {
+        return;
+      }
+    }
+
+    // choose the highest similarity one as MOV target
+    const [z] = getByMaxCommons(c, matching, matches)!;
+    const value = matching.get(c, z)!;
+    value.op = MOV;
+
+    const commons = value.commons;
+    const descendants = tx.nodes[c].size - 1;
+    if (commons === descendants) {
+      // TODO: every descendant of c and z has a one-to-one matching that corresponds to NIL
+    } else if (commons < descendants) {
+      // TODO: some descendants of c have already been moved
     } else {
+      // TODO: new nodes have been inserted or copied after the movement
     }
   });
 }
 
-export function intraMove($x: INode, $y: INode, matching: IMatch) {
+export function intraMove($x: INode, $y: INode, matching: Matching) {
   const s1 = $x.children;
   const s2 = $y.children.filter((y) => {
     // $y has one-to-one matching with $x
@@ -911,39 +952,60 @@ export function intraMove($x: INode, $y: INode, matching: IMatch) {
   );
 }
 
-export function interMove($x: INode, $y: INode, matching: IMatch) {
-  const px = $x.path[0];
-}
-
-export function extractMove($x: INode, $y: INode) {
+export function extractMove($x: INode, $y: INode, matching: Matching) {
   if ($x.children.length > 1) {
     // investigate the possibility of intraparent movement
+    intraMove($x, $y, matching);
   }
 
   // determine interparent movement
+  interMoveCriterion($x, $y, matching);
 }
 
-export function makeEditScript(tx: ITree, ty: ITree, matching: IMatch) {
+export function makeEditing(tx: ITree, ty: ITree, matching: Matching) {
   tx.bfs((x) => {
     const matches = matching.getY(x);
     if (!matches) {
-      // delete x
+      // TODO: delete x
     } else if (matches.length === 1) {
+      // one-to-one matching
       const $x = tx.nodes[x];
       const $y = ty.nodes[matches[0]];
       if ($x.size > 1) {
         // interior
-        // extract move
+        extractMove($x, $y, matching);
       } else if (compare($x, $y) > 0) {
-        // update
+        // TODO: update leaf
       }
     } else {
+      // one-to-many matching
+      const $x = tx.nodes[x];
+      const descendants = $x.size - 1;
+      const one = nilCriterion($x, matches, ty, matching)!;
+
+      // copy/insert
+      for (const y of matches) {
+        if (y === one) {
+          continue;
+        }
+
+        const value = matching.get(x, y)!;
+        if (value.commons === descendants) {
+          // TODO: copy
+          value.op = CPY;
+        } else {
+          // TODO: insert
+          value.op = INS;
+        }
+      }
+
+      extractMove($x, ty.nodes[one], matching);
     }
   });
 
   ty.bfs((y) => {
     if (!matching.getX(y)) {
-      // insert y
+      // TODO: insert y
     }
   });
 }

@@ -26,6 +26,7 @@ import diff, {
   matchInteriors1,
   matchCriterion3,
   makeMatching,
+  makeEditing,
 } from "./diff";
 
 // function diffAndPatch(
@@ -683,14 +684,12 @@ describe("algorithm", () => {
 
     it("one-to-many interior machings are changed to one-to-one", () => {
       const y1 = 2;
-      const ym1 = matching.getX(y1);
-      expect(ym1).toMatchObject([2, 15]);
-      matchCriterion3(ty.nodes[y1], matching, tx);
-      expect(matching.getX(y1)).toMatchObject([2]);
-
       const y2 = 18;
+      expect(matching.getX(y1)).toMatchObject([2, 15]);
       expect(matching.getX(y2)).toMatchObject([2, 15]);
-      matchCriterion3(ty.nodes[y2], matching, tx);
+
+      matchInteriors2(tx, ty, matching);
+      expect(matching.getX(y1)).toMatchObject([2]);
       expect(matching.getX(y2)).toMatchObject([15]);
     });
   });
@@ -745,29 +744,90 @@ describe("structures", () => {
     });
   });
 
-  describe("Fig. 14", () => {
-    const schema = new Schema({
-      nodes: {
-        text: {},
-        inline: {
-          content: "text*",
-        },
-        para: {
-          content: "inline+",
-        },
-        section: {
-          content: "(inline | para)+",
-        },
-        chapter: {
-          content: "section+",
-        },
-        doc: {
-          content: "chapter+",
-        },
-      },
+  const schema = new Schema({
+    nodes: {
+      text: {},
+      inline: { content: "text*" },
+      para: { content: "inline+" },
+      section: { content: "(inline | para)+" },
+      chapter: { content: "section+" },
+      doc: { content: "chapter+" },
+    },
+  });
+  const { inline, para, section, chapter, doc } = schema.nodes;
+
+  describe("Fig. 12", () => {
+    const tx = new Tree(
+      chapter.create(null, [
+        section.create(null, [
+          para.create(null, schema.text("A")),
+          para.create(null, schema.text("B")),
+          para.create(null, schema.text("C")),
+          para.create(null, schema.text("D")),
+        ]),
+        section.create(null, [para.create(null, schema.text("E"))]),
+      ])
+    );
+
+    const ty = new Tree(
+      chapter.create(null, [
+        section.create(null, [
+          para.create(null, schema.text("A")),
+          para.create(null, schema.text("B")),
+          para.create(null, schema.text("C")),
+        ]),
+        section.create(null, [
+          para.create(null, schema.text("E")),
+          para.create(null, schema.text("D")),
+        ]),
+        section.create(null, [
+          para.create(null, schema.text("E")),
+          para.create(null, schema.text("D")),
+        ]),
+      ])
+    );
+
+    /*
+
+             0
+        _____|____
+       /          \
+       1          15
+    / / \ \        |
+    2 5 8 11      16
+    | | |  |       |
+    3 6 9 12      17
+
+              0
+       _______|________
+      /       |        \
+      1       12       20
+     /|\     /  \     /  \
+    2 5 8   13  16   21  24
+    | | |    |  |     |  |
+    3 6 9   14  17   22  25
+    */
+
+    const matching = makeMatching(tx, ty);
+    makeEditing(tx, ty, matching);
+
+    it("matching sub-trees: 15 <-> 20", () => {
+      expect(matching.get(15, 20)).toMatchObject({ commons: 2, op: 5 });
+      expect(matching.get(16, 21)).toMatchObject({ commons: 1, op: 5 });
+      expect(matching.get(17, 22)).toMatchObject({ commons: 0, op: 5 });
     });
 
-    const { inline, para, section, chapter, doc } = schema.nodes;
+    it("matching sub-trees: 11 <-> 16", () => {
+      expect(matching.get(11, 16)).toMatchObject({ commons: 1, op: 1 });
+    });
+
+    it("matching sub-trees: 11 <-> 24", () => {
+      expect(matching.get(11, 24)).toMatchObject({ commons: 1, op: 5 });
+      expect(matching.get(12, 25)).toMatchObject({ commons: 0, op: 5 });
+    });
+  });
+
+  describe("Fig. 14", () => {
     const tx = new Tree(
       doc.create(null, [
         chapter.create(null, [
@@ -846,23 +906,24 @@ describe("structures", () => {
     */
 
     const matching = makeMatching(tx, ty);
+    makeEditing(tx, ty, matching);
 
     it("matching sub-trees: 2 <-> 2", () => {
       expect(matching.get(4, 4)).toMatchObject({ commons: 0 });
       expect(matching.get(7, 7)).toMatchObject({ commons: 0 });
       expect(matching.get(3, 3)).toMatchObject({ commons: 1 });
       expect(matching.get(6, 6)).toMatchObject({ commons: 1 });
-      expect(matching.get(2, 2)).toMatchObject({ commons: 4 });
+      expect(matching.get(2, 2)).toMatchObject({ commons: 4, op: 1 });
     });
 
     it("matching sub-trees: 10 <-> 12", () => {
-      expect(matching.get(13, 15)).toMatchObject({ commons: 0 });
+      expect(matching.get(13, 15)).toMatchObject({ commons: 0, op: 5 });
       expect(matching.get(21, 20)).toMatchObject({ commons: 0 });
       expect(matching.get(24, 23)).toMatchObject({ commons: 0 });
-      expect(matching.get(12, 14)).toMatchObject({ commons: 1 });
+      expect(matching.get(12, 14)).toMatchObject({ commons: 1, op: 5 });
       expect(matching.get(20, 19)).toMatchObject({ commons: 1 });
       expect(matching.get(23, 22)).toMatchObject({ commons: 1 });
-      expect(matching.get(11, 13)).toMatchObject({ commons: 2 });
+      expect(matching.get(11, 13)).toMatchObject({ commons: 2, op: 2 });
       expect(matching.get(19, 18)).toMatchObject({ commons: 4 });
       expect(matching.get(10, 12)).toMatchObject({ commons: 8 });
     });
@@ -870,17 +931,17 @@ describe("structures", () => {
     it("matching sub-trees: 10 <-> 29", () => {
       expect(matching.get(13, 32)).toMatchObject({ commons: 0 });
       expect(matching.get(16, 35)).toMatchObject({ commons: 0 });
-      expect(matching.get(21, 40)).toMatchObject({ commons: 0 });
+      expect(matching.get(21, 40)).toMatchObject({ commons: 0, op: 5 });
       expect(matching.get(12, 31)).toMatchObject({ commons: 1 });
       expect(matching.get(15, 34)).toMatchObject({ commons: 1 });
-      expect(matching.get(20, 39)).toMatchObject({ commons: 1 });
-      expect(matching.get(11, 30)).toMatchObject({ commons: 4 });
-      expect(matching.get(19, 38)).toMatchObject({ commons: 2 });
-      expect(matching.get(10, 29)).toMatchObject({ commons: 8 });
+      expect(matching.get(20, 39)).toMatchObject({ commons: 1, op: 5 });
+      expect(matching.get(11, 30)).toMatchObject({ commons: 4, op: 1 });
+      expect(matching.get(19, 38)).toMatchObject({ commons: 2, op: 2 });
+      expect(matching.get(10, 29)).toMatchObject({ commons: 8, op: 2 });
     });
 
     it("matching sub-trees: 1 <-> 1", () => {
-      expect(matching.get(1, 1)).toMatchObject({ commons: 5 });
+      expect(matching.get(1, 1)).toMatchObject({ commons: 5, op: 2 });
     });
 
     it("matching sub-trees: 1 <-> 11", () => {
@@ -888,7 +949,7 @@ describe("structures", () => {
     });
 
     it("matching sub-trees: 1 <-> 28", () => {
-      expect(matching.get(1, 28)).toMatchObject({ commons: 9 });
+      expect(matching.get(1, 28)).toMatchObject({ commons: 9, op: 2 });
     });
 
     it("matching sub-trees: 0 <-> 0", () => {
